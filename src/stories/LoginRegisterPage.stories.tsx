@@ -1,0 +1,21 @@
+// @ts-nocheck
+import type { Meta, StoryObj } from '@storybook/react';
+import { LoginRegisterPage } from '@/pages/LoginRegisterPage';
+
+const meta: Meta<typeof LoginRegisterPage> = {
+    title: 'Pages/LoginRegisterPage',
+    component: LoginRegisterPage,
+    tags: ['autodocs'],
+    parameters: {
+        layout: 'fullscreen',
+    },
+};
+
+export default meta;
+type Story = StoryObj<typeof LoginRegisterPage>;
+
+export const Default: Story = {
+    args: {
+        onLogin: (user, isNewUser) => console.log('Login:', user, isNewUser),
+    },
+};

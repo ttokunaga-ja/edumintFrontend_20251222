@@ -1,0 +1,47 @@
+import { useEffect, useState } from 'react';
+import { getWalletBalance } from '@/services/api/gateway/user';
+
+export type WalletState = {
+  balance: number;
+  pendingEarnings: number;
+  totalEarnings: number;
+  currency: string;
+  lastUpdated: string;
+} | null;
+
+export const useWallet = () => {
+  const [wallet, setWallet] = useState<WalletState>(null);
+  const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWallet = async () => {
+      try {
+        const result = await getWalletBalance();
+        if (isMounted && result) {
+          setWallet({
+            balance: result.availableBalance ?? 0,
+            pendingEarnings: result.pendingEarnings ?? 0,
+            totalEarnings: result.totalEarnings ?? 0,
+            currency: result.currency ?? 'JPY',
+            lastUpdated: new Date().toISOString(),
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch wallet', error);
+        if (isMounted) setWallet(null);
+      } finally {
+        if (isMounted) setIsLoadingWallet(false);
+      }
+    };
+
+    loadWallet();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return { wallet, isLoadingWallet };
+};

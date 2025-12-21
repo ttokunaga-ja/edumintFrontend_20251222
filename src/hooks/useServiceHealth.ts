@@ -1,0 +1,209 @@
+// ========================================
+// EduMint - Service Health Store
+// Centralized service health monitoring with polling
+// Grid: 16/24/32px
+// ========================================
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { HealthStatus } from '@/types/health';
+import {
+  getHealthContent,
+  getHealthCommunity,
+  getHealthNotifications,
+  getHealthSearch,
+  getHealthWallet,
+  getHealthSummary,
+  type HealthResponse,
+  type HealthSummaryResponse,
+} from '../services/api/gateway/health';
+
+/**
+ * Service health state
+ */
+export interface ServiceHealthState {
+  content: HealthStatus;
+  community: HealthStatus;
+  notifications: HealthStatus;
+  search: HealthStatus;
+  wallet: HealthStatus;
+  aiGenerator: HealthStatus; // Derived from content for now
+  lastUpdated: Date | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+/**
+ * Service health store hook
+ * 
+ * Features:
+ * - Initial load on mount
+ * - 60-second polling interval
+ * - Manual refresh capability
+ * - Error handling
+ * - CTA disable/enable sync (0-200ms)
+ * 
+ * @example
+ * const { health, refresh, isLoading } = useServiceHealth();
+ * 
+ * <ContextHealthAlert
+ *   status={health.search}
+ *   category="検索サービス"
+ *   message="検索機能が一時的に利用できません"
+ * />
+ */
+export function useServiceHealth() {
+  const [health, setHealth] = useState<ServiceHealthState>({
+    content: 'operational',
+    community: 'operational',
+    notifications: 'operational',
+    search: 'operational',
+    wallet: 'operational',
+    aiGenerator: 'operational',
+    lastUpdated: null,
+    isLoading: true,
+    error: null,
+  });
+
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPollingRef = useRef(false);
+
+  /**
+   * Fetch all service health statuses
+   * Uses parallel requests for optimal performance (0-200ms response time)
+   */
+  const fetchHealthStatus = useCallback(async () => {
+    // Prevent concurrent polling
+    if (isPollingRef.current) return;
+    isPollingRef.current = true;
+
+    try {
+      // Parallel health checks for fast response
+      const [
+        contentRes,
+        communityRes,
+        notificationsRes,
+        searchRes,
+        walletRes,
+      ] = await Promise.all([
+        getHealthContent(),
+        getHealthCommunity(),
+        getHealthNotifications(),
+        getHealthSearch(),
+        getHealthWallet(),
+      ]);
+
+      setHealth((prev) => ({
+        ...prev,
+        content: contentRes.status,
+        community: communityRes.status,
+        notifications: notificationsRes.status,
+        search: searchRes.status,
+        wallet: walletRes.status,
+        // AI Generator health derived from content service
+        aiGenerator: contentRes.status,
+        lastUpdated: new Date(),
+        isLoading: false,
+        error: null,
+      }));
+    } catch (error) {
+      console.error('Failed to fetch service health:', error);
+      setHealth((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }));
+    } finally {
+      isPollingRef.current = false;
+    }
+  }, []);
+
+  /**
+   * Fetch health summary (for MyPage)
+   */
+  const fetchHealthSummary = useCallback(async (): Promise<HealthSummaryResponse | null> => {
+    try {
+      return await getHealthSummary();
+    } catch (error) {
+      console.error('Failed to fetch health summary:', error);
+      return null;
+    }
+  }, []);
+
+  /**
+   * Manual refresh
+   */
+  const refresh = useCallback(() => {
+    setHealth((prev) => ({ ...prev, isLoading: true }));
+    fetchHealthStatus();
+  }, [fetchHealthStatus]);
+
+  /**
+   * Initialize polling on mount
+   */
+  useEffect(() => {
+    // Initial fetch
+    fetchHealthStatus();
+
+    // Set up 60-second polling interval
+    pollingIntervalRef.current = setInterval(() => {
+      fetchHealthStatus();
+    }, 60000); // 60 seconds
+
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [fetchHealthStatus]);
+
+  /**
+   * Check if a specific service is operational
+   */
+  const isServiceOperational = useCallback(
+    (service: keyof Omit<ServiceHealthState, 'lastUpdated' | 'isLoading' | 'error'>) => {
+      return health[service] === 'operational';
+    },
+    [health]
+  );
+
+  /**
+   * Check if CTA should be disabled based on service health
+   */
+  const shouldDisableCTA = useCallback(
+    (requiredServices: Array<keyof Omit<ServiceHealthState, 'lastUpdated' | 'isLoading' | 'error'>>) => {
+      return requiredServices.some((service) => health[service] !== 'operational');
+    },
+    [health]
+  );
+
+  return {
+    health,
+    refresh,
+    fetchHealthSummary,
+    isServiceOperational,
+    shouldDisableCTA,
+    isLoading: health.isLoading,
+    error: health.error,
+  };
+}
+
+/**
+ * Hook for component-specific health checks
+ * Returns health status and CTA disable state for specific services
+ * 
+ * @example
+ * const { status, shouldDisable, refresh } = useComponentHealth(['content', 'search']);
+ */
+export function useComponentHealth(
+  requiredServices: Array<keyof Omit<ServiceHealthState, 'lastUpdated' | 'isLoading' | 'error'>>
+) {
+  const { health, shouldDisableCTA, refresh } = useServiceHealth();
+
+  return {
+    status: health,
+    shouldDisable: shouldDisableCTA(requiredServices),
+    refresh,
+  };
+}

@@ -1,0 +1,84 @@
+import type { Exam } from '@/types';
+import { API_BASE_URL, getHeaders, handleResponse } from '../httpClient';
+
+export interface SearchFilters {
+  keyword?: string;
+  university?: string;
+  universityId?: number;
+  universityName?: string;
+  faculty?: string;
+  facultyId?: number;
+  facultyName?: string;
+  subject?: string;
+  subjectId?: string;
+  subjectName?: string;
+  teacher?: string;
+  teacherId?: number;
+  teacherName?: string;
+  majorType?: 0 | 1;
+  examYear?: number | string;
+  difficulty?: number | string;
+  formats?: number[];
+  period?: 'today' | 'week' | 'month' | 'year' | 'custom';
+  startDate?: string;
+  endDate?: string;
+  duration?: number;
+  sortBy?: 'recommended' | 'newest' | 'likes' | 'views' | 'latest' | 'popular' | string;
+  page?: number;
+  limit?: number;
+}
+
+export interface SearchResponse {
+  exams: Exam[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export const searchExams = async (filters: SearchFilters): Promise<SearchResponse> => {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined) params.append(key, String(value));
+  });
+
+  const response = await fetch(`${API_BASE_URL}/search/exams?${params}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  return handleResponse<SearchResponse>(response);
+};
+
+export interface ReadingSuggestion {
+  id: string;
+  name: string;
+  readingHiragana?: string;
+  readingKatakana?: string;
+  readingRomaji?: string;
+  readingEnglish?: string;
+  category?: string;
+  popularity?: number;
+}
+
+export interface SuggestReadingsResponse {
+  suggestions: ReadingSuggestion[];
+}
+
+export const suggestReadings = async (
+  query: string,
+  entityType?: 'university' | 'faculty' | 'subject' | 'teacher'
+): Promise<ReadingSuggestion[]> => {
+  const params = new URLSearchParams({ q: query });
+  if (entityType) {
+    params.append('entity', entityType);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/search/readings?${params}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  const data = await handleResponse<SuggestReadingsResponse>(response);
+  return data.suggestions;
+};

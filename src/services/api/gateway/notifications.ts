@@ -1,0 +1,54 @@
+import type { Notification } from '@/types';
+import { API_BASE_URL, getHeaders, handleResponse, ApiError } from '../httpClient';
+
+export const getNotifications = async (limit: number = 20): Promise<Notification[]> => {
+  const response = await fetch(`${API_BASE_URL}/notifications?limit=${limit}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  return handleResponse<Notification[]>(response);
+};
+
+export const getUnreadNotificationCount = async (): Promise<number> => {
+  const response = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  const data = await handleResponse<{ count: number }>(response);
+  return data.count;
+};
+
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, 'Failed to mark notification as read');
+  }
+};
+
+export const markAllNotificationsAsRead = async (): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, 'Failed to mark all notifications as read');
+  }
+};
+
+export const deleteNotification = async (notificationId: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, 'Failed to delete notification');
+  }
+};

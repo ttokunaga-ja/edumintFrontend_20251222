@@ -1,0 +1,95 @@
+import type { User } from '@/types';
+import { API_BASE_URL, getHeaders, handleResponse } from '../httpClient';
+import type { SearchResponse } from './search';
+
+export const getUserProfile = async (userId?: string): Promise<User> => {
+  const url = userId ? `${API_BASE_URL}/user/profile/${userId}` : `${API_BASE_URL}/user/profile`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  return handleResponse<User>(response);
+};
+
+export const updateUserProfile = async (payload: Partial<User>): Promise<User> => {
+  const response = await fetch(`${API_BASE_URL}/user/profile`, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<User>(response);
+};
+
+export interface UserStats {
+  totalProblems: number;
+  totalViews: number;
+  totalLikes: number;
+  totalComments: number;
+  avgLikesPerProblem: number;
+  rank: string;
+}
+
+export const getUserStats = async (userId?: string): Promise<UserStats> => {
+  const endpoint = userId ? `${API_BASE_URL}/user/stats/${userId}` : `${API_BASE_URL}/user/stats`;
+  const response = await fetch(endpoint, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  return handleResponse<UserStats>(response);
+};
+
+export const getUserPostedProblems = async (userId: string, page: number = 1, limit: number = 20): Promise<SearchResponse> => {
+  const response = await fetch(`${API_BASE_URL}/user/${userId}/problems?page=${page}&limit=${limit}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  return handleResponse<SearchResponse>(response);
+};
+
+export interface WalletBalance {
+  availableBalance: number;
+  pendingEarnings: number;
+  totalEarnings: number;
+  currency: string;
+}
+
+export const getWalletBalance = async (): Promise<WalletBalance> => {
+  const response = await fetch(`${API_BASE_URL}/wallet/balance`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  return handleResponse<WalletBalance>(response);
+};
+
+export const requestWithdrawal = async (amount: number): Promise<{ success: boolean; message: string }> => {
+  const response = await fetch(`${API_BASE_URL}/wallet/withdraw`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ amount }),
+  });
+
+  return handleResponse<{ success: boolean; message: string }>(response);
+};
+
+export const getUserLikedProblems = async (userId: string, page: number = 1, limit: number = 20): Promise<SearchResponse> => {
+  const response = await fetch(`${API_BASE_URL}/user/${userId}/liked?page=${page}&limit=${limit}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  return handleResponse<SearchResponse>(response);
+};
+
+export const getUserCommentedProblems = async (userId: string, page: number = 1, limit: number = 20): Promise<SearchResponse> => {
+  const response = await fetch(`${API_BASE_URL}/user/${userId}/commented?page=${page}&limit=${limit}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  return handleResponse<SearchResponse>(response);
+};

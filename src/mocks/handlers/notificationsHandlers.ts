@@ -1,0 +1,30 @@
+import { http, HttpResponse } from "msw";
+import { mockNotifications } from "../mockData/notifications";
+
+const apiBase =
+  (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(
+    /\/$/,
+    "",
+  ) ?? "";
+const withBase = (path: string) => `${apiBase}${path}`;
+
+export const notificationsHandlers = [
+  http.get(withBase("/notifications"), ({ request }) => {
+    const url = new URL(request.url);
+    const limit = Number(url.searchParams.get("limit") || "20");
+    return HttpResponse.json(mockNotifications.slice(0, limit));
+  }),
+  http.get(withBase("/notifications/unread-count"), () => {
+    const unread = mockNotifications.filter((n) => !n.isRead).length;
+    return HttpResponse.json({ count: unread });
+  }),
+  http.post(withBase("/notifications/:notificationId/read"), () =>
+    HttpResponse.text("", { status: 200 }),
+  ),
+  http.post(withBase("/notifications/read-all"), () =>
+    HttpResponse.text("", { status: 200 }),
+  ),
+  http.delete(withBase("/notifications/:notificationId"), () =>
+    HttpResponse.text("", { status: 200 }),
+  ),
+];

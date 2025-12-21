@@ -1,0 +1,21 @@
+// @ts-nocheck
+import type { Meta, StoryObj } from '@storybook/react';
+import { AdminModerationPage } from '@/pages/AdminModerationPage';
+
+const meta: Meta<typeof AdminModerationPage> = {
+    title: 'Pages/AdminModerationPage',
+    component: AdminModerationPage,
+    tags: ['autodocs'],
+    parameters: {
+        layout: 'fullscreen',
+    },
+};
+
+export default meta;
+type Story = StoryObj<typeof AdminModerationPage>;
+
+export const Default: Story = {
+    args: {
+        onNavigate: () => { },
+    },
+};

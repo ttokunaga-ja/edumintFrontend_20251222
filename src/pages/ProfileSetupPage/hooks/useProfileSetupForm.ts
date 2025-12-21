@@ -1,0 +1,53 @@
+import { useState, type FormEvent } from 'react';
+import type { User } from '@/types';
+
+type Params = {
+  onComplete: (user: User) => void;
+  initialEmail?: string;
+};
+
+export const useProfileSetupForm = ({ onComplete, initialEmail }: Params) => {
+  const [username, setUsername] = useState('');
+  const [university, setUniversity] = useState('');
+  const [department, setDepartment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    const now = new Date().toISOString();
+    const user: User = {
+      id: crypto.randomUUID(),
+      username: username || 'new-user',
+      displayName: username || 'New User',
+      email: initialEmail || 'user@example.com',
+      isEmailVerified: false,
+      universityName: university || '大学未設定',
+      university: university || '大学未設定',
+      facultyName: department || '学部未設定',
+      department: department || '学部未設定',
+      academicField: 'interdisciplinary',
+      majorType: 'science',
+      role: 'user',
+      status: 'active',
+      mintcoinBalance: 0,
+      followerCount: 0,
+      blockedCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    onComplete(user);
+    setIsSubmitting(false);
+  };
+
+  return {
+    username,
+    university,
+    department,
+    isSubmitting,
+    setUsername,
+    setUniversity,
+    setDepartment,
+    submit,
+  };
+};
