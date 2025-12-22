@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   AuthLayout,
   AuthProviderButtons,
@@ -6,6 +6,7 @@ import {
   LoginForm,
   RegisterForm,
 } from '@/components/page/LoginRegisterPage';
+import { cn } from '@/shared/utils';
 import { useLoginForm, useRegisterForm, useSocialAuth } from './LoginRegisterPage/hooks';
 import type { User } from '@/types';
 
@@ -17,6 +18,7 @@ export function LoginRegisterPage({ onLogin }: LoginRegisterPageProps) {
   const login = useLoginForm(onLogin);
   const register = useRegisterForm(onLogin);
   const social = useSocialAuth(onLogin);
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
 
   return (
     <AuthLayout title="EduMint ログイン/登録" description="大学アカウントで安全にログイン">
@@ -29,9 +31,29 @@ export function LoginRegisterPage({ onLogin }: LoginRegisterPageProps) {
 
         <AcademicDomainHint />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-900">ログイン</h2>
+        <div className="flex bg-gray-100 p-1 rounded-xl">
+          <button
+            onClick={() => setActiveTab('login')}
+            className={cn(
+              "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+              activeTab === 'login' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            ログイン
+          </button>
+          <button
+            onClick={() => setActiveTab('register')}
+            className={cn(
+              "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+              activeTab === 'register' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            新規登録
+          </button>
+        </div>
+
+        {activeTab === 'login' ? (
+          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <LoginForm
               onSubmit={login.submit}
               email={login.email}
@@ -41,9 +63,8 @@ export function LoginRegisterPage({ onLogin }: LoginRegisterPageProps) {
               setPassword={login.setPassword}
             />
           </div>
-
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-900">新規登録</h2>
+        ) : (
+          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <RegisterForm
               onSubmit={register.submit}
               email={register.email}
@@ -55,7 +76,7 @@ export function LoginRegisterPage({ onLogin }: LoginRegisterPageProps) {
               setPassword={register.setPassword}
             />
           </div>
-        </div>
+        )}
       </div>
     </AuthLayout>
   );

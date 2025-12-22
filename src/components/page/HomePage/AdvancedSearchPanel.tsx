@@ -301,6 +301,7 @@ export default function AdvancedSearchPanel({
                 <Input
                   type="number"
                   id="examYear"
+                  name="examYear"
                   value={filters.examYear || ''}
                   onChange={(e) => updateFilter('examYear', e.target.value ? parseInt(e.target.value) : undefined)}
                   placeholder={`例: ${currentYear}`}
@@ -382,6 +383,7 @@ export default function AdvancedSearchPanel({
                     checked={selectedFormats.includes(format.id)}
                     onChange={() => toggleFormat(format.id)}
                     disabled={isDisabled}
+                    name={`problem-format-${format.id}`}
                     className="rounded"
                   />
                   <span className="text-sm">{format.label}</span>
@@ -417,6 +419,7 @@ export default function AdvancedSearchPanel({
                   <Label className="text-xs">開始日</Label>
                   <Input
                     type="date"
+                    name="period-start"
                     value={filters.startDate || ''}
                     onChange={(e) => updateFilter('startDate', e.target.value || undefined)}
                     disabled={isDisabled}
@@ -426,6 +429,7 @@ export default function AdvancedSearchPanel({
                   <Label className="text-xs">終了日</Label>
                   <Input
                     type="date"
+                    name="period-end"
                     value={filters.endDate || ''}
                     onChange={(e) => updateFilter('endDate', e.target.value || undefined)}
                     disabled={isDisabled}

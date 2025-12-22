@@ -198,9 +198,43 @@ export type SubQuestion = {
   questionFormat: 0 | 1;
   answerContent: string;
   answerFormat: 0 | 1;
+  selectionMode?: 'single' | 'multiple';
+  options?: SubQuestionOption[];
+  numericSettings?: NumericAnswerSettings;
+  clozeBlanks?: ClozeBlank[];
+  executionMeta?: ExecutionMeta;
   keywords?: Keyword[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type SubQuestionOption = {
+  id: string;
+  content: string;
+  isCorrect: boolean;
+  orderIndex?: number;
+  scoreWeight?: number;
+};
+
+export type NumericAnswerSettings = {
+  tolerance?: number;
+  unit?: string;
+  scoringType?: 'exact' | 'range' | string;
+};
+
+export type ClozeBlank = {
+  id: string;
+  blankIndex: number;
+  answer: string;
+  tolerance?: number;
+  scoreWeight?: number;
+};
+
+export type ExecutionMeta = {
+  language?: string;
+  timeLimitMs?: number;
+  memoryMb?: number;
+  runner?: string;
 };
 
 export type QuestionType = {

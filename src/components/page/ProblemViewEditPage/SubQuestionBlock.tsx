@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { FileCode, FileText, Edit, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { MarkdownBlock } from '@/components/common/MarkdownBlock';
 import { LatexBlock } from '@/components/common/LatexBlock';
+import ProblemTypeRegistry from '@/components/problemTypes/ProblemTypeRegistry';
+import { ProblemTypeViewProps } from '@/types/problemTypes';
 
 export type SubQuestionBlockProps = {
   subQuestionNumber: number;
@@ -180,11 +182,35 @@ export function SubQuestionBlock({
               )}
 
               <div className={canSwitchFormat ? 'pt-8' : ''}>
-                {currentQuestionFormat === 0 ? (
-                  <MarkdownBlock content={questionContent} className="text-sm" />
-                ) : (
-                  <LatexBlock content={questionContent} displayMode={false} className="text-sm" />
-                )}
+                {/* Delegate rendering to the problem type view component */}
+                {(() => {
+                  try {
+                    ProblemTypeRegistry.registerDefaults();
+                    const Comp = ProblemTypeRegistry.getProblemTypeView
+                      ? ProblemTypeRegistry.getProblemTypeView(questionTypeId)
+                      : null;
+                    if (Comp) {
+                      const viewProps: ProblemTypeViewProps = {
+                        subQuestionNumber,
+                        questionContent: questionContent,
+                        questionFormat: currentQuestionFormat,
+                        answerContent,
+                        answerFormat: currentAnswerFormat,
+                        options,
+                        keywords,
+                      };
+                      return <Comp {...viewProps} />;
+                    }
+                  } catch (e) {
+                    // fall back to default rendering
+                  }
+
+                  return currentQuestionFormat === 0 ? (
+                    <MarkdownBlock content={questionContent} className="text-sm" />
+                  ) : (
+                    <LatexBlock content={questionContent} displayMode={false} className="text-sm" />
+                  );
+                })()}
               </div>
             </div>
           )}

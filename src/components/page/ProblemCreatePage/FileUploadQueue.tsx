@@ -20,7 +20,7 @@ interface FileUploadQueueProps {
   className?: string;
 }
 
-const ACCEPTED_EXTENSIONS = ['pdf', 'txt', 'md', 'tex'];
+const ACCEPTED_EXTENSIONS = ['pdf', 'txt', 'md', 'tex', "docx", "pptx", "xlsx", "csv", "png", "jpg", "jpeg", "json"];
 const MAX_FILE_SIZE = 10; // MB
 
 export function FileUploadQueue({

@@ -54,7 +54,11 @@
       outDir: 'build',
     },
     server: {
-      port: 3000,
-      open: true,
+      host: true,
+      port: 5173,
+      open: false,
+      watch: {
+        usePolling: true,
+      },
     },
   });

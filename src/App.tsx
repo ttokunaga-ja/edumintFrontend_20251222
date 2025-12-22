@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { User, Page } from "@/types";
 import {
   HomePage,
@@ -11,11 +11,16 @@ import {
 } from "@/pages";
 import { ServiceHealthProvider } from "@/contexts/ServiceHealthContext";
 import TopMenuBar from "@/components/common/TopMenuBar";
+import Sidebar from "@/components/common/Sidebar";
+import NotificationPopover from "@/components/common/NotificationPopover";
 import "@/styles/globals.css";
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>("login");
   const [user, setUser] = useState<User | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  console.log("HMR smoke test: App render");
   const [selectedProblemId, setSelectedProblemId] = useState<
     string | null
   >(null);
@@ -73,6 +78,55 @@ function App() {
     }
   };
 
+  const closeSidebar = useCallback(() => {
+    setIsSidebarOpen(false);
+  }, []);
+
+  const openSidebar = useCallback(() => {
+    setIsNotificationsOpen(false);
+    setIsSidebarOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isSidebarOpen && !isNotificationsOpen) return;
+
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // Check if click is outside Sidebar
+      if (isSidebarOpen) {
+        const sidebar = document.getElementById("sidebar-overlay");
+        const menuBtn = target.closest('[data-trigger="menu-button"]');
+        if (sidebar && !sidebar.contains(target) && !menuBtn) {
+          closeSidebar();
+        }
+      }
+
+      // Check if click is outside Notifications
+      if (isNotificationsOpen) {
+        const popover = document.getElementById("notifications-popover");
+        const bellBtn = target.closest('[data-trigger="notification-bell"]');
+        if (popover && !popover.contains(target) && !bellBtn) {
+          setIsNotificationsOpen(false);
+        }
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeSidebar();
+        setIsNotificationsOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleGlobalClick);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handleGlobalClick);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isSidebarOpen, isNotificationsOpen, closeSidebar]);
+
   const handleLogin = (userData: User, isNewUser: boolean) => {
     if (isNewUser) {
       // 新規登録の場合、プロフィール設定が必要
@@ -102,10 +156,16 @@ function App() {
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem("edumint_user");
+    closeSidebar();
     setCurrentPage("login");
   };
 
   const handleNavigate = (page: Page, problemId?: string) => {
+    closeSidebar();
+    if (page === "login") {
+      handleLogout();
+      return;
+    }
     setCurrentPage(page);
     if (problemId) {
       // generatingページの場合、problemIdはjobIdとして扱う
@@ -128,6 +188,7 @@ function App() {
     problemId: string,
     mode: "create" | "edit",
   ) => {
+    closeSidebar();
     setCurrentPage(page);
     setSelectedProblemId(problemId);
     setEditMode(mode);
@@ -217,17 +278,47 @@ function App() {
     <ServiceHealthProvider>
       <div className="min-h-screen bg-gray-50">
         {/* TopMenuBar: ログイン済みユーザーのみ表示 */}
+        {/* TopMenuBar: ログイン済みユーザーのみ表示 */}
         <TopMenuBar
           currentUser={user!}
           currentPage={currentPage}
+          onLogout={handleLogout}
           onNavigate={handleNavigate}
-          onSearch={(query: string) => {
+          searchQuery={searchQuery}
+          onMenuClick={() => {
+            const willOpen = !isSidebarOpen;
+            setIsSidebarOpen(willOpen);
+            if (willOpen) setIsNotificationsOpen(false);
+          }}
+          onNotificationClick={() => {
+            const willOpen = !isNotificationsOpen;
+            setIsNotificationsOpen(willOpen);
+            // If we are opening notifications, force sidebar close.
+            // Even if closing, sidebar shouldn't be open, but safe to set false.
+            closeSidebar();
+          }}
+          onQueryChange={(query: string) => {
             setSearchQuery(query);
-            if (currentPage !== "home") {
-              handleNavigate("home");
-            }
+          }}
+          onSearchSubmit={() => {
+            handleNavigate("home");
           }}
         />
+
+        <div className="relative z-[145]">
+          <NotificationPopover
+            isOpen={isNotificationsOpen}
+            onClose={() => setIsNotificationsOpen(false)}
+          />
+        </div>
+
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={closeSidebar}
+          currentPage={currentPage}
+          onNavigate={handleNavigate}
+        />
+
         {currentPage === "home" && (
           <HomePage
             currentUser={{

@@ -43,15 +43,33 @@
 - page:
   - `src/src/pages/ProblemCreatePage.tsx`
 - components:
-  - `src/src/components/page/ProblemCreatePage/ProgressStepper.tsx`
-  - `src/src/components/page/ProblemCreatePage/SourceTypeSelector.tsx`
-  - `src/src/components/page/ProblemCreatePage/FileUploadZone.tsx`
-  - `src/src/components/page/ProblemCreatePage/ProblemMetadataForm.tsx`
-  - `src/src/components/page/ProblemCreatePage/ProblemSettingsBlock.tsx`
-  - `src/src/components/page/ProblemCreatePage/GenerationOptionsBlock.tsx`
-  - `src/src/components/page/ProblemCreatePage/StructureEditor.tsx`
-  - `src/src/components/page/ProblemCreatePage/GenerationProgress.tsx`
-  - `src/src/components/page/ProblemCreatePage/CompletePanel.tsx`
+  - `src/src/components/page/ProblemCreatePage/ProgressHeader.tsx` (Progress bar)
+  - `src/src/components/page/ProblemCreatePage/StartPhase.tsx` (Phase 1 container)
+  - `src/src/components/page/ProblemCreatePage/ExerciseOptions.tsx` (Options for exercises)
+  - `src/src/components/page/ProblemCreatePage/DocumentOptions.tsx` (Options for documents)
+  - `src/src/components/page/ProblemCreatePage/AnalysisPhase.tsx` (Phase 2 container)
+  - `src/src/components/page/ProblemCreatePage/GenerationPhase.tsx` (Phase 3 container)
+  - `src/src/components/page/ProblemCreatePage/FileUploadBlock.tsx`
+  - `src/src/components/page/ProblemCreatePage/FileUploadQueue.tsx`
+
+### 生成オプション詳細仕様
+- **ExerciseOptions / DocumentOptions 共通**
+  - `use_diagrams`: boolean (Default: true) - 「図表を使用」
+  - `confirm_structure`: boolean (Default: false) - 「問題構造を確認」※OFF時はノンストップ進行
+  - `is_public`: boolean (Default: false) - 「生成問題を公開」※ON時は自動公開
+
+- **ExerciseOptions (演習問題から生成)**
+  - `difficulty`: 'auto' | 'basic' | 'standard' | 'applied' | 'difficult' (Default: 'auto')
+    - 表示: 自動判別, 基礎, 標準, 応用, 難関
+
+- **DocumentOptions (資料から生成)**
+  - `difficulty`: 同上
+  - `question_count`: number (Default: 10, Range: 5-20)
+  - `format_config`:
+    - `is_auto`: boolean (Default: true) - 「自動設定」
+    - `selected_formats`: string[] (is_auto=false 時のみ有効)
+      - 個別指定項目: 記述式, 選択式, 穴埋め式, 正誤判定, 数値計算式, 証明問題, プログラミング, コード読解
+      - UI: アコーディオン内で複数選択チェックボックスを表示
 
 ## Sources
 - `../implementation/features/file-upload.md`

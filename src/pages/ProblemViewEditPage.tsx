@@ -7,7 +7,6 @@ import { QuestionBlock } from '../components/page/ProblemViewEditPage/QuestionBl
 import { SubQuestionBlock } from '../components/page/ProblemViewEditPage/SubQuestionBlock';
 import { ActionBar } from '../components/page/ProblemViewEditPage/ActionBar';
 import { ProblemEditor } from '../components/page/ProblemViewEditPage/ProblemEditor';
-import TopMenuBar from '../components/common/TopMenuBar';
 import { useServiceHealthContext } from '../contexts/ServiceHealthContext';
 import { ContextHealthAlert } from '../components/common/ContextHealthAlert';
 
@@ -57,7 +56,6 @@ export default function ProblemViewEditPage(props: ProblemViewEditPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <TopMenuBar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-6">
@@ -92,6 +90,7 @@ export default function ProblemViewEditPage(props: ProblemViewEditPageProps) {
                           questionContent={sq.question_content}
                           questionFormat={sq.question_format as 0 | 1}
                           answerContent={sq.answer_content}
+                          answerFormat={sq.answer_format as 0 | 1}
                         />
                       ))}
                     </div>

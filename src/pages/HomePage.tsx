@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import AdvancedSearchPanel from "@/components/page/HomePage/AdvancedSearchPanel";
 import { ContextHealthAlert } from "@/components/common/ContextHealthAlert";
+import { ProblemCard } from "@/components/common/ProblemCard";
 import { Card } from "@/components/primitives/card";
 import { Badge } from "@/components/primitives/badge";
 import { cn } from "@/shared/utils";
@@ -87,10 +88,16 @@ export function HomePage({
   // ========================================
 
   const [query, setQuery] = useState(initialQuery);
-  const [filters, setFilters] = useState<SearchFilters>({
-    sortBy: "recommended",
-    page: 1,
-    limit: 20,
+  const [filters, setFilters] = useState<SearchFilters>(() => {
+    const universityName = currentUser?.universityName || currentUser?.university;
+    const facultyName = currentUser?.facultyName || currentUser?.department;
+    return {
+      sortBy: "recommended",
+      universityName: universityName || undefined,
+      facultyName: facultyName || undefined,
+      page: 1,
+      limit: 20,
+    };
   });
   const [problems, setProblems] = useState<Exam[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -194,8 +201,6 @@ export function HomePage({
           <AdvancedSearchPanel
             filters={filters}
             onFiltersChange={handleFiltersChange}
-            defaultUniversity={universityName}
-            defaultFaculty={facultyName}
             searchStatus={health.search}
             initialExpanded={false}
           />
@@ -303,45 +308,11 @@ export function HomePage({
           {!isLoading && problems.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {problems.map((problem) => (
-                <Card
+                <ProblemCard
                   key={problem.id}
-                  className={cn(
-                    "p-6 h-48",
-                    "hover:shadow-md transition-shadow cursor-pointer",
-                  )}
-                  onClick={() => handleProblemClick(problem.id)}
-                >
-                  {/* Title */}
-                  <h3 className="text-gray-900 mb-2 line-clamp-2">
-                    {problem.title}
-                  </h3>
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <Badge variant="outline">
-                      {problem.subject}
-                    </Badge>
-                    <Badge variant="secondary">
-                      {problem.universityName}
-                    </Badge>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      {(problem.viewCount || 0).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <ThumbsUp className="w-3 h-3" />
-                      {(problem.likeCount || 0).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="w-3 h-3" />
-                      {(problem.commentCount || 0).toLocaleString()}
-                    </span>
-                  </div>
-                </Card>
+                  problem={problem}
+                  onClick={handleProblemClick}
+                />
               ))}
             </div>
           )}

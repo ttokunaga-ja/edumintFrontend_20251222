@@ -72,6 +72,8 @@ export const useProblemCreateController = ({
         ? 'analyzing'
         : generationPhase === 'uploading'
           ? 'uploading'
+          : generationPhase === 'structure-review'
+            ? 'structure-review'
           : 'generating';
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,13 +1,11 @@
 import React from 'react';
-import TopMenuBar from '@/components/common/TopMenuBar';
-import { Button } from '@/components/primitives/button';
-import { Card } from '@/components/primitives/card';
-import { ProblemSettingsBlock } from '@/components/page/ProblemCreatePage/ProblemSettingsBlock';
-import { GenerationOptionsBlock } from '@/components/page/ProblemCreatePage/GenerationOptionsBlock';
-import { FileUploadQueue } from '@/components/page/ProblemCreatePage/FileUploadQueue';
-import { GenerationStatusTimeline } from '@/components/page/ProblemCreatePage/GenerationStatusTimeline';
-import { useProblemCreateController } from './ProblemCreatePage/hooks/useProblemCreateController';
 import type { Page, User } from '@/types';
+import { StartPhase } from '@/components/page/ProblemCreatePage/StartPhase';
+import { AnalysisPhase } from '@/components/page/ProblemCreatePage/AnalysisPhase';
+import { GenerationPhase } from '@/components/page/ProblemCreatePage/GenerationPhase';
+import { ProgressHeader } from '@/components/page/ProblemCreatePage/ProgressHeader';
+import { useProblemCreateController } from './ProblemCreatePage/hooks/useProblemCreateController';
+import { useProblemCreateFlow } from './ProblemCreatePage/hooks/useProblemCreateFlow';
 
 export interface ProblemCreatePageProps {
   user: User;
@@ -18,119 +16,95 @@ export interface ProblemCreatePageProps {
 }
 
 export function ProblemCreatePage({
-  user,
+  user: _user,
   onNavigate,
-  onLogout,
+  onLogout: _onLogout,
   jobId,
   onGenerated,
 }: ProblemCreatePageProps) {
   const {
+    sourceType,
+    setSourceType,
+    step,
+    proceedFromStart,
+    goToAnalysis,
+    goToGeneration,
+    backToStart,
+    backToAnalysis,
+    backFromGeneration,
+    exerciseOptions,
+    setExerciseOptions,
+    documentOptions,
+    setDocumentOptions,
+    examDraft,
+    setExamDraft,
+  } = useProblemCreateFlow();
+
+  const {
     fileInputRef,
     phase,
-    problemSettings,
     generationOptions,
-    setProblemSettings,
     setGenerationOptions,
     files,
     isUploading,
-    lastUploadJobId,
-    activeJobId,
-    generationStep,
-    progress,
-    errorMessage,
-    generatedProblemId,
     removeFile,
     handleFileSelect,
     handleStartClick,
-    handleReset,
+    generationStep,
+    progress,
+    errorMessage,
+    activeJobId,
   } = useProblemCreateController({ onNavigate, onGenerated, jobId });
 
+  const isProcessing = phase === 'generating' || phase === 'uploading';
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <TopMenuBar />
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">ようこそ、{user.username} さん</p>
-            <h1 className="text-2xl font-semibold text-gray-900">ProblemCreatePage</h1>
-            <p className="text-gray-600">問題の設定とアップロードを行い、AI 生成を開始します。</p>
-          </div>
-          <Button variant="outline" onClick={onLogout}>
-            ログアウト
-          </Button>
-        </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <ProgressHeader currentStep={step} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <ProblemSettingsBlock
-            settings={problemSettings}
-            onChange={setProblemSettings}
-            className="lg:col-span-2"
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-12 space-y-8">
+        {step === 'start' && (
+          <StartPhase
+            sourceType={sourceType}
+            onSourceTypeChange={setSourceType}
+            fileInputRef={fileInputRef}
+            onFileInputClick={handleStartClick}
+            onFileSelect={handleFileSelect}
+            files={files}
+            isUploading={isProcessing || isUploading}
+            onRemoveFile={removeFile}
+            exerciseOptions={exerciseOptions}
+            onChangeExerciseOptions={setExerciseOptions}
+            documentOptions={documentOptions}
+            onChangeDocumentOptions={setDocumentOptions}
+            generationOptions={generationOptions}
+            onChangeGenerationOptions={setGenerationOptions}
+            onProceed={proceedFromStart}
           />
-          <GenerationOptionsBlock
-            options={generationOptions}
-            onChange={setGenerationOptions}
-            isProcessing={phase === 'generating' || phase === 'uploading'}
-            className="lg:col-span-1"
-          />
-        </div>
-
-        <Card className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">資料アップロード</h3>
-              <p className="text-sm text-gray-600">PDF やテキストをアップロードし、AI 生成を開始します。</p>
-            </div>
-            <div className="flex gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.txt,.md,.tex"
-                multiple
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-              <Button onClick={handleStartClick} disabled={isUploading || phase === 'generating'}>
-                ファイルを選択してアップロード
-              </Button>
-              {files.length > 0 && (
-                <Button variant="ghost" onClick={handleReset} disabled={isUploading || phase === 'generating'}>
-                  リセット
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <FileUploadQueue files={files} onRemove={removeFile} />
-        </Card>
-
-        {(phase === 'generating' || phase === 'complete' || phase === 'error') && (
-          <Card className="p-6">
-            <GenerationStatusTimeline
-              currentStep={generationStep}
-              progress={progress}
-              jobId={activeJobId ?? lastUploadJobId ?? undefined}
-              errorMessage={errorMessage ?? undefined}
-            />
-
-            {phase === 'complete' && (
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button onClick={() => onNavigate('home')}>ホームへ戻る</Button>
-                {generatedProblemId && (
-                  <Button variant="outline" onClick={() => onNavigate('problem-view', generatedProblemId)}>
-                    生成した問題を確認
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {phase === 'error' && (
-              <div className="mt-4 text-sm text-red-600">
-                エラーが発生しました。再度アップロードをお試しください。
-              </div>
-            )}
-          </Card>
         )}
-      </div>
+
+        {step === 'analysis' && (
+          <AnalysisPhase
+            exam={examDraft}
+            onChange={setExamDraft}
+            onBack={backToStart}
+            onNext={goToGeneration}
+          />
+        )}
+
+        {step === 'generation' && (
+          <GenerationPhase
+            exam={examDraft}
+            onChange={setExamDraft}
+            onBack={backFromGeneration}
+            currentStep={generationStep}
+            progress={progress}
+            jobId={activeJobId}
+            errorMessage={errorMessage}
+            onPublish={() => onNavigate('home')}
+          />
+        )}
+      </main>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import {
   type GenerationStatusResponse,
 } from '@/services/api/gateway/generation';
 
-export type GenerationPhase = 'uploading' | 'analyzing' | 'generating' | 'complete' | 'error';
+export type GenerationPhase = 'uploading' | 'analyzing' | 'structure-review' | 'generating' | 'complete' | 'error';
 
 type Params = {
   initialJobId?: string;
@@ -13,21 +13,19 @@ type Params = {
   onError?: (message: string) => void;
 };
 
-const mapStep = (status: GenerationStatusResponse['status']): GenerationPhase => {
-  switch (status) {
-    case 'pending':
-    case 'queued':
-      return 'uploading';
-    case 'processing':
-    case 'paused':
-      return 'generating';
-    case 'completed':
-      return 'complete';
-    case 'error':
-    case 'failed':
-    default:
-      return 'error';
-  }
+const mapStep = (
+  status: GenerationStatusResponse['status'],
+  currentStep?: string,
+): GenerationPhase => {
+  if (status === 'pending' || status === 'queued') return 'uploading';
+  if (status === 'completed') return 'complete';
+  if (status === 'error' || status === 'failed') return 'error';
+
+  const stepLabel = currentStep || '';
+  if (stepLabel.includes('解析')) return 'analyzing';
+  if (stepLabel.includes('構造')) return 'structure-review';
+
+  return 'generating';
 };
 
 export const useGenerationStatus = ({ initialJobId, onComplete, onError }: Params) => {
@@ -74,7 +72,7 @@ export const useGenerationStatus = ({ initialJobId, onComplete, onError }: Param
         const status = await getGenerationStatus(jobId);
         if (!isMounted) return;
 
-        const nextPhase = mapStep(status.status);
+        const nextPhase = mapStep(status.status, status.currentStep);
         setPhase(nextPhase);
         setProgress(Math.min(status.progress ?? 0, 100));
 

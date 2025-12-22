@@ -6,6 +6,12 @@ export interface LatexBlockProps {
   className?: string;
 }
 
+const normalizeLatex = (raw: string) => {
+  if (!raw) return '';
+  const unescaped = raw.replace(/\\\\/g, '\\').trim();
+  return unescaped.replace(/^\s*\${1,2}|\${1,2}\s*$/g, '');
+};
+
 export const LatexBlock: React.FC<LatexBlockProps> = ({
   content,
   displayMode = false,
@@ -14,34 +20,40 @@ export const LatexBlock: React.FC<LatexBlockProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const katex = (typeof window !== 'undefined' && (window as any).katex) || null;
-    if (katex) {
+    let mounted = true;
+    const renderLatex = async () => {
+      if (!containerRef.current) return;
       try {
-        katex.render(content, containerRef.current, {
+        const katex = (await import('katex')).default;
+        await import('katex/dist/katex.min.css');
+        if (!mounted || !containerRef.current) return;
+        const normalized = normalizeLatex(content);
+        katex.render(normalized, containerRef.current, {
           displayMode,
           throwOnError: false,
           errorColor: '#cc0000',
           strict: false,
           trust: false,
         });
-        return;
       } catch (error) {
+        if (containerRef.current) {
+          containerRef.current.innerHTML = `<code>${content}</code>`;
+        }
         console.error('KaTeX render error:', error);
       }
-    }
+    };
 
-    // Fallback: show raw content
-    if (containerRef.current) {
-      containerRef.current.innerHTML = `<code>${content}</code>`;
-    }
+    renderLatex();
+    return () => {
+      mounted = false;
+    };
   }, [content, displayMode]);
 
   return (
     <div
       ref={containerRef}
-      className={`latex-block ${displayMode ? 'text-center my-4' : 'inline'} ${className}`}
+      className={`latex-block ${displayMode ? 'text-center my-4' : 'inline-block'} ${className}`}
+      aria-label="latex-render"
     />
   );
 };
