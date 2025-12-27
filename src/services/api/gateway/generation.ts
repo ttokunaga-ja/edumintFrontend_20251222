@@ -121,3 +121,14 @@ export const startStructureGeneration = async (structureId: string): Promise<{ j
 
   return handleResponse<{ jobId: string }>(response);
 };
+
+export const confirmStructure = async (jobId: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/generation/confirm/${jobId}`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, 'Failed to confirm structure for generation job');
+  }
+};

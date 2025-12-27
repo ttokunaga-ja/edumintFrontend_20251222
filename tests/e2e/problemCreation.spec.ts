@@ -44,6 +44,6 @@ test.describe('Problem Creation Flow', () => {
     expect(backgroundColor).toBe('rgb(255, 255, 255)'); // bg-white
     
     const zIndex = await navbar.evaluate((el) => window.getComputedStyle(el).zIndex);
-    expect(parseInt(zIndex)).toBeGreaterThanOrEqual(150);
+    expect(parseInt(zIndex)).toBe(10);
   });
 });

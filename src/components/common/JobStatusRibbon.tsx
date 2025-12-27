@@ -3,7 +3,7 @@
 // EduMint - JobStatusRibbon Component
 // Storybook ID: features/job/JobStatusRibbon/*
 // 5 States: queued/processing/paused/completed/error
-// Position: sticky top-16 z-40
+// Position: sticky top-16
 // Grid: 12px padding (py-3)
 // ========================================
 
@@ -56,40 +56,40 @@ export interface JobStatusRibbonProps {
  */
 const statusConfig = {
   queued: {
-    bg: 'bg-gray-50',
     border: 'border-gray-200',
+    accent: 'border-gray-300',
     text: 'text-gray-900',
     icon: Clock,
     iconColor: 'text-gray-600',
     label: 'ジョブを準備中...',
   },
   processing: {
-    bg: 'bg-indigo-50',
     border: 'border-indigo-200',
+    accent: 'border-indigo-600',
     text: 'text-indigo-900',
     icon: Cog,
     iconColor: 'text-indigo-600',
     label: '問題を生成中...',
   },
   paused: {
-    bg: 'bg-yellow-50',
     border: 'border-yellow-200',
+    accent: 'border-yellow-500',
     text: 'text-yellow-900',
     icon: PauseCircle,
     iconColor: 'text-yellow-600',
     label: '一時停止中',
   },
   completed: {
-    bg: 'bg-green-50',
     border: 'border-green-200',
+    accent: 'border-green-500',
     text: 'text-green-900',
     icon: CheckCircle,
     iconColor: 'text-green-600',
     label: '生成が完了しました！',
   },
   error: {
-    bg: 'bg-red-50',
     border: 'border-red-200',
+    accent: 'border-red-500',
     text: 'text-red-900',
     icon: XCircle,
     iconColor: 'text-red-600',
@@ -140,9 +140,8 @@ export function JobStatusRibbon({
   return (
     <div
       className={cn(
-        'sticky top-16 z-40', // Below TopMenuBar (h-16)
-        config.bg,
-        `border-b ${config.border}`,
+        'sticky top-16 z-app-bar bg-white', // Below TopMenuBar (h-16), explicit L1 opacity
+        `border-b ${config.border} border-l-4 ${config.accent}`,
         'py-3', // 12px padding (grid)
         className
       )}

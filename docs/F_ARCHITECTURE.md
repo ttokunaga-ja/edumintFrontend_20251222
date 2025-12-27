@@ -22,6 +22,159 @@
   - Pure utils: `src/src/shared/utils/*`（React を含まない）
   - Mocks（MSW）: `src/src/mocks/*`（DEV/Storybook/Vitest のみ。本番では起動しない）
 
+---
+
+# ディレクトリ構造・アーキ原則（React + TypeScript）
+
+## 前提（本プロジェクトの標準）
+- **Page は1ファイル**で構成する（画面定義のみ、詳細UI/ロジックを持たない）
+- Page を構成する部品は **Page 専用 Component** として分離する
+- 全画面共通（トップメニュー等）は **CommonComponent** として管理する
+- **「Page = 画面」「Component = 部品」「Logic = hook」** を徹底する
+
+## レイヤ責務（必須）
+| レイヤ | 役割 |
+| --- | --- |
+| `src/pages` | ルーティング単位 / 画面定義のみ（1ファイル） |
+| `src/components/page` | 特定 Page 専用の UI 部品 |
+| `src/components/common` | 複数 Page で再利用する UI（Header等） |
+| `src/hooks` / `src/stores` | ロジック・状態（UIから分離） |
+| `src/features/<domain>/hooks` | ドメインに閉じた再利用ロジック（API単位/関連通信の最小単位） |
+| `src/pages/<PageName>/hooks` | Page固有のオーケストレーション（複数ドメインHookの統合/UI状態管理） |
+| `src/api` / `src/types` | 通信定義 / 型定義 |
+| `src/utils` | 汎用関数 |
+| `src/styles` | グローバルスタイル |
+
+## 推奨ディレクトリ構造（標準）
+```txt
+src/
+├─ app/
+│  ├─ App.tsx
+│  ├─ router.tsx
+│  └─ index.tsx
+│
+├─ pages/
+│  ├─ HomeSearch/
+│  │  └─ HomeSearchPage.tsx
+│  ├─ ProblemSubmit/
+│  │  └─ ProblemSubmitPage.tsx
+│  ├─ ProblemViewEdit/
+│  │  └─ ProblemViewEditPage.tsx
+│  ├─ MyPage/
+│  │  └─ MyPagePage.tsx
+│  ├─ LoginRegister/
+│  │  └─ LoginRegisterPage.tsx
+│  └─ AdminModeration/
+│     └─ AdminModerationPage.tsx
+│
+├─ components/
+│  ├─ common/
+│  │  ├─ Header/
+│  │  │  ├─ Header.tsx
+│  │  │  └─ Header.module.css
+│  │  └─ Button/
+│  │     └─ Button.tsx
+│  │
+│  └─ page/
+│     ├─ HomeSearch/
+│     │  ├─ SearchForm.tsx
+│     │  └─ ResultList.tsx
+│     └─ ProblemSubmit/
+│        ├─ SubmitForm.tsx
+│        └─ GeneratingPanel.tsx
+│
+├─ hooks/
+├─ stores/
+├─ api/
+├─ types/
+├─ utils/
+└─ styles/
+```
+
+## 命名規則（必須）
+- Page: `src/pages/<PageName>/<PageName>Page.tsx`
+- Page専用Component: `src/components/page/<PageName>/<ComponentName>.tsx`
+- CommonComponent: `src/components/common/<ComponentName>/<ComponentName>.tsx`
+- Hooks: `src/hooks/useXxx.ts`
+- Domain Hooks: `src/features/<domain>/hooks/useXxx.ts`
+- Page Orchestration Hooks: `src/pages/<PageName>/hooks/use<PageName>Controller.ts`
+- Stores: `src/stores/xxxStore.ts`
+- API: `src/api/xxxApi.ts`
+- Types: `src/types/xxx.ts`
+- Style（任意）: `*.module.css`（または採用した方式に統一）
+
+## 依存方向ルール（必須）
+### import 許可（概要）
+- `pages` → `components/*`, `hooks`, `stores`, `types`, `api`, `utils`
+- `pages/<PageName>/hooks` → `features/<domain>/hooks`, `hooks`, `stores`, `types`, `api`, `utils`
+- `components/page` → `components/common`, `hooks`, `stores`, `types`, `utils`（原則 `api` 直参照しない）
+- `components/common` → `hooks`, `stores`, `types`, `utils`（必要最小限）
+- `features/<domain>/hooks` → `api`, `types`, `utils`（UI依存禁止、Page/Component への依存禁止）
+- `hooks` / `stores` → `api`, `types`, `utils`
+- `api` → `types`, `utils`（UI依存禁止）
+- `types` / `utils` → 依存は最小（UI依存禁止）
+
+### 境界ルール（破綻防止）
+- `src/components/page/<PageName>` は **他 Page から import 禁止**（再利用したいなら `common` へ昇格）
+- `Page` は **API通信・状態管理を直接持たない**（hook / store に委譲）
+- `src/pages/<PageName>/hooks` は **画面固有の UI 状態/手続き（ステップ/開閉/統合）** のみを持ち、ドメインロジックは `src/features/<domain>/hooks` へ委譲する
+- `src/features/<domain>/hooks` は **特定ドメインに閉じた最小単位のロジック**（API1件 or 近接する一連の通信）に限定し、Page固有の状態や UI 依存を持たない
+- `api` / `types` / `utils` は **React/DOM 依存禁止**
+
+## Hooks 層設計（ページ単位 vs マイクロサービス単位）
+**結論**: 階層（レイヤー）によって「両方」を使い分ける。
+
+- マイクロサービス単位（Domain-based Hooks）
+  - 場所: `src/features/<domain>/hooks/`
+  - 役割: 特定のドメイン（例: User/Content/Auth）に閉じた再利用可能な最小単位のロジック。API 1件、または密接に関連する一連の通信を担当。
+  - 例: `useProfileUpdate`（User）、`useExamDetail`（Content）。複数画面から同機能を呼び出せるようにする。
+
+- ページ単位（Page Orchestration Hooks）
+  - 場所: `src/pages/<PageName>/hooks/`
+  - 役割: 画面の「コントローラー」。複数のドメイン Hook を組み合わせ、その画面固有の状態（ステップ、UIの開閉、複数データの統合）を管理する。
+  - 例: `useMyPageController`（User情報表示 + Wallet情報表示 + 編集状態管理）。
+
+- 汎用 / UI 単位（Generic Hooks）
+  - 場所: `src/hooks/`
+  - 役割: ビジネス領域に依存しない UI 挙動やブラウザ API のラッパー。
+  - 例: `useServiceHealth`, `useLocalStorage`, `useDebounce`, `useIntersectionObserver`。
+
+この方針により、再利用ロジック（ドメイン）と画面固有の手続き（ページ）、そして純粋なUI補助（汎用）が明確に分離され、変更の影響範囲を局所化できる。
+
+## Page（1ファイル）の要件
+- Page の役割は「何を使うか」だけ（composition）
+- 条件分岐（権限/状態）は **画面の見通しを壊さない範囲**に限定し、詳細は下位へ委譲する
+
+## ルーティングとの対応
+- ルート設計は `H_ROUTING_NAV_SPEC.md` を正とし、実装上の Page 位置は本ファイルの規約に従う。
+
+## 生成物の置き場
+- 実装報告/提案/現状は `cloudcode/` に集約する（詳細: `cloudcode/README.md`）
+
+## Next.js（App Router）を使う場合（任意）
+- ルーティングファイルは `page.tsx` になるが、**components の分離方針（`common` / `page` / `hooks` / `api`）は同一**とする。
+
+## 記入例（Pageは何を使うかだけ）
+```tsx
+// src/pages/HomeSearch/HomeSearchPage.tsx
+import { Header } from '@/components/common/Header/Header';
+import { SearchForm } from '@/components/page/HomeSearch/SearchForm';
+import { ResultList } from '@/components/page/HomeSearch/ResultList';
+import { useProblemSearch } from '@/hooks/useProblemSearch';
+
+export const HomeSearchPage = () => {
+  const { query, setQuery, results, isLoading, error } = useProblemSearch();
+
+  return (
+    <>
+      <Header />
+      <SearchForm value={query} onChange={setQuery} />
+      <ResultList items={results} isLoading={isLoading} error={error} />
+    </>
+  );
+};
+```
+
 ## 「src/src/components/ へ移行済み」（現状）
 以下のコンポーネントは新アーキテクチャ (`src/src/components`) に移行済みであり、こちらを正規実装として利用する。
 

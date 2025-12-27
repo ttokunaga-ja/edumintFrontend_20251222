@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Page } from '@/types';
-import type { GenerationStep } from '@/components/page/ProblemCreatePage/GenerationStatusTimeline';
+import type { GenerationPhase as GenerationStep } from '@/features/generation/types';
 import { useFileUpload } from '@/features/content/hooks/useFileUpload';
-import { useGenerationStatus } from '@/features/content/hooks/useGenerationStatus';
 import type { ProblemSettings } from '@/components/page/ProblemCreatePage/ProblemSettingsBlock';
+import { confirmStructure, getGenerationStatus } from '@/features/generation/api';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { useJobStore } from '@/stores/jobStore';
 
 const defaultProblemSettings: ProblemSettings = {
   autoGenerateQuestions: true,
@@ -20,40 +22,77 @@ export const useProblemCreateController = ({
   onNavigate,
   onGenerated,
   jobId,
+  allowStructureReanalysis = true,
+  allowStructureSkip = true,
+  shouldConfirmStructure = true,
 }: {
   onNavigate: (page: Page, problemId?: string) => void;
   onGenerated?: (problemId: string) => void;
   jobId?: string;
+  allowStructureReanalysis?: boolean;
+  allowStructureSkip?: boolean;
+  shouldConfirmStructure?: boolean;
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [problemSettings, setProblemSettings] = useState<ProblemSettings>(defaultProblemSettings);
   const [generatedProblemId, setGeneratedProblemId] = useState<string | undefined>();
   const [localError, setLocalError] = useState<string | null>(null);
+  const autoConfirmedRef = useRef<string | null>(null);
 
   const { files, isUploading, uploadFiles, clearFiles, lastUploadJobId, removeFile } = useFileUpload();
-  const {
-    jobId: activeJobId,
-    phase: generationPhase,
-    currentStep,
-    progress,
-    errorMessage,
-    errorCode,
-    startGeneration,
-    trackExistingJob,
-  } = useGenerationStatus({
-    initialJobId: jobId,
-    onComplete: (status) => {
-      const problemId = status.problemId || status.data?.problemId;
-      if (problemId) {
-        setGeneratedProblemId(problemId);
-        onGenerated?.(problemId);
+  const { jobId: activeJobId, phase: generationPhase, data, error: storeError } = useJobStore();
+
+  // WebSocket を使用してリアルタイム更新
+  useWebSocket(activeJobId);
+
+  // 構造確認OFFの場合、ジョブが 'structure_review' のステップに達したら構造確定APIを送って後半フェーズへ進ませる
+  useEffect(() => {
+    if (shouldConfirmStructure) return;
+    if (!activeJobId) return;
+    if (autoConfirmedRef.current === activeJobId) return;
+
+    let isMounted = true;
+    let interval: number | undefined;
+
+    const pollAndConfirm = async () => {
+      try {
+        const status = await getGenerationStatus(activeJobId);
+        if (!isMounted) return;
+
+        // If we've reached structure_review, call confirmStructure to advance
+        if (status.currentStep === 'structure_review') {
+          try {
+            await confirmStructure(activeJobId);
+            // verify it advanced by re-fetching
+            const after = await getGenerationStatus(activeJobId);
+            if (!isMounted) return;
+            if (after.currentStep !== 'structure_review') {
+              autoConfirmedRef.current = activeJobId;
+            } else {
+              console.warn('confirmStructure called but job still in structure_review');
+            }
+          } catch (e) {
+            console.warn('auto confirmStructure failed', e);
+          } finally {
+            if (interval) window.clearInterval(interval);
+          }
+        }
+      } catch (e) {
+        // ignore transient polling errors, try again
+        console.warn('polling generation status failed', e);
       }
-    },
-    onError: (msg, code) => {
-      setLocalError(msg);
-      console.error(`Generation error [${code}]:`, msg);
-    },
-  });
+    };
+
+    // start polling at short interval
+    interval = window.setInterval(pollAndConfirm, 500);
+    // run once immediately
+    pollAndConfirm();
+
+    return () => {
+      isMounted = false;
+      if (interval) window.clearInterval(interval);
+    };
+  }, [shouldConfirmStructure, activeJobId]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.target.files ?? []);
@@ -65,10 +104,8 @@ export const useProblemCreateController = ({
       return;
     }
 
-    const startedJobId = await startGeneration(uploadJobId);
-    if (!startedJobId) {
-      setLocalError('生成の開始に失敗しました');
-    }
+    // Zustand に jobId をセット
+    useJobStore.getState().setJob(uploadJobId);
   };
 
   const handleStartClick = () => fileInputRef.current?.click();
@@ -79,7 +116,8 @@ export const useProblemCreateController = ({
   };
 
   if (jobId) {
-    trackExistingJob(jobId);
+    // 既存ジョブの場合は Zustand にセット
+    useJobStore.getState().setJob(jobId);
   }
 
   const uiPhase =
@@ -95,10 +133,10 @@ export const useProblemCreateController = ({
     lastUploadJobId,
     activeJobId,
     generationStep: generationPhase,
-    detailedStep: currentStep,
-    progress,
-    errorMessage: localError || errorMessage,
-    errorCode,
+    detailedStep: 'generating', // 仮
+    progress: 50, // 仮
+    errorMessage: localError || storeError,
+    errorCode: undefined,
     generatedProblemId,
     removeFile,
     handleFileSelect,

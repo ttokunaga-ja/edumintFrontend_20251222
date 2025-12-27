@@ -10,15 +10,19 @@ const steps: { id: CreateStep; label: string }[] = [
 
 type ProgressHeaderProps = {
   currentStep: CreateStep;
+  progress?: number; // 0-100
 };
 
-function ProgressHeaderComponent({ currentStep }: ProgressHeaderProps) {
+function ProgressHeaderComponent({ currentStep, progress }: ProgressHeaderProps) {
   const currentIndex = steps.findIndex((step) => step.id === currentStep);
+  const clampedProgress = progress === undefined ? undefined : Math.max(0, Math.min(100, progress));
+  const lineWidth = clampedProgress !== undefined
+    ? clampedProgress
+    : (currentIndex / (steps.length - 1)) * 100;
 
   return (
     <div
-      className="fixed left-0 right-0 w-full bg-white border-b border-gray-200 shadow-sm md:top-16 z-[750] pt-4 pb-4 px-4 sm:px-6"
-      style={{ top: '6.5rem' }}
+      className="fixed top-28 md:top-16 left-0 right-0 w-full bg-white border-b border-gray-200 shadow-sm z-app-bar pt-4 pb-4 px-4 sm:px-6"
     >
       <div className="max-w-6xl mx-auto">
         <div className="relative flex justify-between">
@@ -28,7 +32,7 @@ function ProgressHeaderComponent({ currentStep }: ProgressHeaderProps) {
           {/* Progress Line */}
           <div
             className="absolute top-4 left-0 h-0.5 bg-indigo-600 -translate-y-1/2 transition-all duration-500"
-            style={{ width: `${(currentIndex / (steps.length - 1)) * 100}%` }}
+            style={{ width: `${lineWidth}%` }}
           />
 
           {steps.map((step, index) => (

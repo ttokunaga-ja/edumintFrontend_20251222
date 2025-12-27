@@ -7,13 +7,11 @@ import type {
   DocumentOptionsState,
 } from './hooks/useProblemCreateFlow';
 import type { UploadFile } from '@/components/page/ProblemCreatePage/FileUploadQueue';
-import type { GenerationStep } from '@/components/page/ProblemCreatePage/GenerationStatusTimeline';
-import { ProgressHeader } from '@/components/page/ProblemCreatePage/ProgressHeader';
+import type { GenerationPhase as GenerationStep } from '@/features/generation/types';
+import type { GenerationCurrentStep } from '@/services/api/gateway/generation';
 import { StartPhase } from '@/components/page/ProblemCreatePage/StartPhase';
 import { AnalysisPhase } from '@/components/page/ProblemCreatePage/AnalysisPhase';
 import { GenerationPhase as GenerationPhaseComponent } from '@/components/page/ProblemCreatePage/GenerationPhase';
-import { GenerationProgressBar } from '@/components/generation/GenerationProgressBar';
-import { GenerationTimeline } from '@/components/generation/GenerationTimeline';
 
 type Props = {
   step: CreateStep;
@@ -40,6 +38,8 @@ type Props = {
   backToAnalysis: () => void;
   backFromGeneration: () => void;
   generationStep: GenerationStep;
+  generationDetailedStep?: GenerationCurrentStep;
+  shouldConfirmStructure?: boolean;
   jobId?: string | null;
   errorMessage?: string | null;
   onPublish: () => void;
@@ -70,20 +70,21 @@ export const ProblemCreateView: React.FC<Props> = ({
   backToAnalysis,
   backFromGeneration,
   generationStep,
+  generationDetailedStep,
+  shouldConfirmStructure,
   jobId,
   errorMessage,
   onPublish,
 }) => {
   return (
-    <div className="relative">
-      <ProgressHeader currentStep={step} />
-      <div className="max-w-6xl mx-auto w-full px-4 mt-4 space-y-3">
-        <GenerationProgressBar phase={phase} progress={progress} />
-        <GenerationTimeline current={phase} />
-      </div>
-      <div className="h-20 md:h-16" aria-hidden="true" />
-
-      <main className="max-w-6xl mx-auto w-full px-4 py-12 space-y-8">
+    <div className="min-h-screen">
+      <main
+        className="max-w-6xl mx-auto w-full px-4 pb-8 space-y-8"
+        style={{
+          // Ensure L0 starts below the fixed TopMenuBar (4rem) + ProgressHeader (~5-6rem) with a bit of breathing room
+          paddingTop: 'clamp(9rem, 8vw + 6rem, 12rem)',
+        }}
+      >
         {step === 'start' && (
           <StartPhase
             sourceType={sourceType}
@@ -112,6 +113,8 @@ export const ProblemCreateView: React.FC<Props> = ({
             onChange={setExamDraft}
             onBack={backFromGeneration}
             currentStep={generationStep}
+            detailedStep={generationDetailedStep}
+            shouldConfirmStructure={shouldConfirmStructure}
             progress={progress}
             jobId={jobId}
             errorMessage={errorMessage}

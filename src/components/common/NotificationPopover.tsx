@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Bell, Heart, MessageSquare, Info, CheckCircle } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
@@ -54,6 +54,11 @@ interface NotificationPopoverProps {
 }
 
 export default function NotificationPopover({ isOpen, onClose }: NotificationPopoverProps) {
+    const popoverRef = useRef<HTMLDivElement | null>(null);
+    const supportsPopover = useMemo(() => {
+        if (typeof window === 'undefined') return false;
+        return 'showPopover' in HTMLElement.prototype;
+    }, []);
     const getIcon = (type: string) => {
         switch (type) {
             case 'like': return <Heart className="h-4 w-4 text-pink-500 fill-pink-500" />;
@@ -64,12 +69,75 @@ export default function NotificationPopover({ isOpen, onClose }: NotificationPop
         }
     };
 
+    useEffect(() => {
+        if (!supportsPopover) return;
+        const node = popoverRef.current;
+        if (!node) return;
+
+        const handleToggle = (event: any) => {
+            if (event?.newState === 'closed') {
+                onClose();
+            }
+        };
+
+        node.addEventListener('toggle', handleToggle as EventListener);
+        return () => node.removeEventListener('toggle', handleToggle as EventListener);
+    }, [supportsPopover, onClose]);
+
+    useEffect(() => {
+        if (!supportsPopover) return;
+        const node = popoverRef.current as any;
+        if (!node) return;
+
+        if (isOpen) {
+            node.showPopover?.();
+        } else {
+            node.hidePopover?.();
+        }
+    }, [supportsPopover, isOpen]);
+
+    const popoverId = 'notifications-popover';
+
+    // If native popover supported, attach popovertarget to the bell button
+    if (supportsPopover) {
+        return (
+            <div
+                id={popoverId}
+                ref={popoverRef}
+                // @ts-ignore -- popover is a native attribute not yet in TypeScript DOM typings
+                popover="auto"
+                data-notifications="true"
+                className="fixed top-16 right-4 left-auto w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transition-all duration-150 origin-top-right [popover-open]:opacity-100 [popover-open]:scale-100 opacity-0 scale-95"
+                style={{ top: '4rem', right: '1rem', left: 'auto' }}
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-label="通知ポップオーバー"
+            >
+                <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
+                    <h3 className="font-bold text-gray-900">通知</h3>
+                </div>
+
+                <div className="p-8 text-center bg-gray-50/50">
+                    <div className="mx-auto w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center mb-3 shadow-sm">
+                        <Bell className="h-6 w-6 text-gray-400" />
+                    </div>
+                    <h3 className="font-bold text-gray-900 mb-1">Coming Soon</h3>
+                    <p className="text-sm text-gray-500">
+                        通知機能は現在開発中です。<br />
+                        今後のアップデートをお待ちください。
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    // Fallback: original implementation (fixed panel)
     return (
         <div
-            id="notifications-popover"
+            id={popoverId}
             data-notifications="true"
             className={cn(
-                "fixed top-16 right-4 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden transform transition-all duration-200 origin-top-right",
+                "fixed top-16 right-4 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-200 origin-top-right",
                 isOpen ? "opacity-100 scale-100 visible" : "opacity-0 scale-95 invisible pointer-events-none"
             )}
             style={{ visibility: isOpen ? 'visible' : 'hidden' }}

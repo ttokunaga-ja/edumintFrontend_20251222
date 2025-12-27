@@ -5,13 +5,7 @@ import { Button } from '@/components/primitives/button';
 import { Input } from '@/components/primitives/input';
 import { Label } from '@/components/primitives/label';
 import { Badge } from '@/components/primitives/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/primitives/select';
+import NativeSelect from '@/components/primitives/native-select';
 import { MultilingualAutocomplete } from '@/components/common/MultilingualAutocomplete';
 import type { SearchFilters } from '@/features/search/models';
 import type { HealthStatus } from '@/types/health';
@@ -329,41 +323,35 @@ export default function AdvancedSearchPanel({
           {/* Row 3: Field (理系/文系) */}
           <div className="space-y-2">
             <Label>分野</Label>
-            <Select
+            <NativeSelect
               value={filters.majorType !== undefined ? String(filters.majorType) : undefined}
-              onValueChange={(value) => updateFilter('majorType', value === 'clear' ? undefined : parseInt(value))}
+              onChange={(value) => updateFilter('majorType', value === 'clear' ? undefined : parseInt(value))}
               disabled={isDisabled}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="分野を選択..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="clear">すべて</SelectItem>
-                <SelectItem value="0">理系</SelectItem>
-                <SelectItem value="1">文系</SelectItem>
-              </SelectContent>
-            </Select>
+              items={[
+                { value: 'clear', label: 'すべて' },
+                { value: '0', label: '理系' },
+                { value: '1', label: '文系' },
+              ]}
+              placeholder="分野を選択..."
+            />
           </div>
 
           {/* Row 4: Level (難易度) */}
           <div className="space-y-2">
             <Label>レベル</Label>
-            <Select
+            <NativeSelect
               value={filters.difficulty !== undefined ? String(filters.difficulty) : undefined}
-              onValueChange={(value) => updateFilter('difficulty', value === 'clear' ? undefined : parseInt(value))}
+              onChange={(value) => updateFilter('difficulty', value === 'clear' ? undefined : parseInt(value))}
               disabled={isDisabled}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="レベルを選択..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="clear">すべて</SelectItem>
-                <SelectItem value="1">基礎</SelectItem>
-                <SelectItem value="2">標準</SelectItem>
-                <SelectItem value="3">応用</SelectItem>
-                <SelectItem value="5">難関</SelectItem>
-              </SelectContent>
-            </Select>
+              items={[
+                { value: 'clear', label: 'すべて' },
+                { value: '1', label: '基礎' },
+                { value: '2', label: '標準' },
+                { value: '3', label: '応用' },
+                { value: '5', label: '難関' },
+              ]}
+              placeholder="レベルを選択..."
+            />
           </div>
 
           {/* Row 5: Problem Format (問題形式) */}
@@ -395,23 +383,20 @@ export default function AdvancedSearchPanel({
           {/* Row 6: Period (期間) */}
           <div className="space-y-2">
             <Label>期間</Label>
-            <Select
+            <NativeSelect
               value={filters.period || undefined}
-              onValueChange={(value) => updateFilter('period', value === 'clear' ? undefined : value)}
+              onChange={(value) => updateFilter('period', value === 'clear' ? undefined : value)}
               disabled={isDisabled}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="期間を選択..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="clear">すべて</SelectItem>
-                <SelectItem value="today">今日</SelectItem>
-                <SelectItem value="week">今週</SelectItem>
-                <SelectItem value="month">今月</SelectItem>
-                <SelectItem value="year">今年</SelectItem>
-                <SelectItem value="custom">任意期間</SelectItem>
-              </SelectContent>
-            </Select>
+              items={[
+                { value: 'clear', label: 'すべて' },
+                { value: 'today', label: '今日' },
+                { value: 'week', label: '今週' },
+                { value: 'month', label: '今月' },
+                { value: 'year', label: '今年' },
+                { value: 'custom', label: '任意期間' },
+              ]}
+              placeholder="期間を選択..."
+            />
             {/* Custom date picker (only show when 'custom' is selected) */}
             {filters.period === 'custom' && (
               <div className="grid grid-cols-2 gap-2 mt-2">
@@ -442,23 +427,20 @@ export default function AdvancedSearchPanel({
           {/* Row 7: Duration (所要時間) */}
           <div className="space-y-2">
             <Label>所要時間</Label>
-            <Select
+            <NativeSelect
               value={filters.duration !== undefined ? String(filters.duration) : undefined}
-              onValueChange={(value) => updateFilter('duration', value === 'clear' ? undefined : parseInt(value))}
+              onChange={(value) => updateFilter('duration', value === 'clear' ? undefined : parseInt(value))}
               disabled={isDisabled}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="所要時間を選択..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="clear">すべて</SelectItem>
-                <SelectItem value="5">5分</SelectItem>
-                <SelectItem value="10">10分</SelectItem>
-                <SelectItem value="30">30分</SelectItem>
-                <SelectItem value="60">1時間</SelectItem>
-                <SelectItem value="0">その他</SelectItem>
-              </SelectContent>
-            </Select>
+              items={[
+                { value: 'clear', label: 'すべて' },
+                { value: '5', label: '5分' },
+                { value: '10', label: '10分' },
+                { value: '30', label: '30分' },
+                { value: '60', label: '1時間' },
+                { value: '0', label: 'その他' },
+              ]}
+              placeholder="所要時間を選択..."
+            />
           </div>
 
           {/* アクティブなフィルターのチップ表示 */}

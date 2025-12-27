@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useProblemCreateController } from '@/pages/ProblemCreatePage/hooks/useProblemCreateController';
+import { mockWebSocket } from '../../../vitest.setup';
 
 // Mock dependencies
 vi.mock('@/features/content/hooks/useFileUpload', () => ({
@@ -14,23 +15,21 @@ vi.mock('@/features/content/hooks/useFileUpload', () => ({
     }),
 }));
 
-vi.mock('@/features/content/hooks/useGenerationStatus', () => ({
-    useGenerationStatus: ({ onComplete }: { onComplete: (s: any) => void }) => ({
+vi.mock('@/features/generation/api', () => ({
+    confirmStructure: vi.fn().mockResolvedValue({}),
+    getGenerationStatus: vi.fn()
+}));
+
+vi.mock('@/stores/jobStore', () => ({
+    useJobStore: vi.fn(() => ({
         jobId: 'mock-job-id',
-        phase: 'generating',
-        currentStep: 'generating',
-        progress: 45,
-        errorMessage: null,
-        errorCode: undefined,
-        startGeneration: vi.fn().mockResolvedValue('mock-job-id'),
-        trackExistingJob: vi.fn(),
-        // Simulate completion helper
-        simulateComplete: (problemId: string) => onComplete({ 
-          problemId, 
-          status: 'completed',
-          currentStep: 'completed'
-        }),
-    }),
+        phase: 'idle',
+        data: null,
+        error: null,
+        setJob: vi.fn(),
+        updatePhase: vi.fn(),
+        setError: vi.fn(),
+    })),
 }));
 
 describe('useProblemCreateController', () => {
@@ -49,7 +48,7 @@ describe('useProblemCreateController', () => {
         expect(result.current.phase).toBe('input');
     });
 
-    it('exposes currentStep and errorCode from useGenerationStatus', () => {
+    it('exposes currentStep and errorCode from useJobStore', () => {
         const { result } = renderHook(() => useProblemCreateController({
             onNavigate: mockOnNavigate,
             onGenerated: mockOnGenerated
@@ -58,6 +57,31 @@ describe('useProblemCreateController', () => {
         // 新しいフィールドが公開されていることを確認
         expect(result.current.detailedStep).toBeDefined();
         expect(result.current.errorCode).toBeUndefined();
-        expect(result.current.generationStep).toBe('generating');
+        expect(result.current.generationStep).toBe('idle');
+    });
+
+    it('auto confirms structure when shouldConfirmStructure is false (polls until structure_review)', async () => {
+        const api = await import('@/features/generation/api');
+        const mockConfirmStructure = vi.mocked(api).confirmStructure as unknown as vi.Mock;
+        const mockGetGenerationStatus = vi.mocked(api).getGenerationStatus as unknown as vi.Mock;
+
+        // First call returns not-yet-in-review, then returns structure_review
+        mockGetGenerationStatus
+          .mockResolvedValueOnce({ jobId: 'mock-job-id', status: 'processing', currentStep: 'extracting', progress: 25 })
+          .mockResolvedValueOnce({ jobId: 'mock-job-id', status: 'processing', currentStep: 'structure_review', progress: 50 })
+          .mockResolvedValue({ jobId: 'mock-job-id', status: 'processing', currentStep: 'waiting_for_slot', progress: 55 });
+
+        const { result } = renderHook(() => useProblemCreateController({
+            onNavigate: mockOnNavigate,
+            onGenerated: mockOnGenerated,
+            shouldConfirmStructure: false,
+        }));
+
+        // Wait enough time for polling to observe the structure_review and call confirm
+        await act(async () => {
+            await new Promise(resolve => setTimeout(resolve, 1200));
+        });
+
+        expect(mockConfirmStructure).toHaveBeenCalledWith('mock-job-id');
     });
 });

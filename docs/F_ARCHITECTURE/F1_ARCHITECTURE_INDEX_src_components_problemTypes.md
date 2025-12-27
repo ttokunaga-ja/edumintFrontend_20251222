@@ -9,7 +9,7 @@ tags: ["components","problemTypes","ui"]
 entry_points:
   - "src/components/problemTypes/ProblemTypeRegistry.tsx"
 status: "pure-new"
-file_count: 17
+file_count: 18
 size_hint: "medium"
 last_updated: "2025-12-27"
 ---

@@ -68,7 +68,7 @@ export default function TopMenuBar({
     };
 
     return (
-        <nav className="sticky top-0 z-[899] w-full border-b border-gray-200 bg-white">
+        <nav className="sticky top-0 z-app-bar w-full border-b border-gray-200 bg-white">
             <div className="px-4 sm:px-6 lg:px-8">
                 {/* Main Nav Row */}
                 <div className="flex h-16 items-center justify-between gap-4">

@@ -1,122 +1,152 @@
-## U_REFACTOR_REQUIREMENTS
+# リファクタリング要件定義書（アーキテクチャ準拠チェック & 移行計画） ✅
 
-目的: `ProblemViewEditPage` と関連 UI を、小問タイプ毎のプラグイン的な設計にリファクタするための要件定義書。
+## 概要
+本ドキュメントは、現行リポジトリのディレクトリ構造と挙動を、プロジェクト標準（React + TypeScript アーキテクチャ原則）に照らして評価し、差分（逸脱点）・修正要件・優先度付き移行計画・受け入れ基準を定義します。
 
-1) 背景
-- DB の `question_types`（`docs/database.md` 3.4節）に示された問題タイプ別に、表示と編集のロジックを分離する。
-- Moodle の `question/type/*` を設計参考に、フロント側で `ProblemTypeRegistry` を持ち、タイプ毎に `View` と `Edit` を登録する。
+---
 
-2) 主要ゴール
-- 表示（View）と編集（Edit）をタイプ別に分離し、拡張しやすい構造にする。
-- 既存 UX を壊さずに段階的に移行できること。
+## 現状サマリ（発見内容） 🔎
+- 主要構成は以下のとおり（抜粋）:
+  - Pages: `src/pages/*`（例: `HomePage.tsx`, `ProblemViewEditPage.tsx`, `ProblemCreatePage.tsx`）
+  - Page専用 Components: `src/components/page/<PageName>/*`（多くが適切に分離済み）
+  - CommonComponents: `src/components/common/*`（Header や Notification など）
+  - Primitives: `src/components/primitives/*`（Radix wrapper 等）
+  - Domain/Feature 層: `src/features/*`（`hooks` / `api` / `repository` 等）
+  - Generic Hooks: `src/hooks/*`
+  - Types: `src/types/*`
 
-3) 仕様（必須）
-- **型定義**: `src/types/problemTypes.ts` に `ProblemTypeViewProps`, `ProblemTypeEditProps`, `ProblemTypeRegistration` を用意すること。
-- **レジストリ**: `src/components/problemTypes/ProblemTypeRegistry.tsx` を実装し、`registerProblemType(entry)` / `getProblemTypeView(id)` / `getProblemTypeEdit(id)` を提供すること。
-- **表示コンポーネント**: 次の View を実装すること（最低限 view）:
-  - ID 1: `FreeTextView`（記述式）
-  - ID 2: `MultipleChoiceView`（選択式）
-  - ID 4: `ClozeView`（穴埋め）
-  - ID 5: `TrueFalseView`（正誤）
-  - ID 6: `NumericView`（数値計算）
-  - ID 7: `ProofView`（証明/論述）
-  - ID 8: `ProgrammingView`（プログラミング）
-  - ID 9: `CodeReadingView`（コード読解）
-- **編集コンポーネント（編集側）**: 各タイプは `*Edit.tsx` を実装し、`ProblemTypeEditProps` に従って `onQuestionChange/onAnswerChange` を呼ぶこと。
-- **委譲**: `SubQuestionBlock.tsx` は view のレンダリングを `ProblemTypeRegistry` に委譲済（追加のエラーフォールバックを実装すること）。
-- **動的 import**: Edit コンポーネントは dynamic import で遅延ロードすること（Vite での最適化を考慮）。
+- 既にアーキテクチャへ準拠している点
+  - `components/page` と `components/common` による責務分離が進んでいる
+  - Domain hook（`src/features/*/hooks`）が存在し、ドメインロジックは概ねそこに集約されている
+  - `primitives` による低レイヤー UI 抽象が整備されている
 
-4) API（サーバ ↔ クライアント）
-- フロントは `sub_questions` インスタンスを次の最小構造で扱うこと:
-  - `id`, `sub_question_number`, `sub_question_type_id`, `question_format`, `question_content`, `options?`, `answer_content?`。
-- `options` は選択肢用に `{id, content, isCorrect}` を想定。
+---
 
-5) テスト要件
-- 各 View の snapshot テスト（`vitest`）
-- Edit コンポーネントの操作テスト（入力→onChange 呼び出し）
-- Storybook ストーリーを追加すること（UI確認用）
+## 主要な逸脱点（差分） 🚨
+1. **Page ファイル配置 / 命名規則が統一されていない**
+   - 例: `src/pages/HomePage.tsx`（単一ファイル）→ 規約では `src/pages/HomeSearch/HomeSearchPage.tsx` のようにページ単位フォルダ配下に `*Page.tsx` を置く。現状、ページがルート直下に分散している。\
+   - 影響: 可搬性・検索性・自動生成/スキャフォールドとの親和性が低下。
 
-6) セキュリティ要件（ID 8/9 特有）
-- プログラム実行はサーバ側のサンドボックス（Jobe/CodeRunner など）を想定。フロント側ではコードを直接評価しないこと。
-- 実行結果の受け取りは非同期ジョブで、タイムアウト・リソース制限・返却ログを厳格に扱う。
+2. **一部 Page がロジック／データ取得を内包している（責務分離違反）**
+   - 例: `src/pages/HomePage.tsx` が `useEffect` で API を直接呼び、状態管理（`problems`, `isLoading` 等）を持つ。
+   - 規約では Page は「何を使うか（composition）」だけ持ち、通信・手続きは Page 専用 Hook（`src/pages/<PageName>/hooks/use<PageName>Controller.ts`）や Domain Hook に委譲するべき。
 
-7) マイグレーション / 互換性
-- 既存の `ProblemEditor` が扱っていた保存フロー（`useExamEditor`）を再利用しつつ、問題ペイロードに `sub_question_type_id` / `options` を含める。サーバ側が未対応なら `backend-contract` タスクを作成して調整する。
+3. **Page 命名規約と Hook/Controller 命名に一貫性がない箇所がある**
+   - いくつかの Page はすでにコントローラを持つ（`src/pages/ProblemCreatePage/hooks/useProblemCreateController.ts`）が、他ページは未整備。均一化が必要。
 
-8) 開発者向け受け入れ基準
-- 表示: `ProblemViewEditPage` の表示モードで、各小問が対応する `*View` でレンダリングされること。
-- 編集: 編集モードで `*Edit` が呼ばれ、編集 → 保存 → `useExamEditor.updateExam()` が呼ばれること。
-- CI: `npm run build` と `npm run test` をローカルで通す。Storybook を用意していることが望ましい。
+4. **`src/api` のトップレベル存在がない（API 層命名の差）**
+   - 実装は `src/features/<domain>/api.ts` や `repository.ts` に分散している。機能的には問題ないが、リポジトリ内の API 層の位置付け（命名）を規約として明示する必要あり。
 
-9) PR チェックリスト（レビュワー）
-- 変更は小さなコミットに分かれているか。
-- 型定義が追加され、影響範囲が明記されているか。
-- dynamic import によりバンドルサイズの異常増加が無いか。
-- ID 8/9 の実行に関する安全設計が別途提出されているか。
+5. **一部 `primitives`（Portal/Popover/Select）に Top Layer（z-index）動作が集中している**
+   - 既存の Top Layer 方針（native popover/dialog に移行等）と整合を取りながら移行する必要がある（互換性検証が必要）。
 
-10) 付録 — Phebe 向けタスク分割（短いコマンド・ファイル指定付き）
-- Task A — frontend-registry (担当: A, 1d)
-  - 変更: `src/types/problemTypes.ts`, `src/components/problemTypes/ProblemTypeRegistry.tsx`
-  - 受け入れ: registry が `registerProblemType` と `getProblemTypeView` を提供していること。`registerDefaults()` の骨子を作る。
+6. **ドキュメント内の参照（`src/src`）と実コード（`src/`）の参照不一致**
+   - ドキュメント群に旧パス表記が残っている箇所があり、ドキュメントの正規化が必要。
 
-- Task B — frontend-views-core (担当: B, 1-2d)
-  - 変更: `src/components/problemTypes/FreeTextView.tsx`, `MultipleChoiceView.tsx`
-  - 受け入れ: snapshot テスト 1 件ずつ。
+---
 
-- Task C — frontend-edit-wiring (担当: C, 2-3d)
-  - 変更: `src/components/page/ProblemViewEditPage/ProblemEditor.tsx`, dynamic import の追加
-  - 受け入れ: 編集モードで edit コンポーネントがロードされること。
+## 優先度付き修正要件（Must / Should / Nice-to-have） 🛠️
+### Must（必須）
+- M1: **ページ配置と命名の標準化**
+  - 各 Page を `src/pages/<PageName>/<PageName>Page.tsx` に移動・リネームする（例: `src/pages/HomePage/HomePagePage.tsx` または `HomePage/HomePagePage.tsx`、推奨: `HomeSearch/HomeSearchPage.tsx` のように業務名で統一）。
+  - 既存ルーティングの import を更新し、動作確認を行う。
 
-- Task D — frontend-views-rest (担当: D, 2-3d)
-  - 変更: Cloze/TrueFalse/Numeric/Proof/Programming/CodeReading の view 実装
+- M2: **Page からビジネス/通信ロジックを切り出す**
+  - `src/pages/HomePage.tsx` の `fetchProblems` 等を `src/pages/HomePage/hooks/useHomePageController.ts` に抽出し、Page はコントローラを使用するのみとする。
+  - 同様に、ロジックを含む Page をすべて洗い出し、Page Controller を作成して置換。
 
-- Task E — tests-storybook (担当: E, 1-2d)
-  - 変更: `stories` と `vitest` のテスト追加
+- M3: **依存方向と境界ルールを自動検出する静的チェック**
+  - ESLint ルール（`eslint-plugin-boundaries` / `import/no-restricted-paths` 等）を導入して、以下違反を CI でブロックする:
+    - `components/page/<PageA>` を他ページから import するケース
+    - `features/*` が UI へ依存するケース
+    - Page が `api` を直接参照するケース（許容しない）
 
-- Task F — backend-contract (担当: F, 1-2d)
-  - 作業: API スキーマ（sample JSON）を `docs/backend_question_schema.md` で定義し、サーバチームと合意する
+- M4: **ドキュメント整備**
+  - 本リファクタリング方針を README + `docs/` に明記（命名規則、ディレクトリ権限、例）し、開発者が参照できるようにする。
 
-- Task G — sandbox (担当: G, 3-7d)
-  - 作業: Jobe/CodeRunner 統合仕様書作成（運用・監視・コスト想定）
+### Should（推奨）
+- S1: **`src/api/` の採用または features 側での命名規則明確化**（どちらかに統一）
+- S2: **Page 作成テンプレート（CLI / dev:generate）を用意し、命名・フォルダ構成を enforce**
+- S3: **移行用 Codemod / スクリプトを用意する（ファイル移動・import 更新を自動化）**
 
-以上。
-# Docker Containerization Requirements (Requirements Definition)
+### Nice-to-have
+- N1: **アーキテクチャチェック用のドキュメント自動 Diff レポート（PR 向け）を整備**
+- N2: **コンポーネント Border Diagram（依存図）を生成・可視化**
 
-## 1. Project Overview
-The goal is to containerize the existing React/Vite frontend application (`edumintFrontend_20251222`) using Docker. This will ensure a consistent development environment across different machines and simplify the deployment process.
+---
 
-## 2. Technical Requirements
+## 移行プラン（段階・タスク） 🧭
+目的: リスクを小さく段階的に移行し、CI/テストで安全性を担保する。
 
-### 2.1. Base Image & Environment
-- **Node.js**: Use version **node:24.12.0-alpine**.
-- **OS**: Alpine Linux.
-- **Package Manager**: NPM.
-- **React**: Maintain or use **v18.x** (Current project status).
-- **Vite**: Use the latest stable version (**v7.x** or **v6.x** depending on compatibility with React 18).
+1. 準備フェーズ（短期間: 1-2 日）
+   - ルール決定（Page 命名規則・Controller 命名・API 層の位置）
+   - ESLint プラグインの導入案作成（設定ファイル）
+   - 影響範囲のスキャン（Pages でロジックを内包しているファイル一覧）
 
-### 2.2. Dockerfile Design
-- **Multi-Stage Build**:
-  - **Stage 1 (Base/Deps)**: Install dependencies.
-  - **Stage 2 (Development)**: optimized for local development with hot-reloading.
-  - **Stage 3 (Builder)**: Create production build (`npm run build`).
-  - **Stage 4 (Production)**: Serve static files using a lightweight server component (e.g., Nginx or a lightweight Node server), though for this immediate requirement, **Development focus** is priority.
-- **Working Directory**: `/app`.
+2. コントローラ抽出（段階移行: ページ毎に PR）
+   - プライオリティ: `HomePage` → `ProblemCreatePage` → `ProblemViewEditPage` → 残り
+   - タスク（Per-Page）:
+     1. `src/pages/<PageName>/hooks/use<PageName>Controller.ts` を作成
+     2. ビジネスロジック / API 呼出し / state を移動
+     3. テスト（Unit: controller）を追加
+     4. Page を短く保ち、UI は既存 `components/page` を使用
+     5. PR を作りレビュー・マージ
 
-### 2.3. Orchestration (Docker Compose)
-- Create a `docker-compose.yml` to manage the service.
-- **Service Name**: `frontend` (or `edumint-web`).
-- **Network**: Define a default bridge network.
-- **Ports**: Expose the Vite default port (5173) to the host (e.g., `5173:5173`).
-- **Volumes**:
-  - **Bind Mount**: Mount the local project directory to `/app` in the container to enable Hot Module Replacement (HMR).
-  - **Anonymous Volume**: Mount `/app/node_modules` to prevent the host's `node_modules` from interfering with the container's Linux-native modules.
+3. ファイル構造の正規化
+   - 各 Page をフォルダに移動し `*Page.tsx` にリネーム
+   - 既存 import の path を Codemod または手動で更新
+   - ルーティング（router.tsx / App.tsx）を更新
 
-### 2.4. Configuration Management
-- **.dockerignore**: Properly exclude files to keep the build context light and secure (`node_modules`, `.git`, `.env*`, `dist`, coverage reports).
-- **Environment Variables**: Support injection of environment variables via `.env` file or docker-compose `environment` section.
+4. 静的チェック導入
+   - ESLint ルールを有効化し、CI に組込む（段階的に error → warning → error に昇格）
 
-## 3. Success Criteria
-1.  **Build Success**: `docker-compose build` completes without errors.
-2.  **Run Success**: `docker-compose up` starts the container and the Vite dev server.
-3.  **Accessibility**: The application is accessible via browser at `http://localhost:5173`.
-4.  **Hot Reloading**: Modifying a source file (e.g., a `.tsx` component) locally immediately updates the running application in the browser.
+5. レガシー解除 & クリーンアップ
+   - 参照されなくなった legacy コンポーネントを削除
+   - docs 内の `src/src` 等古い参照を正規化
+
+6. 仕上げ・監査
+   - 全ページ単位で差分レビュー
+   - パフォーマンステスト・UX スモークテスト
+
+---
+
+## PR レベルでのチェックリスト（必須） ✅
+- [ ] Page の移動・リネームは router の変更を含む
+- [ ] Page にロジックが残っていないこと（入出力は controller から）
+- [ ] 新規 controller に Unit テストがあること
+- [ ] ESLint/TypeScript エラーが 0 のこと
+- [ ] 既存の Storybook/Visual Regression が壊れていないこと（必要に応じて更新）
+- [ ] `docs/U_REFACTOR_REQUIREMENTS.md` に対象 Page を追加し、移行ステータスを更新
+
+---
+
+## 受け入れ基準（Definition of Done） 🎯
+- 全ページが `src/pages/<PageName>/<PageName>Page.tsx` 構成に移行済み（もしくは移行計画が PR ベースで進行中）
+- 各 Page は `use<PageName>Controller`（あるいは該当する Page Hook）を使用している
+- ESLint のアーキテクチャルールが CI で有効化され、違反はブロックされる
+- docs が更新され、`docs/U_REFACTOR_REQUIREMENTS.md` が現状を反映している
+
+---
+
+## 見積り（ラフ）と優先度
+- 低リスク整備（ドキュメント + ESLint 設定）: 0.5〜1.0 人日
+- HomePage の controller 抽出 + テスト: 0.5〜1 人日
+- 主要ページ（3〜5 ページ）の移行（個別 PR）: 3〜7 人日（レビュー含む）
+- Legacy 削除と最終監査: 1〜2 人日
+
+---
+
+## 注意事項 / リスク ⚠️
+- 大規模なファイル移動は import path の壊れ・CI 停止を招くため、段階的に小さな PR（1 ページずつ）で進めること。Codemod を用いると人的ミスが減る。
+- `primitives` の Top Layer ポリシー変更は UI レンダリングや z-index の振る舞いに影響するため、包括的な QA が必要。
+
+---
+
+## 次のアクション（短期） ➤
+1. 方針を確定してこのドキュメントをコアチームで承認する（本ドキュメントを `docs/` に追加済み）。
+2. ESLint のアーキテクチャルール（提案設定ファイル）を作成して、少なくとも `warning` として CI に導入する。
+3. `HomePage` の controller 抽出 PR を作成し、方針のテンプレートを示す。
+
+---
+
+もしよければ、直ちに `HomePage` の controller 抽出 PR を作成するテンプレート（コード例 + テスト）を作って PR の雛形まで用意します。希望する場合は "続けて HomePage を実装して" と指示してください。 ✨

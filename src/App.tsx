@@ -311,7 +311,7 @@ function App() {
           }}
         />
 
-        <div className="relative z-[145]">
+        <div className="relative">
           <NotificationPopover
             isOpen={isNotificationsOpen}
             onClose={() => setIsNotificationsOpen(false)}

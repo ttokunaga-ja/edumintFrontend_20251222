@@ -138,7 +138,7 @@ export function MultilingualAutocomplete({
       </div>
 
       {showSuggestions && (suggestions.length > 0 || isLoading) && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20 max-h-80 overflow-y-auto">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-80 overflow-y-auto">
           {isLoading && suggestions.length === 0 ? (
             <div className="px-4 py-3 text-sm text-gray-500 text-center">
               検索中...
@@ -200,7 +200,7 @@ export function MultilingualAutocomplete({
       )}
 
       {showSuggestions && !isLoading && inputValue.length >= minChars && suggestions.length === 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-20">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
           <div className="px-4 py-3 text-sm text-gray-500 text-center">
             候補が見つかりませんでした
           </div>

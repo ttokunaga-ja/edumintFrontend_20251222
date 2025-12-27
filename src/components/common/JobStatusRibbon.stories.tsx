@@ -17,7 +17,7 @@ const meta: Meta<typeof JobStatusRibbon> = {
         component: `
 JobStatusRibbon Component - Sticky ribbon showing job generation status
 
-**Position:** sticky top-16 z-40 (below TopMenuBar)
+**Position:** sticky top-16 (below TopMenuBar)
 
 **5 States:**
 1. **Queued**: Gray background, clock icon, no progress bar

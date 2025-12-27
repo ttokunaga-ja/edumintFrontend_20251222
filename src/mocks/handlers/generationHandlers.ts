@@ -12,6 +12,8 @@ type JobState = {
   errorMessage?: string;
   locked: boolean;
   paused: boolean;
+  lastTransitionAt: number;
+  nextDueAt?: number;
 };
 
 /**
@@ -51,6 +53,7 @@ for (const status of generationStatuses) {
     errorMessage: status.errorMessage,
     locked: status.status === 'completed' || status.status === 'failed',
     paused: status.status === 'paused',
+    lastTransitionAt: Date.now(),
   };
 }
 
@@ -85,6 +88,8 @@ const advanceJobState = (jobId: string): void => {
   state.status = nextStep.status;
   state.currentStep = nextStep.currentStep;
   state.progress = nextStep.progress;
+  state.lastTransitionAt = Date.now();
+  state.nextDueAt = state.lastTransitionAt + nextStep.delayMs;
 
   // 完了時に problemId を付与
   if (nextStep.status === 'completed') {
@@ -108,6 +113,8 @@ const statusHandler = async ({ params }: { params: any }) => {
       progress: 0,
       locked: false,
       paused: false,
+      lastTransitionAt: Date.now(),
+      nextDueAt: Date.now() + generationFlow[0].delayMs,
     };
   }
 
@@ -133,8 +140,10 @@ const statusHandler = async ({ params }: { params: any }) => {
   const currentFlow = generationFlow[state.stepIndex];
   await delay(Math.min(currentFlow.delayMs, 300)); // テスト高速化のため上限設定
 
-  // 状態を進める（ロックされていなければ）
-  if (!state.locked && !state.paused && state.currentStep !== 'structure_review') {
+  // 経過時間に基づいて状態を進める（ロック・ポーズ・構造確認待ちを除外）
+  const now = Date.now();
+  const dueAt = state.nextDueAt ?? state.lastTransitionAt + currentFlow.delayMs;
+  if (!state.locked && !state.paused && state.currentStep !== 'structure_review' && now >= dueAt) {
     advanceJobState(jobId);
   }
 
@@ -166,6 +175,8 @@ const startHandler = async () => {
     progress: 10,
     locked: false,
     paused: false,
+    lastTransitionAt: Date.now(),
+    nextDueAt: Date.now() + generationFlow[1].delayMs,
   };
 
   await delay(100);
@@ -181,6 +192,30 @@ const cancelHandler = async ({ params }: { params: any }) => {
     jobStates[jobId].locked = true;
     jobStates[jobId].status = 'failed';
     jobStates[jobId].errorMessage = 'ユーザーによりキャンセルされました';
+  }
+  await delay(100);
+  return HttpResponse.text("", { status: 200 });
+};
+
+/**
+ * POST /generation/confirm/:jobId
+ * User confirms structure review and allows auto progression
+ */
+const confirmHandler = async ({ params }: { params: any }) => {
+  const jobId = String(params.jobId);
+  const state = jobStates[jobId];
+  if (state && state.currentStep === 'structure_review') {
+    // advance one step to proceed past structure_review (manual advance as advanceJobState blocks it)
+    const nextIndex = state.stepIndex + 1;
+    if (nextIndex < generationFlow.length) {
+      const nextStep = generationFlow[nextIndex];
+      state.stepIndex = nextIndex;
+      state.status = nextStep.status;
+      state.currentStep = nextStep.currentStep;
+      state.progress = nextStep.progress;
+      state.lastTransitionAt = Date.now();
+      state.nextDueAt = state.lastTransitionAt + nextStep.delayMs;
+    }
   }
   await delay(100);
   return HttpResponse.text("", { status: 200 });
@@ -241,6 +276,7 @@ export const generationHandlers = [
   // Control endpoints
   http.post(withBase("/generation/start"), startHandler),
   http.post(withBase("/generation/cancel/:jobId"), cancelHandler),
+  http.post(withBase("/generation/confirm/:jobId"), confirmHandler),
   http.post(withBase("/generation/resume/:jobId"), resumeHandler),
   http.post(withBase("/generation/retry/:jobId"), retryHandler),
   http.post(withBase("/generation-settings"), settingsHandler),

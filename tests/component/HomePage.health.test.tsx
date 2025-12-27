@@ -79,7 +79,7 @@ describe('HomePage - service health and search', () => {
     render(<HomePage initialQuery="微分積分" />);
 
     await waitFor(() => expect(mockSearchExams).toHaveBeenCalled());
-    expect(screen.getByText('検索結果が見つかりませんでした')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('検索結果が見つかりませんでした')).toBeInTheDocument());
 
     const recommended = screen.getByRole('button', { name: 'おすすめ' });
     expect(recommended).not.toBeDisabled();

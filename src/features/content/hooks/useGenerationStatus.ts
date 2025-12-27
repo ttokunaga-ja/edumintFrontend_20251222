@@ -11,6 +11,8 @@ type Params = {
   onComplete?: (result: GenerationStatusResponse) => void;
   onError?: (message: string, errorCode?: string) => void;
   pollIntervalMs?: number;
+  allowStructureReanalysis?: boolean; // structure_review → structure_detecting を許容するか（ユーザー操作のみ）
+  allowStructureSkip?: boolean; // structure_detecting から structure_review を挟まずに次工程へ進むことを許容するか（自動確定/スキップ時）
 };
 
 export const useGenerationStatus = ({
@@ -18,6 +20,8 @@ export const useGenerationStatus = ({
   onComplete,
   onError,
   pollIntervalMs = 2000,
+  allowStructureReanalysis = true,
+  allowStructureSkip = true,
 }: Params) => {
   const [jobId, setJobId] = useState<string | null>(initialJobId ?? null);
   const { state, result, reset: resetStore, setState, advance, setError, setResult } = useGenerationStore(
@@ -38,6 +42,52 @@ export const useGenerationStatus = ({
   const setErrorState = (message: string, errorCode?: string) => {
     setError(message);
     onError?.(message, errorCode);
+  };
+
+  const isAllowedTransition = (prevStep: string, nextStep: string) => {
+    if (prevStep === nextStep) return true;
+
+    const forwardOrder: Record<string, string | null> = {
+      waiting_for_upload: 'uploading',
+      uploading: 'upload_verifying',
+      upload_verifying: 'extracting',
+      extracting: 'sectioning',
+      sectioning: 'structure_detecting',
+      structure_detecting: 'structure_review',
+      structure_review: 'waiting_for_slot',
+      waiting_for_slot: 'generating',
+      generating: 'postprocessing',
+      postprocessing: 'completed',
+      completed: null,
+      paused: null,
+      failed: null,
+      error: null,
+    };
+
+    // allow only the defined next step
+    const expected = forwardOrder[prevStep];
+    if (expected === nextStep) return true;
+
+    // allow structure_review -> structure_detecting only when explicitly allowed (re-analysis)
+    if (allowStructureReanalysis && prevStep === 'structure_review' && nextStep === 'structure_detecting') {
+      return true;
+    }
+
+    // allow skipping structure_review when enabled (auto-confirm / skip)
+    if (
+      allowStructureSkip &&
+      prevStep === 'structure_detecting' &&
+      (nextStep === 'waiting_for_slot' || nextStep === 'generating' || nextStep === 'postprocessing' || nextStep === 'completed')
+    ) {
+      return true;
+    }
+
+    // allow terminal/error transitions
+    if (nextStep === 'paused' || nextStep === 'error' || nextStep === 'failed') {
+      return true;
+    }
+
+    return false;
   };
 
   const startGeneration = async (structureId: string) => {
@@ -81,8 +131,30 @@ export const useGenerationStatus = ({
         const status = await getGenerationStatus(jobId);
         if (!isMounted) return;
 
+        // Auto-skip structure_review when allowed (構造確認OFFの場合に後半フェーズへ進める)
+        let normalizedStatus = status;
+        if (
+          allowStructureSkip &&
+          status.currentStep === 'structure_review'
+        ) {
+          normalizedStatus = {
+            ...status,
+            currentStep: 'waiting_for_slot',
+            status: status.status === 'processing' ? status.status : 'processing',
+            progress: Math.max(status.progress, 55),
+          };
+        }
+
         // 次の状態を計算
-        const nextState = nextGenerationState(stateRef.current, status);
+        const nextState = nextGenerationState(stateRef.current, normalizedStatus);
+
+        // 状態遷移バリデーション（逆行/スキップ防止）
+        const isValid = isAllowedTransition(stateRef.current.currentStep, normalizedStatus.currentStep);
+        if (!isValid) {
+          console.warn(
+            `[GenerationStatus] Invalid transition observed (applying anyway): ${stateRef.current.currentStep} -> ${normalizedStatus.currentStep}`,
+          );
+        }
         
         // ステータスに応じて処理
         if (status.status === 'completed') {
