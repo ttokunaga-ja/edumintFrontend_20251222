@@ -26,4 +26,4 @@ True/False の表示コンポーネントに Storybook ストーリーと snapsh
 - `pnpm run test` : ローカルでテストを実行して問題ないことを確認
 
 ## 次のアクション
-- Programming / CodeReading を順次追加します
+- Programming / CodeReading を順次追加します。
