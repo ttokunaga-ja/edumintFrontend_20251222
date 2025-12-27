@@ -208,8 +208,10 @@
      │
      ├─ [GrandQuestionHeader] (大問ヘッダー)
      │   ├─ [DifficultyBlock] (★共通: 難易度)
-     │   └─ [KeywordBlock] (★共通: キーワード)
-     │
+     │   ├─ [KeywordBlock] (★共通: キーワード)
+     │   └─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
+     │      ├─ [RawInputArea] (Markdown/LaTeX 入力フォーム)
+     │      └─ [PreviewDisplay] (リアルタイムプレビュー)
      └─ [SubQuestionList] (小問リスト)
          │
          └─ [SubQuestionBlock] (小問ブロック)
@@ -220,43 +222,76 @@
              │
              └─ [ProblemAnswerWrapper] (形式ごとのUI切り替えコンテナ)
                  │
-                 │  ▼ state.format に応じて以下のいずれか1つを表示 (ViewerEditor)
+                 │  ▼ state.format に応じてSWITCH文で以下のいずれか1つを表示 (ViewerEditor)
                  │
                  ├─ [DescriptiveEditor] (ID:1 記述式)
                  │   ├─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
                  │   │   ├─ [RawInputArea] (Markdown/LaTeX 入力フォーム)
                  │   │   └─ [PreviewDisplay] (リアルタイムプレビュー)
-                 │   └─ [AnswerTextConfig] (正答キーワード・文字数制限設定)
+                 │   └─ [MarkdownLatexEditor] (★共通: 解答解説文エディタ)
+                 │       ├─ [RawInputArea] (Markdown/LaTeX 入力フォーム)
+                 │       └─ [PreviewDisplay] (リアルタイムプレビュー)
                  │
                  ├─ [SelectionEditor] (ID:2 選択式)
-                 │   ├─ [MarkdownLatexEditor] (問題文: 必要なら色付け機能拡張)
-                 │   └─ [OptionsManager] (選択肢リスト作成・正誤チェック)
+                 │   ├─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
+                 │   │   ├─ [RawInputArea]
+                 │   │   └─ [PreviewDisplay]
+                 │   ├─ [OptionsManager] (選択肢リスト作成・正誤チェック)
+                 │   └─ [MarkdownLatexEditor] (★共通: 解答解説文エディタ)
+                 │       ├─ [RawInputArea]
+                 │       └─ [PreviewDisplay]
                  │
                  ├─ [FillInBlankEditor] (ID:4 穴埋め式)
-                 │   ├─ [MarkdownLatexEditor] (問題文: 穴埋め記法 {{1}} を使用)
-                 │   └─ [BlankAnswerList] (空欄ごとの正答設定)
+                 │   ├─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
+                 │   │   ├─ [RawInputArea]
+                 │   │   └─ [PreviewDisplay]
+                 │   └─ [MarkdownLatexEditor] (★共通: 解答解説文エディタ)
+                 │       ├─ [RawInputArea]
+                 │       └─ [PreviewDisplay]
                  │
                  ├─ [TrueFalseEditor] (ID:5 正誤判定)
-                 │   ├─ [MarkdownLatexEditor] (問題文)
-                 │   └─ [TrueFalseToggle] (○/× 正答スイッチ)
+                 │   ├─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
+                 │   │   ├─ [RawInputArea]
+                 │   │   └─ [PreviewDisplay]
+                 │   ├─ [TrueFalseToggle] (○/× 正答スイッチ)
+                 │   └─ [MarkdownLatexEditor] (★共通: 解答解説文エディタ)
+                 │       ├─ [RawInputArea]
+                 │       └─ [PreviewDisplay]
                  │
                  ├─ [MathCalculationEditor] (ID:6 数値計算式)
-                 │   ├─ [MarkdownLatexEditor] (数式含む問題文)
-                 │   └─ [NumericalInputConfig] (数値正答・許容誤差設定)
+                 │   ├─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
+                 │   │   ├─ [RawInputArea]
+                 │   │   └─ [PreviewDisplay]
+                 │   └─ [MarkdownLatexEditor] (★共通: 解答解説文エディタ)
+                 │       ├─ [RawInputArea]
+                 │       └─ [PreviewDisplay]
                  │
                  ├─ [ProofEditor] (ID:7 証明問題)
-                 │   ├─ [MarkdownLatexEditor] (証明課題文)
-                 │   └─ [ProofStepBuilder] (証明プロセスのステップ定義)
+                 │   ├─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
+                 │   │   ├─ [RawInputArea]
+                 │   │   └─ [PreviewDisplay]
+                 │   └─ [MarkdownLatexEditor] (★共通: 解答解説文エディタ)
+                 │       ├─ [RawInputArea]
+                 │       └─ [PreviewDisplay]
                  │
                  ├─ [ProgrammingEditor] (ID:8 プログラミング)
-                 │   ├─ [MarkdownLatexEditor] (課題説明)
-                 │   ├─ [CodeEditor] (初期コード/模範解答コード)
-                 │   └─ [TestCaseManager] (テストケース入力/出力)
+                 │   ├─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
+                 │   │   ├─ [RawInputArea]
+                 │   │   └─ [PreviewDisplay]
+                 │   ├─ [CodeEditor] (初期コード)
+                 │   ├─ [MarkdownLatexEditor] (★共通: 解答解説文エディタ)
+                 │   │   ├─ [RawInputArea]
+                 │   │   └─ [PreviewDisplay]
+                 │   └─ [CodeEditor] (模範解答コード)
                  │
                  └─ [CodeReadingEditor] (ID:9 コード読解)
+                     ├─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
+                     │   ├─ [RawInputArea]
+                     │   └─ [PreviewDisplay]
                      ├─ [CodeSnippetViewer] (読解対象のコード)
-                     ├─ [MarkdownLatexEditor] (設問文)
-                     └─ [OptionsManager] (選択肢または入力欄)
+                     └─ [MarkdownLatexEditor] (★共通: 解答解説文エディタ)
+                         ├─ [RawInputArea]
+                         └─ [PreviewDisplay]
 ```
 
 ---
@@ -280,16 +315,14 @@
  │   │   │   └─ PreviewDisplay.tsx   // レンダリング表示
  │   │   │
  │   │   └─ ViewerEditor/            // 【形式別エディタ】(ここにロジックを集約)
- │   │       ├─ Descriptive/         // ID:1 記述式
- │   │       │   └─ index.tsx
- │   │       ├─ Selection/           // ID:2 選択式
- │   │       │   └─ index.tsx
- │   │       ├─ FillInBlank/         // ID:4 穴埋め式
- │   │       ├─ TrueFalse/           // ID:5 正誤判定
- │   │       ├─ MathCalculation/     // ID:6 数値計算
- │   │       ├─ Proof/               // ID:7 証明
- │   │       ├─ Programming/         // ID:8 プログラミング
- │   │       └─ CodeReading/         // ID:9 コード読解
+ │   │       ├─ Type1_Descriptive.tsx // ID:1 記述式
+ │   │       ├─ Type2_Selection.tsx   // ID:2 選択式
+ │   │       ├─ Type4_FillInBlank.tsx // ID:4 穴埋め式
+ │   │       ├─ Type5_TrueFalse.tsx   // ID:5 正誤判定
+ │   │       ├─ Type6_MathCalculation.tsx // ID:6 数値計算
+ │   │       ├─ Type7_Proof.tsx       // ID:7 証明
+ │   │       ├─ Type8_Programming.tsx // ID:8 プログラミング
+ │   │       └─ Type9_CodeReading.tsx // ID:9 コード読解
  │
  ├─ features/
  │   ├─ content/
