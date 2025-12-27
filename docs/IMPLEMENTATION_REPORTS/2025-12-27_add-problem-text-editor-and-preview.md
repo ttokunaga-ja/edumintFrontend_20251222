@@ -9,8 +9,8 @@ author: GitHub Copilot
 - **Why**: Improve maintainability and consistency across problem edit UIs; centralize Markdown/LaTeX preview and sanitization.
 
 ## 2. Files Added / Modified
-- **Added**: `src/components/common/ProblemTextEditor.tsx`
-- **Added**: `src/components/common/PreviewBlock.tsx`
+- **Added**: `src/components/common/ViewerEditor/ProblemTextEditor.tsx`
+- **Added**: `src/components/common/ViewerEditor/PreviewBlock.tsx`
 - **Added**: `src/components/common/__tests__/ProblemTextEditor.test.tsx`
 - **Modified**: `src/components/problemTypes/FreeTextEdit.tsx` (now composes `ProblemTextEditor`)
 - **Modified**: docs/IMPLEMENTATION_REPORTS/ (added new report)
