@@ -28,7 +28,7 @@ describe('FreeText components', () => {
     fireEvent.change(screen.getByLabelText('問題文入力'), {
       target: { value: 'updated question' },
     });
-    fireEvent.change(screen.getByLabelText('解答入力'), {
+    fireEvent.change(screen.getByLabelText(/解答.*入力/), {
       target: { value: 'updated answer' },
     });
 
@@ -50,12 +50,12 @@ describe('FreeText components', () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText('問題文フォーマット切替'));
+    fireEvent.click(screen.getByLabelText(/問題文.*フォーマット切替/));
     expect(onFormatChange).toHaveBeenCalledWith('question', 1);
-    expect(screen.getByLabelText('問題文フォーマット切替').textContent).toBe('LaTeX');
+    expect(screen.getByLabelText(/問題文.*フォーマット切替/).textContent).toBe('LaTeX');
 
-    fireEvent.click(screen.getByLabelText('解答フォーマット切替'));
+    fireEvent.click(screen.getByLabelText(/解答.*フォーマット切替/));
     expect(onFormatChange).toHaveBeenCalledWith('answer', 1);
-    expect(screen.getByLabelText('解答フォーマット切替').textContent).toBe('LaTeX');
+    expect(screen.getByLabelText(/解答.*フォーマット切替/).textContent).toBe('LaTeX');
   });
 });

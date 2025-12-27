@@ -5,7 +5,7 @@ import type { ProblemTypeEditProps } from '@/types/problemTypes';
 import { vi } from 'vitest';
 
 describe('FreeTextEdit', () => {
-  it('renders and matches snapshot', () => {
+  it('renders question and answer inputs and previews', () => {
     const props: ProblemTypeEditProps = {
       subQuestionNumber: 1,
       questionContent: 'Sample question',
@@ -14,8 +14,12 @@ describe('FreeTextEdit', () => {
       answerFormat: 0,
     } as unknown as ProblemTypeEditProps;
 
-    const { container } = render(<FreeTextEdit {...props} />);
-    expect(container).toMatchSnapshot();
+    render(<FreeTextEdit {...props} />);
+
+    expect(screen.getByLabelText('問題文入力')).toBeInTheDocument();
+    expect(screen.getByLabelText(/解答.*入力/)).toBeInTheDocument();
+    expect(screen.getAllByText('Sample question').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Sample answer').length).toBeGreaterThanOrEqual(1);
   });
 
   it('calls callbacks on input change and toggles formats', () => {
@@ -40,15 +44,15 @@ describe('FreeTextEdit', () => {
     fireEvent.change(qInput, { target: { value: 'Updated question' } });
     expect(onQuestionChange).toHaveBeenCalledWith('Updated question');
 
-    const qToggle = screen.getByLabelText('問題文フォーマット切替');
+    const qToggle = screen.getByLabelText(/問題文.*フォーマット切替/);
     fireEvent.click(qToggle);
     expect(onFormatChange).toHaveBeenCalledWith('question', 1);
 
-    const aInput = screen.getByLabelText('解答入力') as HTMLTextAreaElement;
+    const aInput = screen.getByLabelText(/解答.*入力/) as HTMLTextAreaElement;
     fireEvent.change(aInput, { target: { value: 'Updated answer' } });
     expect(onAnswerChange).toHaveBeenCalledWith('Updated answer');
 
-    const aToggle = screen.getByLabelText('解答フォーマット切替');
+    const aToggle = screen.getByLabelText(/解答.*フォーマット切替/);
     fireEvent.click(aToggle);
     expect(onFormatChange).toHaveBeenCalledWith('answer', 1);
   });

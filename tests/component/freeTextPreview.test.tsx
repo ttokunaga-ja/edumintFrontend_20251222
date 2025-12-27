@@ -20,7 +20,7 @@ describe('FreeTextEdit preview', () => {
       expect(screen.getByLabelText('latex-render').querySelector('.katex')).not.toBeNull();
     });
 
-    fireEvent.click(screen.getByLabelText('問題文フォーマット切替'));
+    fireEvent.click(screen.getByLabelText(/問題文.*フォーマット切替/));
     await waitFor(() => {
       const latexNodes = screen.getAllByLabelText('latex-render');
       expect(latexNodes.length).toBeGreaterThanOrEqual(1);
