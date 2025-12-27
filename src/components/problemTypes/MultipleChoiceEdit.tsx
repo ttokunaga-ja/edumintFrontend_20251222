@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { ProblemTypeEditProps } from '@/types/problemTypes';
 import { MarkdownBlock } from '@/components/common/MarkdownBlock';
 import { LatexBlock } from '@/components/common/LatexBlock';
+import ProblemTextEditor from '@/components/common/ProblemTextEditor';
 
 type Option = { id: string; content: string; isCorrect: boolean };
 
@@ -78,15 +79,20 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
             {questionFmt === 0 ? 'MD' : 'LaTeX'}
           </button>
         </div>
-        <textarea
+        <ProblemTextEditor
           value={question}
-          onChange={(e) => {
-            setQuestion(e.target.value);
-            onQuestionChange?.(e.target.value);
+          format={questionFmt}
+          onChange={(v) => {
+            setQuestion(v);
+            onQuestionChange?.(v);
           }}
-          aria-label="問題文入力"
-          className="w-full min-h-[140px] rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          onFormatChange={(f) => {
+            setQuestionFmt(f);
+            onFormatChange?.('question', f);
+          }}
+          ariaLabel="問題文"
           placeholder={questionFmt === 0 ? 'Markdown 形式で入力...' : 'LaTeX 形式で入力...'}
+          showPreview={true}
         />
       </div>
 
@@ -160,16 +166,20 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
             {answerFmt === 0 ? 'MD' : 'LaTeX'}
           </button>
         </div>
-        <textarea
+        <ProblemTextEditor
           value={answer}
-          onChange={(e) => {
-            const next = e.target.value;
-            setAnswer(next);
-            onAnswerChange?.(next);
+          format={answerFmt}
+          onChange={(v) => {
+            setAnswer(v);
+            onAnswerChange?.(v);
           }}
-          aria-label="解答入力"
-          className="w-full min-h-[120px] rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          onFormatChange={(f) => {
+            setAnswerFmt(f);
+            onFormatChange?.('answer', f);
+          }}
+          ariaLabel="解説 / 答え"
           placeholder={answerFmt === 0 ? 'Markdown 形式で入力...' : 'LaTeX 形式で入力...'}
+          showPreview={true}
         />
 
         <div className="mt-3 rounded-lg border border-gray-100 bg-blue-50 p-3 text-sm">

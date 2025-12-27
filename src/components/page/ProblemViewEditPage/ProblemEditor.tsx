@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Button } from '@/components/primitives/button';
 import { Plus } from 'lucide-react';
+import ProblemTextEditor from '@/components/common/ProblemTextEditor';
 import ProblemTypeRegistry from '@/components/problemTypes/ProblemTypeRegistry';
 import { ProblemTypeEditProps } from '@/types/problemTypes';
 import { QuestionSectionEdit } from './QuestionSectionEdit';
@@ -35,22 +36,26 @@ const questionTypeLabels: Record<number, string> = {
     9: 'コード読解',
 };
 
-const FallbackEdit = ({ questionContent, answerContent, onQuestionChange, onAnswerChange }: ProblemTypeEditProps) => (
+const FallbackEdit = ({ questionContent, answerContent, questionFormat = 0, answerFormat = 0, onQuestionChange, onAnswerChange, onFormatChange }: ProblemTypeEditProps) => (
     <div className="space-y-3 rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm">
         <div className="text-gray-600">専用の編集フォームが未登録です。暫定フォームを使用します。</div>
-        <label className="block text-xs font-medium text-gray-700">問題文</label>
-        <textarea
-            value={questionContent}
-            onChange={(e) => onQuestionChange?.(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-            placeholder="小問の問題文を入力..."
+        <ProblemTextEditor
+          value={questionContent}
+          format={questionFormat}
+          onChange={(v) => onQuestionChange?.(v)}
+          onFormatChange={(f) => onFormatChange?.('question', f)}
+          ariaLabel="問題文"
+          placeholder="小問の問題文を入力..."
+          showPreview={true}
         />
-        <label className="block text-xs font-medium text-gray-700">解答</label>
-        <textarea
-            value={answerContent ?? ''}
-            onChange={(e) => onAnswerChange?.(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-            placeholder="解答やメモを入力..."
+        <ProblemTextEditor
+          value={answerContent ?? ''}
+          format={answerFormat}
+          onChange={(v) => onAnswerChange?.(v)}
+          onFormatChange={(f) => onFormatChange?.('answer', f)}
+          ariaLabel="解答 / メモ"
+          placeholder="解答やメモを入力..."
+          showPreview={true}
         />
     </div>
 );

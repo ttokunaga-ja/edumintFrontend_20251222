@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { FileCode, FileText, Edit, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { MarkdownBlock } from '@/components/common/MarkdownBlock';
 import { LatexBlock } from '@/components/common/LatexBlock';
+import ProblemTextEditor from '@/components/common/ProblemTextEditor';
 
 export type AnswerBlockProps = {
   subQuestionNumber: number;
@@ -155,11 +156,17 @@ export function AnswerBlock({
 
             {isEditingAnswer ? (
               <div className="space-y-3">
-                <textarea
+                <ProblemTextEditor
                   value={editAnswerContent}
-                  onChange={(e) => setEditAnswerContent(e.target.value)}
-                  className="w-full min-h-[150px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  format={currentAnswerFormat}
+                  onChange={(v) => setEditAnswerContent(v)}
+                  onFormatChange={(f) => {
+                    setCurrentAnswerFormat(f);
+                    onFormatChange?.('answer', f);
+                  }}
+                  ariaLabel="解答 / メモ"
                   placeholder={currentAnswerFormat === 0 ? 'Markdown形式で入力...' : 'LaTeX形式で入力...'}
+                  showPreview={true}
                 />
                 <div className="flex gap-2">
                   <button
@@ -228,11 +235,17 @@ export function AnswerBlock({
 
               {isEditingExplanation ? (
                 <div className="space-y-3">
-                  <textarea
+                  <ProblemTextEditor
                     value={editExplanationContent}
-                    onChange={(e) => setEditExplanationContent(e.target.value)}
-                    className="w-full min-h-[150px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    format={currentExplanationFormat}
+                    onChange={(v) => setEditExplanationContent(v)}
+                    onFormatChange={(f) => {
+                      setCurrentExplanationFormat(f);
+                      onFormatChange?.('answer', f);
+                    }}
+                    ariaLabel="解説"
                     placeholder={currentExplanationFormat === 0 ? 'Markdown形式で入力...' : 'LaTeX形式で入力...'}
+                    showPreview={true}
                   />
                   <div className="flex gap-2">
                     <button

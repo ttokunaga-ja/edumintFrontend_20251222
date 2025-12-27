@@ -187,3 +187,147 @@
 ---
 
 ※ 参考: Moodle の問題種別設計（プラグイン化、採点/フィードバックの独立したロジック）を踏襲しました。必要であれば、Moodle の個別ページ（Question types）を解析して、Score / Behavior / Feedback モデルをより詳しく取り込むことも可能です。
+
+---
+
+## GUIの包含関係（メンタルモデル）とディレクトリ構成（設計）
+
+ご提示いただいた要件（全9種類の問題形式、共通コンポーネントの配置場所、Markdown/LaTeX/プレビューの詳細構成）に基づき、**GUIの包含関係（視覚的な階層）**と**ディレクトリ構造**を設計しました。
+
+共通部品を `src/components/common` に切り出し、問題形式ごとの固有ロジックを `src/components/common/ViewerEditor` に集約することで、拡張性と保守性を最大化します。
+
+---
+
+### 1. GUIの包含関係（メンタルモデル）
+
+画面上でコンポーネントがどうネストされるかの全体図です。
+
+```text
+[Page: ProblemCreatePage]
+ └─ [GrandQuestionBlock] (大問ブロック: 1つの大問)
+     │
+     ├─ [GrandQuestionHeader] (大問ヘッダー)
+     │   ├─ [DifficultyBlock] (★共通: 難易度)
+     │   └─ [KeywordBlock] (★共通: キーワード)
+     │
+     └─ [SubQuestionList] (小問リスト)
+         │
+         └─ [SubQuestionBlock] (小問ブロック)
+             │
+             ├─ [QuestionMeta] (メタ情報エリア: 横並び配置)
+             │   ├─ [QuestionFormatBlock] (★共通: 問題形式プルダウン 1~9)
+             │   └─ [KeywordBlock] (★共通: 小問用キーワード)
+             │
+             └─ [ProblemAnswerWrapper] (形式ごとのUI切り替えコンテナ)
+                 │
+                 │  ▼ state.format に応じて以下のいずれか1つを表示 (ViewerEditor)
+                 │
+                 ├─ [DescriptiveEditor] (ID:1 記述式)
+                 │   ├─ [MarkdownLatexEditor] (★共通: 問題文エディタ)
+                 │   │   ├─ [RawInputArea] (Markdown/LaTeX 入力フォーム)
+                 │   │   └─ [PreviewDisplay] (リアルタイムプレビュー)
+                 │   └─ [AnswerTextConfig] (正答キーワード・文字数制限設定)
+                 │
+                 ├─ [SelectionEditor] (ID:2 選択式)
+                 │   ├─ [MarkdownLatexEditor] (問題文: 必要なら色付け機能拡張)
+                 │   └─ [OptionsManager] (選択肢リスト作成・正誤チェック)
+                 │
+                 ├─ [FillInBlankEditor] (ID:4 穴埋め式)
+                 │   ├─ [MarkdownLatexEditor] (問題文: 穴埋め記法 {{1}} を使用)
+                 │   └─ [BlankAnswerList] (空欄ごとの正答設定)
+                 │
+                 ├─ [TrueFalseEditor] (ID:5 正誤判定)
+                 │   ├─ [MarkdownLatexEditor] (問題文)
+                 │   └─ [TrueFalseToggle] (○/× 正答スイッチ)
+                 │
+                 ├─ [MathCalculationEditor] (ID:6 数値計算式)
+                 │   ├─ [MarkdownLatexEditor] (数式含む問題文)
+                 │   └─ [NumericalInputConfig] (数値正答・許容誤差設定)
+                 │
+                 ├─ [ProofEditor] (ID:7 証明問題)
+                 │   ├─ [MarkdownLatexEditor] (証明課題文)
+                 │   └─ [ProofStepBuilder] (証明プロセスのステップ定義)
+                 │
+                 ├─ [ProgrammingEditor] (ID:8 プログラミング)
+                 │   ├─ [MarkdownLatexEditor] (課題説明)
+                 │   ├─ [CodeEditor] (初期コード/模範解答コード)
+                 │   └─ [TestCaseManager] (テストケース入力/出力)
+                 │
+                 └─ [CodeReadingEditor] (ID:9 コード読解)
+                     ├─ [CodeSnippetViewer] (読解対象のコード)
+                     ├─ [MarkdownLatexEditor] (設問文)
+                     └─ [OptionsManager] (選択肢または入力欄)
+```
+
+---
+
+### 2. ディレクトリ構造の提案
+
+`common` に汎用部品を置き、`ViewerEditor` に形式ごとの「問題＋解答」セットのロジックを置きます。`features` はそれらを組み立てる役割です。
+
+**Edumintfrontedfigma/src/src/**
+
+```text
+ ├─ components/
+ │   ├─ common/
+ │   │   ├─ DifficultyBlock/         // 【難易度】(Easy/Normal/Hard, ★表示)
+ │   │   ├─ KeywordBlock/            // 【キーワード】(タグ入力)
+ │   │   ├─ QuestionFormatBlock/     // 【問題形式】(プルダウン)
+ │   │   │
+ │   │   ├─ MarkdownLatex/           // 【MD/LaTeXエディタ】
+ │   │   │   ├─ index.tsx            // ラッパー
+ │   │   │   ├─ RawInputArea.tsx     // テキストエリア
+ │   │   │   └─ PreviewDisplay.tsx   // レンダリング表示
+ │   │   │
+ │   │   └─ ViewerEditor/            // 【形式別エディタ】(ここにロジックを集約)
+ │   │       ├─ Descriptive/         // ID:1 記述式
+ │   │       │   └─ index.tsx
+ │   │       ├─ Selection/           // ID:2 選択式
+ │   │       │   └─ index.tsx
+ │   │       ├─ FillInBlank/         // ID:4 穴埋め式
+ │   │       ├─ TrueFalse/           // ID:5 正誤判定
+ │   │       ├─ MathCalculation/     // ID:6 数値計算
+ │   │       ├─ Proof/               // ID:7 証明
+ │   │       ├─ Programming/         // ID:8 プログラミング
+ │   │       └─ CodeReading/         // ID:9 コード読解
+ │
+ ├─ features/
+ │   ├─ content/
+ │   │   ├─ components/
+ │   │   │   ├─ Editor/
+ │   │   │   │   ├─ GrandQuestion/
+ │   │   │   │   │   ├─ GrandQuestionBlock.tsx   // 大問枠
+ │   │   │   │   │   └─ GrandQuestionHeader.tsx  // 難易度+キーワード配置
+ │   │   │   │   │
+ │   │   │   │   └─ SubQuestion/
+ │   │   │   │       ├─ SubQuestionBlock.tsx     // 小問枠
+ │   │   │   │       ├─ QuestionMeta.tsx         // 形式+キーワード配置
+ │   │   │   │       └─ ProblemAnswerWrapper.tsx // ViewerEditorを呼び出す分岐点
+ │
+ ├─ pages/ (or app/)
+ │   └─ ProblemCreatePage.tsx
+```
+
+---
+
+### 3. 実装のポイント
+
+#### A. `ProblemAnswerWrapper` (振り分けロジック)
+`features/content/components/Editor/SubQuestion/ProblemAnswerWrapper.tsx` は、選択された形式IDを見て、`components/common/ViewerEditor/` 内の適切なコンポーネントを呼び出すだけの「スイッチ」として機能します。
+
+```tsx
+import { DescriptiveEditor } from '@/components/common/ViewerEditor/Descriptive';
+import { SelectionEditor } from '@/components/common/ViewerEditor/Selection';
+// ... 他の形式もインポート
+
+export const ProblemAnswerWrapper = ({ formatId, data, onChange }) => {
+  switch (formatId) {
+    case 1: return <DescriptiveEditor data={data} onChange={onChange} />;
+    case 2: return <SelectionEditor data={data} onChange={onChange} />;
+    // ...
+    case 8: return <ProgrammingEditor data={data} onChange={onChange} />;
+    default: return <div>形式を選択してください</div>;
+  }
+};
+
+

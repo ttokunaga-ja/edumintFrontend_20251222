@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { FileCode, FileText, Edit, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { MarkdownBlock } from '@/components/common/MarkdownBlock';
 import { LatexBlock } from '@/components/common/LatexBlock';
+import ProblemTextEditor from '@/components/common/ProblemTextEditor';
 import ProblemTypeRegistry from '@/components/problemTypes/ProblemTypeRegistry';
 import MultipleChoiceView from '@/components/problemTypes/MultipleChoiceView';
 import { ProblemTypeViewProps } from '@/types/problemTypes';
@@ -159,12 +160,19 @@ export function SubQuestionBlock({
         <div className="mb-4">
           {isEditingQuestion ? (
             <div className="space-y-3">
-              <textarea
+              <ProblemTextEditor
                 value={editQuestionContent}
-                onChange={(e) => setEditQuestionContent(e.target.value)}
-                className="w-full min-h-[150px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                format={currentQuestionFormat}
+                onChange={(v) => setEditQuestionContent(v)}
+                onFormatChange={(f) => {
+                  setCurrentQuestionFormat(f);
+                  onFormatChange?.('question', f);
+                }}
+                ariaLabel="問題文"
                 placeholder={currentQuestionFormat === 0 ? 'Markdown形式で入力...' : 'LaTeX形式で入力...'}
+                showPreview={true}
               />
+
               <div className="flex gap-2">
                 <button
                   onClick={handleQuestionSave}
@@ -260,11 +268,17 @@ export function SubQuestionBlock({
               <div className="bg-blue-50 rounded-lg p-4">
                 {isEditingAnswer ? (
                   <div className="space-y-3">
-                    <textarea
+                    <ProblemTextEditor
                       value={editAnswerContent}
-                      onChange={(e) => setEditAnswerContent(e.target.value)}
-                      className="w-full min-h-[150px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      format={currentAnswerFormat}
+                      onChange={(v) => setEditAnswerContent(v)}
+                      onFormatChange={(f) => {
+                        setCurrentAnswerFormat(f);
+                        onFormatChange?.('answer', f);
+                      }}
+                      ariaLabel="解答"
                       placeholder={currentAnswerFormat === 0 ? 'Markdown形式で入力...' : 'LaTeX形式で入力...'}
+                      showPreview={true}
                     />
                     <div className="flex gap-2">
                       <button
