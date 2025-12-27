@@ -1,0 +1,53 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TrueFalseView > renders question prompt 1`] = `
+<div>
+  <div>
+    <div>
+      <p>
+        Is 2 prime?
+      </p>
+    </div>
+    <div
+      class="mt-2 flex gap-2"
+    >
+      <div
+        class="px-3 py-1 bg-white border rounded"
+      >
+        True
+      </div>
+      <div
+        class="px-3 py-1 bg-white border rounded"
+      >
+        False
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`TrueFalseView > renders with answer shown 1`] = `
+<div>
+  <div>
+    <div>
+      <p>
+        Answer: True
+      </p>
+    </div>
+    <div
+      class="mt-2 flex gap-2"
+    >
+      <div
+        class="px-3 py-1 bg-white border rounded"
+      >
+        True
+      </div>
+      <div
+        class="px-3 py-1 bg-white border rounded"
+      >
+        False
+      </div>
+    </div>
+  </div>
+</div>
+`;

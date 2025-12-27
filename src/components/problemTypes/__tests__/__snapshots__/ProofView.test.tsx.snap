@@ -1,0 +1,35 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ProofView > renders proof content 1`] = `
+<div>
+  <div>
+    <div>
+      <p>
+        Prove something important.
+      </p>
+    </div>
+    <div
+      class="mt-3 text-sm text-gray-700"
+    >
+      証明問題。解答は論述で表現してください。
+    </div>
+  </div>
+</div>
+`;
+
+exports[`ProofView > renders proof with answer shown 1`] = `
+<div>
+  <div>
+    <div>
+      <p>
+        Proof steps...
+      </p>
+    </div>
+    <div
+      class="mt-3 text-sm text-gray-700"
+    >
+      証明問題。解答は論述で表現してください。
+    </div>
+  </div>
+</div>
+`;

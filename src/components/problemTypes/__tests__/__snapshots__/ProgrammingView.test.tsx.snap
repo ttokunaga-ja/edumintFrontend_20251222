@@ -1,0 +1,35 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ProgrammingView > renders programming prompt 1`] = `
+<div>
+  <div>
+    <div
+      class="mb-2 text-sm text-gray-700"
+    >
+      プログラミング問題
+    </div>
+    <pre
+      class="whitespace-pre-wrap bg-gray-50 p-3 rounded text-sm"
+    >
+      Write add(a,b)
+    </pre>
+  </div>
+</div>
+`;
+
+exports[`ProgrammingView > renders programming with answer shown 1`] = `
+<div>
+  <div>
+    <div
+      class="mb-2 text-sm text-gray-700"
+    >
+      プログラミング問題
+    </div>
+    <pre
+      class="whitespace-pre-wrap bg-gray-50 p-3 rounded text-sm"
+    >
+      function add(a,b){return a+b}
+    </pre>
+  </div>
+</div>
+`;
