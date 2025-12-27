@@ -1,93 +1,105 @@
-# O_TASK_PHASES
+# MUI 移行 — フェーズ分解とタスク一覧 🗂️
 
-目的: `ProblemViewEditPage` の小問タイプ分離リファクタを安全に遂行するための段階的作業計画と運用ルールです。
+このドキュメントは移行プロジェクトを段階的に分解し、各フェーズの成果物と担当チェックリストを示します。
 
-> 重要: 各 PR は小さく（目安 200 行未満）かつ独立した DoD を持ち、必ず `docs/P_IMPLEMENT_REPORT_FMT.md` に準拠した実装報告（YAML frontmatter + Markdown 概要）を添付してください。
+---
 
-前提: フロントエンドは React + TypeScript。バックエンドは既存 API を維持。Moodle 等の OSS を参考に「タイプ別プラグイン」アーキテクチャを採用する。
+## フェーズ 0: 準備（1週）
+- ゴール: PoC の準備と CI/Storybook が移行を受け入れられる状態にする。
+- タスク:
+  - Package の選定・導入案作成（@mui/material, @mui/icons-material, @emotion/react, @emotion/styled）
+  - コンフリクト確認（Tailwind と Emotion の共存影響調査）
+  - Feature flag（`VITE_ENABLE_MUI_MIGRATION`）を追加
+  - Storybook のスタイル統合（必要であれば Emotion サポートを追加）
+- 成果物: PoC リポジトリブランチ、CI/Storybook のビルドが通ること
 
-フェーズ 0 — 準備（1 日）
-- 既存の `sub_questions` JSON スキーマを確認し、`sub_question_type_id` / `options` / `answer_content` の有無を検証する。
-- 現行 `ProblemViewEditPage` / `SubQuestionBlock` の動作確認（手動）と軽微な読み取りリファクタ（表示のみ委譲済）。
+---
 
-フェーズ 1 — 基盤実装（1-2 日）
-- 目的: `ProblemTypeRegistry` を確定し、`registerProblemType(id, loader)` / `getProblemTypeView(typeId)` を提供する。
-- 出力: `src/components/problemTypes/ProblemTypeRegistry.tsx`
+## フェーズ 0.5: Tailwind 廃止（2–4 週）
+- ゴール: Tailwind をコードベースから除去し、MUI テーマ / Design Tokens に移行する。
+- タスク:
+  - Tailwind クラスの全利用箇所をスキャンして優先度リストを作成
+  - `cn` / `tailwind-merge` の依存箇所を特定し置換方針を決定（clsx + MUI sx 等へ移行）
+  - 低リスク箇所は codemod で自動変換、高リスクは手動で移行
+  - Tailwind config / PostCSS / global import (`src/index.css`) の除去
+  - Storybook / Unit / E2E で見た目・動作を検証
+- 成果物: Tailwind 除去 PR、影響範囲レポート
 
-フェーズ 2 — View コンポーネント群（2-4 日）
-- 目的: `question_types` の各 ID（1,2,4,5,6,7,8,9）に対応する View コンポーネントを作成。
-- 出力: `src/components/problemTypes/{FreeText,MultipleChoice,Cloze,TrueFalse,Numeric,Proof,Programming,CodeReading}View.tsx`
+---
 
-フェーズ 3 — Edit コンポーネント群（3-6 日、並列可）
-- 目的: 各タイプの `Edit` コンポーネントを実装し、`ProblemEditor` から動的に切り替えられるようにする。
-- 出力: `src/components/problemTypes/*Edit.tsx`、registry に edit 登録
+## フェーズ 1: PoC（2週）
+- ゴール: `Button` と `Input` をラップして置換する PoC を実装／検証する。
+- タスク:
+  - `src/components/primitives/button` の内部を MUI に差し替える（薄いラッパー）
+  - Theme の初期設計（色、フォント、主要コンポーネントの高さ/余白）
+  - Storybook に PoC を追加して visual snapshot を作成
+  - Unit tests & A11y checks を追加
+- 成果物: PoC マージ可否判断、テーマ仕様書（初版）
 
-フェーズ 4 — 動的ロード & パフォーマンス最適化（1-2 日）
-- 目的: Vite の dynamic import を利用して初期バンドルを軽量化。多問問題では virtualization の検討。
+---
 
-フェーズ 5 — テスト・Storybook・CI（2-4 日）
-- 目的: 各 View/Edit のユニットテスト、Storybook ストーリーを作成。`vitest` を用いた重要な操作の E2E ライクなテスト追加。
+## フェーズ 2: Core primitives 置換（4–6 週）
+- ゴール: 優先度の高い primitives を MUI ベースで置換し、互換ラッパーを維持する。
+- 優先コンポーネント: Button, Input, Select, Checkbox, Radio, Switch, Dialog, Tooltip, Badge, Avatar
+- タスク（反復）:
+  - コンポーネントごとに PR を出す（1 PR = 1–2 コンポーネント推奨）
+  - Storybook と Unit test を必須条件にマージ
+  - 既存の UI 使用箇所を E2E で回帰テスト
+  - デザイントークンの差分をまとめる
+- 成果物: primitives 一式の MUI 実装、Storybook 更新、テスト緑
 
-フェーズ 6 — バックエンド契約 & 運用（2-4 日）
-- 目的: API 契約（問題インスタンスの JSON フィールド）を確定。必要なら backend-migration を提案。
+---
 
-フェーズ 7 — セキュリティ・実行環境（3-7 日）
-- 目的: プログラミング問題（ID 8/9）のコード実行は Jobe / CodeRunner 等のサンドボックスで扱う。タイムアウト/メモリ制限/ログ設計。
+## フェーズ 3: ページ単位の移行（6–10 週）
+- ゴール: 画面を段階的に置換して全体リグレッションを回避する。
+- タスク:
+  - 重要度/トラフィック順にページリストを作成（例: 問題作成、編集、ダッシュボード）
+  - 各ページで UI を差し替え、E2E を実行
+  - 見た目の微調整（Theme 更新）
+  - パフォーマンス計測（Lighthouse / Web Vitals）
+- 成果物: ページ移行ごとのリリースノート、E2E 結果、パフォーマンスレポート
 
-ロールとタスク分割（Phebe 用に細分化）
-- `frontend-registry`（担当 A）: Registry 実装、型定義、デフォルト登録。
-- `frontend-views`（担当 B）: View コンポーネント群（表示のみ）。
-- `frontend-edits`（担当 C）: Edit コンポーネント群 + `ProblemEditor` の接続。
-- `integration`（担当 D）: dynamic import、ビルド最適化、Storybook。
-- `backend-contract`（担当 E）: API スキーマ定義、必要なエンドポイント調整。
-- `sandbox`（担当 F）: CodeRunner/Jobe 統合設計とサーバ側実装／運用要件。
+---
 
-受け渡し条件（Definition of Done）
-- 各タイプの表示が `view` で正しくレンダリングされること。
-- 編集モードで各タイプの簡易 edit が動作し、保存／キャンセルが機能すること。
-- `npm run build` と `vitest` が CI 上で通る（最低限の tests を含む）。
-- ドキュメント（`docs/U_REFACTOR_REQUIREMENTS.md`）が更新されていること。
+## フェーズ 4: フォーム・バリデーション統合（2–3 週）
+- ゴール: `react-hook-form` 等と MUI コンポーネントの組合せで使いやすさを確保する。
+- タスク:
+  - 既存フォームのサンプル変換とユーティリティ更新
+  - バリデーションエラーハンドリングの共通化（Zod と連携）
+  - テスト（入力/バリデーション）
 
-備考
-- Moodle の `question/type/*` は設計の参考に最適。コードを直接流用する場合はライセンス（GPLv3 等）に従うこと。OSS の導入はコードとライセンスの双方をレビューする担当を立てること。
+---
 
-This document outlines the step-by-step phases to implement the Docker containerization for the Edumint Frontend.
+## フェーズ 5: 品質・最終調整（2–4 週）
+- ゴール: アクセシビリティ・ビジュアル・パフォーマンスを満たしプロダクションにロールアウトする。
+- タスク:
+  - A11y の自動/手動チェック完了
+  - Storybook とデザインレビューで視覚差分を合意
+  - バンドルサイズ最適化（不要アイコン除去、dynamic import の検討）
+  - Rollout plan に従って feature flag を段階解除
 
-## Phase 1: Environment Definition [Completed]
-**Objective**: Prepare the Docker environment with the specified stack.
+---
 
-*   1.1. Create `.dockerignore`
-    *   **Action**: Create the file at the project root for exclusion.
-*   1.2. Prepare Dependencies
-    *   **Action**: Ensure `package.json` is configured for React **v18.x**.
-    *   **Details**: No upgrade to React 19 is required. Update other minor dependencies if necessary.
-*   1.3. Create `Dockerfile`
-    *   **Action**: Use **node:24.12.0-alpine** as the base image.
-    *   **Details**: Standard multi-stage build setup.
+## フェーズ 6: ドキュメント・トレーニング（1–2 週）
+- ゴール: 開発者向けドキュメントと移行ガイドを公開し、チーム内トレーニングを実施する。
+- タスク:
+  - `primitives` の使用方法（旧 API との相違）を記載
+  - Theme の使い方 / カスタマイズガイドを作成
+  - チーム向けデモ・Q&A を開催
 
-## Phase 2: Orchestration & Configuration [Completed]
-**Objective**: Setup Docker Compose and adjust Vite 7 settings.
+---
 
-*   2.1. Create `docker-compose.yml`
-    *   **Action**: Create the service with port 5173 mapping and volumes.
-*   2.2. Update Vite Configuration
-    *   **Action**: Ensure `vite.config.ts` supports Vite 7 requirements and network exposure.
+## エスカレーション
+- 本プロダクトはプレリリースのため、厳密なロールバック運用や feature flag による段階リリースは必須としない。  
+- 重大な問題が発生した場合は素早く hotfix（修正 PR）を出し対応する運用とし、事後に振り返りを行う。  
+- 重大な A11y・UX 問題については緊急対応基準を設け、必要に応じて個別対応を行う。
+---
 
-## Phase 3: Verification & Documentation [Completed]
-**Objective**: Ensure the setup works as expected and document usage for the team.
+## 所要見積（ラフ）
+- 合計: 5–8 ヶ月（Tailwind 廃止作業を含むため増加）
+- リソース例: 2 フロントエンドエンジニア（1.0 FTE + 0.5 FTE）、QA エンジニア（部分的）
 
-*   3.1. Build & Run
-    *   **Action**: Run `docker-compose up --build`.
-    *   **Check**: Verify console output for successful vite startup.
-*   3.2. Test Connectivity & HMR
-    *   **Action**: Open `localhost:5173`. Edit `src/App.tsx` (or similar) and save.
-    *   **Check**: Confirm browser updates automatically.
-*   3.3. Update Documentation
-    *   **Action**: Update `README.md` (or create `docs/DOCKER_GUIDE.md`).
-    *   **Details**: Add commands for starting (`docker-compose up`), stopping, and rebuilding.
+---
 
-## Phase 4: Cleanup (Optional/Post-Refactor)
-**Objective**: Clean up local environment if shifting entirely to Docker.
-
-*   4.1. Remove local `node_modules` (Optional)
-    *   **Action**: Delete local `node_modules` to test if the container runs truly independently.
+## 補足（タスク管理の推奨）
+- 各 PR に必ず `migration:mui` ラベルを付け、レビュー時は UI スクリーンショットと Storybook URL を添付する。

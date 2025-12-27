@@ -277,7 +277,7 @@ Edumintfrontedfigma/src/src/
 - Gateway は唯一の API 経路。直接 fetch 禁止。レスポンスは必ず型/スキーマ検証。
 - Legacy は参照のみ許可。新規開発は新実装ルート（As-Is: `src/src/*` / To-Be: `src/app/*`）に配置し、移行後に削除。
 - ServiceHealth と FeatureFlag は UI レイヤーの手前で評価し、CTA で重複判定しない。
-- 文言/i18n は辞書経由。スタイルは Tailwind/shadcn/ui を優先、カスタム CSS は限定的に。
+- 文言/i18n は辞書経由。**スタイルは MUI + Emotion（Design Tokens）を優先**し、Tailwind は廃止する。カスタム CSS は限定的に。
 - 現状: `src/src/pages` は Home/ProblemCreate/ProblemViewEdit が中心。MyPage/Login/Admin は legacy に残存しうる。
 
 ## 移行方針（Legacy → FIGMA/New）
