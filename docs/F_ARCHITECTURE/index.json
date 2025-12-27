@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-27T06:43:15.802Z",
+  "generated_at": "2025-12-27T07:07:55.470Z",
   "index": [
     {
       "id": "src_components_common",
@@ -106,7 +106,7 @@
       "id": "src_components_problemTypes",
       "name": "src/components/problemTypes",
       "path": "src/components/problemTypes",
-      "file_count": 17,
+      "file_count": 18,
       "entry_points": [
         "src/components/problemTypes/ClozeEdit.tsx",
         "src/components/problemTypes/ClozeView.tsx",
