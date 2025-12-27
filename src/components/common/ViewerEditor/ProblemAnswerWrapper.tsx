@@ -1,13 +1,13 @@
 import React from 'react';
 import type { ProblemTypeEditProps } from '@/types/problemTypes';
-import DescriptiveEditor from './Descriptive';
-import SelectionEditor from './Selection';
-import FillInBlankEditor from './FillInBlank';
-import TrueFalseEditor from './TrueFalse';
-import MathCalculationEditor from './MathCalculation';
-import ProofEditor from './Proof';
-import ProgrammingEditor from './Programming';
-import CodeReadingEditor from './CodeReading';
+import DescriptiveEditor from './Type1_Descriptive';
+import SelectionEditor from './Type2_Selection';
+import FillInBlankEditor from './Type4_FillInBlank';
+import TrueFalseEditor from './Type5_TrueFalse';
+import MathCalculationEditor from './Type6_MathCalculation';
+import ProofEditor from './Type7_Proof';
+import ProgrammingEditor from './Type8_Programming';
+import CodeReadingEditor from './Type9_CodeReading';
 
 type Props = ProblemTypeEditProps & { formatId: number };
 

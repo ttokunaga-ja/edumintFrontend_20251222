@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import DescriptiveEditor from '../Descriptive';
+import DescriptiveEditor from '../Type1_Descriptive';
 
 test('descriptive renders question and answer editors', () => {
   render(<DescriptiveEditor questionContent="q" questionFormat={0} onQuestionChange={() => {}} onAnswerChange={() => {}} />);
