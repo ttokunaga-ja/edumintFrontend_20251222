@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 type Props = {
   value: string;
@@ -8,9 +8,53 @@ type Props = {
   language?: string;
 };
 
-export default function CodeEditorWrapper({ value, onChange, ariaLabel = '解答 / メモ', placeholder = 'コードを入力...', language }: Props) {
-  // Lightweight code editor wrapper: uses a simple textarea as the editable surface.
-  // Heavy editors (Monaco/CodeMirror) can be lazily loaded later behind feature flags.
+export default function CodeEditorWrapper({ value, onChange, ariaLabel = '解答 / メモ', placeholder = 'コードを入力...', language = 'javascript' }: Props) {
+  // Lazy-load CodeMirror (via @uiw/react-codemirror) to keep initial bundle small.
+  const [EditorComp, setEditorComp] = useState<React.ComponentType<any> | null>(null);
+  const [langExt, setLangExt] = useState<any | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    // Dynamically import editor and language module
+    Promise.all([import('@uiw/react-codemirror'), import('@codemirror/lang-javascript')])
+      .then(([editorModule, langModule]) => {
+        if (!mounted) return;
+        setEditorComp(() => editorModule.default);
+        // For now default to javascript; future: map language prop
+        setLangExt(() => langModule.javascript());
+      })
+      .catch(() => {
+        /* ignore — fallback will remain */
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [language]);
+
+  if (EditorComp && langExt) {
+    const Editor = EditorComp as any;
+    return (
+      <div>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="block text-sm font-medium text-gray-700">{ariaLabel}</label>
+        </div>
+        <Editor
+          value={value}
+          onChange={(val: string) => onChange(val)}
+          extensions={[langExt]}
+          aria-label={`${ariaLabel}入力`}
+          placeholder={placeholder}
+          className="rounded-lg border border-gray-300"
+        />
+        <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm">
+          <div className="mb-2 text-xs font-semibold text-gray-600">プレビュー</div>
+          <pre className="prose prose-sm max-w-none whitespace-pre-wrap"><code>{value}</code></pre>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback editable textarea while CodeMirror is loading or unavailable (keeps tests deterministic)
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
