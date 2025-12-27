@@ -1,0 +1,15 @@
+{
+  "id": 248,
+  "file": "src/components/primitives/sidebar.tsx",
+  "classSet": [
+    "size-4",
+    "rounded-md"
+  ],
+  "matchedTokens": [
+    "borderRadius"
+  ],
+  "suggestedStyle": {
+    "borderRadius": "0.375rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

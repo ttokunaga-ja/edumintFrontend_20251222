@@ -1,0 +1,24 @@
+{
+  "id": 53,
+  "file": "src/components/page/HomePage/SearchSection.tsx",
+  "classSet": [
+    "mt-4",
+    "max-w-3xl",
+    "mx-auto",
+    "flex",
+    "flex-wrap",
+    "items-center",
+    "gap-2"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems",
+    "gap"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center",
+    "gap": "0.5rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

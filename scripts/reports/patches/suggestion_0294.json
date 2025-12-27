@@ -1,0 +1,28 @@
+{
+  "id": 294,
+  "file": "src/pages/StructureConfirmPage.tsx",
+  "classSet": [
+    "rounded-md",
+    "border",
+    "border-gray-200",
+    "px-4",
+    "py-2",
+    "text-gray-700",
+    "hover:bg-gray-50"
+  ],
+  "matchedTokens": [
+    "borderRadius",
+    "paddingLeft",
+    "paddingRight",
+    "paddingTop",
+    "paddingBottom"
+  ],
+  "suggestedStyle": {
+    "borderRadius": "0.375rem",
+    "paddingLeft": "1rem",
+    "paddingRight": "1rem",
+    "paddingTop": "0.5rem",
+    "paddingBottom": "0.5rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

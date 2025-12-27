@@ -1,0 +1,29 @@
+{
+  "id": 32,
+  "file": "src/components/common/TopMenuBar.tsx",
+  "classSet": [
+    "w-full",
+    "rounded-full",
+    "border",
+    "border-gray-200",
+    "bg-gray-50",
+    "py-2",
+    "pl-10",
+    "pr-4",
+    "text-sm",
+    "focus:border-blue-700",
+    "focus:outline-none",
+    "focus:ring-1",
+    "focus:ring-blue-700",
+    "transition-all"
+  ],
+  "matchedTokens": [
+    "paddingTop",
+    "paddingBottom"
+  ],
+  "suggestedStyle": {
+    "paddingTop": "0.5rem",
+    "paddingBottom": "0.5rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

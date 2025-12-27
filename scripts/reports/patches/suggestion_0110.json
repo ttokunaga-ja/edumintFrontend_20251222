@@ -1,0 +1,20 @@
+{
+  "id": 110,
+  "file": "src/components/page/ProblemCreatePage/GenerationPhase.tsx",
+  "classSet": [
+    "flex",
+    "items-center",
+    "gap-2"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems",
+    "gap"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center",
+    "gap": "0.5rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

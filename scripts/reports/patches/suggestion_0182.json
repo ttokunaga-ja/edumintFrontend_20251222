@@ -1,0 +1,18 @@
+{
+  "id": 182,
+  "file": "src/components/page/ProblemViewEditPage/EditHistoryBlock.tsx",
+  "classSet": [
+    "flex",
+    "items-center",
+    "space-x-2"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

@@ -1,0 +1,29 @@
+{
+  "id": 277,
+  "file": "src/pages/MyPage.tsx",
+  "classSet": [
+    "flex",
+    "overflow-x-auto",
+    "space-x-4",
+    "pb-4",
+    "scrollbar-hide",
+    "snap-x",
+    "snap-mandatory",
+    "scroll-smooth",
+    "-mx-4",
+    "px-4",
+    "md:mx-0",
+    "md:px-0"
+  ],
+  "matchedTokens": [
+    "display",
+    "paddingLeft",
+    "paddingRight"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "paddingLeft": "1rem",
+    "paddingRight": "1rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

@@ -1,0 +1,16 @@
+{
+  "file": "src/components/page/ProblemViewEditPage/AnswerBlock.tsx",
+  "matchedTokens": [
+    "display",
+    "alignItems",
+    "paddingLeft",
+    "paddingRight"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center",
+    "paddingLeft": "1rem",
+    "paddingRight": "1rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

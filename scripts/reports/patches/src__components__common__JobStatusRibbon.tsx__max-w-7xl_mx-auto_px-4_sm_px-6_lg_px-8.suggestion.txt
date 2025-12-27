@@ -1,0 +1,12 @@
+{
+  "file": "src/components/common/JobStatusRibbon.tsx",
+  "matchedTokens": [
+    "paddingLeft",
+    "paddingRight"
+  ],
+  "suggestedStyle": {
+    "paddingLeft": "1rem",
+    "paddingRight": "1rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

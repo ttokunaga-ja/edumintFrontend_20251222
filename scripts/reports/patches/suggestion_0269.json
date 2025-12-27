@@ -1,0 +1,19 @@
+{
+  "id": 269,
+  "file": "src/pages/HomePage.tsx",
+  "classSet": [
+    "flex",
+    "flex-col",
+    "sm:flex-row",
+    "sm:items-center",
+    "sm:justify-between",
+    "gap-4"
+  ],
+  "matchedTokens": [
+    "display"
+  ],
+  "suggestedStyle": {
+    "display": "flex"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

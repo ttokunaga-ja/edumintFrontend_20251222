@@ -1,0 +1,28 @@
+{
+  "id": 158,
+  "file": "src/components/page/ProblemCreatePage/StartPhase.tsx",
+  "classSet": [
+    "w-16",
+    "h-16",
+    "bg-white",
+    "rounded-full",
+    "shadow-md",
+    "flex",
+    "items-center",
+    "justify-center",
+    "mb-4",
+    "group-hover:scale-110",
+    "transition-transform"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems",
+    "justifyContent"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

@@ -1,0 +1,20 @@
+{
+  "id": 192,
+  "file": "src/components/page/ProblemViewEditPage/ProblemMetaBlock.tsx",
+  "classSet": [
+    "grid",
+    "grid-cols-1",
+    "sm:grid-cols-2",
+    "gap-3",
+    "pt-4",
+    "border-t",
+    "border-gray-200"
+  ],
+  "matchedTokens": [
+    "gap"
+  ],
+  "suggestedStyle": {
+    "gap": "0.75rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

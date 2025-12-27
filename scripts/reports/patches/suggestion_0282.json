@@ -1,0 +1,21 @@
+{
+  "id": 282,
+  "file": "src/pages/ProblemViewEditPage.tsx",
+  "classSet": [
+    "max-w-7xl",
+    "mx-auto",
+    "px-4",
+    "sm:px-6",
+    "lg:px-8",
+    "py-8"
+  ],
+  "matchedTokens": [
+    "paddingLeft",
+    "paddingRight"
+  ],
+  "suggestedStyle": {
+    "paddingLeft": "1rem",
+    "paddingRight": "1rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

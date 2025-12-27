@@ -1,0 +1,32 @@
+{
+  "id": 288,
+  "file": "src/pages/ProfileSetupPage.tsx",
+  "classSet": [
+    "w-full",
+    "rounded-md",
+    "bg-indigo-600",
+    "px-4",
+    "py-2",
+    "text-white",
+    "shadow-sm",
+    "transition-colors",
+    "hover:bg-indigo-700",
+    "disabled:opacity-50",
+    "disabled:cursor-not-allowed"
+  ],
+  "matchedTokens": [
+    "borderRadius",
+    "paddingLeft",
+    "paddingRight",
+    "paddingTop",
+    "paddingBottom"
+  ],
+  "suggestedStyle": {
+    "borderRadius": "0.375rem",
+    "paddingLeft": "1rem",
+    "paddingRight": "1rem",
+    "paddingTop": "0.5rem",
+    "paddingBottom": "0.5rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

@@ -1,0 +1,14 @@
+{
+  "id": 233,
+  "file": "src/components/primitives/accordion.tsx",
+  "classSet": [
+    "flex"
+  ],
+  "matchedTokens": [
+    "display"
+  ],
+  "suggestedStyle": {
+    "display": "flex"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

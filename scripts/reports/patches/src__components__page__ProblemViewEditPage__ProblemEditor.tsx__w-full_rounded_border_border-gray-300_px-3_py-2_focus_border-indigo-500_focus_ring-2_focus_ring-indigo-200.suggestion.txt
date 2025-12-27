@@ -1,0 +1,12 @@
+{
+  "file": "src/components/page/ProblemViewEditPage/ProblemEditor.tsx",
+  "matchedTokens": [
+    "paddingTop",
+    "paddingBottom"
+  ],
+  "suggestedStyle": {
+    "paddingTop": "0.5rem",
+    "paddingBottom": "0.5rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

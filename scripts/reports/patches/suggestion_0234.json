@@ -1,0 +1,22 @@
+{
+  "id": 234,
+  "file": "src/components/primitives/checkbox.tsx",
+  "classSet": [
+    "flex",
+    "items-center",
+    "justify-center",
+    "text-current",
+    "transition-none"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems",
+    "justifyContent"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

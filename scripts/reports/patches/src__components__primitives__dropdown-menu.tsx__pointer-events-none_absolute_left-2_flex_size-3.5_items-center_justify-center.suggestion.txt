@@ -1,0 +1,14 @@
+{
+  "file": "src/components/primitives/dropdown-menu.tsx",
+  "matchedTokens": [
+    "display",
+    "alignItems",
+    "justifyContent"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

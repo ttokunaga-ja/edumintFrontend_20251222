@@ -1,0 +1,19 @@
+{
+  "id": 102,
+  "file": "src/components/page/ProblemCreatePage/FileUploadQueueLegacy.tsx",
+  "classSet": [
+    "flex",
+    "items-center",
+    "justify-between",
+    "mb-2"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

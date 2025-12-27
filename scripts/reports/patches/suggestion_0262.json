@@ -1,0 +1,18 @@
+{
+  "id": 262,
+  "file": "src/components/problemTypes/MultipleChoiceView.tsx",
+  "classSet": [
+    "flex",
+    "items-start",
+    "gap-3"
+  ],
+  "matchedTokens": [
+    "display",
+    "gap"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "gap": "0.75rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

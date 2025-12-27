@@ -1,0 +1,19 @@
+{
+  "id": 251,
+  "file": "src/components/problemTypes/FreeTextEdit.tsx",
+  "classSet": [
+    "mb-1",
+    "flex",
+    "items-center",
+    "justify-between"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

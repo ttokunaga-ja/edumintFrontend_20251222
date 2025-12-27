@@ -1,0 +1,31 @@
+{
+  "id": 140,
+  "file": "src/components/page/ProblemCreatePage/ProblemSettingsBlock.tsx",
+  "classSet": [
+    "w-full",
+    "px-4",
+    "sm:px-6",
+    "py-4",
+    "flex",
+    "items-center",
+    "justify-between",
+    "bg-gray-50",
+    "hover:bg-gray-100",
+    "transition-colors",
+    "border-b",
+    "border-gray-100"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems",
+    "paddingLeft",
+    "paddingRight"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center",
+    "paddingLeft": "1rem",
+    "paddingRight": "1rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

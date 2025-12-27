@@ -1,0 +1,30 @@
+{
+  "id": 225,
+  "file": "src/components/page/ProblemViewEditPage/SubQuestionBlock.tsx",
+  "classSet": [
+    "flex",
+    "items-center",
+    "gap-1",
+    "px-2",
+    "py-1",
+    "bg-white",
+    "hover:bg-gray-50",
+    "rounded",
+    "text-xs",
+    "text-gray-700",
+    "transition-colors",
+    "border",
+    "border-gray-200"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems",
+    "gap"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center",
+    "gap": "0.25rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

@@ -1,0 +1,17 @@
+{
+  "id": 47,
+  "file": "src/components/page/HomePage/AdvancedSearchPanel.tsx",
+  "classSet": [
+    "grid",
+    "grid-cols-2",
+    "gap-2",
+    "mt-2"
+  ],
+  "matchedTokens": [
+    "gap"
+  ],
+  "suggestedStyle": {
+    "gap": "0.5rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

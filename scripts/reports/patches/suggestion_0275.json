@@ -1,0 +1,17 @@
+{
+  "id": 275,
+  "file": "src/pages/MyPage.tsx",
+  "classSet": [
+    "space-y-4",
+    "py-2"
+  ],
+  "matchedTokens": [
+    "paddingTop",
+    "paddingBottom"
+  ],
+  "suggestedStyle": {
+    "paddingTop": "0.5rem",
+    "paddingBottom": "0.5rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

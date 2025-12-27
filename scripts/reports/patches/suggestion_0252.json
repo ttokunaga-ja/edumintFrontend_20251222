@@ -1,0 +1,26 @@
+{
+  "id": 252,
+  "file": "src/components/problemTypes/FreeTextEdit.tsx",
+  "classSet": [
+    "w-full",
+    "min-h-[120px]",
+    "rounded-lg",
+    "border",
+    "border-gray-300",
+    "px-3",
+    "py-2",
+    "text-sm",
+    "focus:border-indigo-500",
+    "focus:ring-2",
+    "focus:ring-indigo-200"
+  ],
+  "matchedTokens": [
+    "paddingTop",
+    "paddingBottom"
+  ],
+  "suggestedStyle": {
+    "paddingTop": "0.5rem",
+    "paddingBottom": "0.5rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

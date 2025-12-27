@@ -1,0 +1,10 @@
+{
+  "file": "src/components/common/Pagination.tsx",
+  "matchedTokens": [
+    "borderRadius"
+  ],
+  "suggestedStyle": {
+    "borderRadius": "0.375rem"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}

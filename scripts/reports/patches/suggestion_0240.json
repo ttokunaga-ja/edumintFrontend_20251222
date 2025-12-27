@@ -1,0 +1,23 @@
+{
+  "id": 240,
+  "file": "src/components/primitives/input-otp.tsx",
+  "classSet": [
+    "pointer-events-none",
+    "absolute",
+    "inset-0",
+    "flex",
+    "items-center",
+    "justify-center"
+  ],
+  "matchedTokens": [
+    "display",
+    "alignItems",
+    "justifyContent"
+  ],
+  "suggestedStyle": {
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center"
+  },
+  "note": "Manual application recommended: convert matching tokens to MUI sx/Box and remove tailwind classes when safe."
+}
