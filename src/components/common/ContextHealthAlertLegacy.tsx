@@ -94,7 +94,7 @@ export interface ServiceHealthSummaryProps {
       label: string;
       onClick: () => void;
     };
-  }>;
+  }} >;
   className?: string;
 }
 

@@ -36,7 +36,7 @@ export interface SearchSectionProps {
     id: string;
     label: string;
     onRemove: () => void;
-  }>;
+  }} >;
 
   /** Clear all filters handler */
   onClearAll?: () => void;
