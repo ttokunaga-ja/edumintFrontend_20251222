@@ -321,7 +321,7 @@ export default function AdvancedSearchPanel({
                 <div style={{
       display: "flex",
       gap: "0.5rem"
-    }>
+    }}>
                   {recentYears.map(year => (
                     <Badge
                       key={year}

@@ -45,7 +45,7 @@ const FallbackEdit = ({ questionContent, answerContent, onQuestionChange, onAnsw
             style={{
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
-    }
+    }}
             placeholder="小問の問題文を入力..."
         />
         <label className="block text-xs font-medium text-gray-700">解答</label>
@@ -55,7 +55,7 @@ const FallbackEdit = ({ questionContent, answerContent, onQuestionChange, onAnsw
             style={{
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
-    }
+    }}
             placeholder="解答やメモを入力..."
         />
     </div>
