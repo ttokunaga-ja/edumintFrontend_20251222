@@ -132,7 +132,7 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
       borderRadius: "0.375rem",
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
-    }
+    }}
                 value={options.questionCount}
                 onChange={(e) => {
                   const val = parseInt(e.target.value);
