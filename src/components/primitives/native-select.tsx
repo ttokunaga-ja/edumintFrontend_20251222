@@ -41,7 +41,7 @@ export const NativeSelect = ({ value, onChange, items, placeholder = "選択し�
           <svg className="w-4 h-4 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9l6 6 6-6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
       )}
-      className={cn("bg-white text-popover-foreground rounded-md border p-1 shadow-md w-72", className)}
+      className={cn("bg-white text-popover-foreground rounded-md border p-1 shadow-md w-72", className)}}
     >
       <div role="listbox" aria-activedescendant={selected ? `native-select-${selected.value}` : undefined} tabIndex={-1}>
         <div className="p-1">
@@ -54,11 +54,11 @@ export const NativeSelect = ({ value, onChange, items, placeholder = "選択し�
               onClick={() => {
                 onChange?.(it.value);
                 setOpen(false);
-              }
+              }}
               className={cn(
                 "w-full text-left px-3 py-2 rounded-sm text-sm hover:bg-gray-100",
                 it.value === value && "bg-indigo-50"
-              )}
+              )}}
             >
               {it.label}
             </button>
