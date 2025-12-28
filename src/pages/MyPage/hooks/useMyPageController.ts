@@ -2,58 +2,6 @@ import { useMemo } from 'react';
 import type { Page, User } from '@/types';
 import { useProfile } from '@/features/user/hooks/useProfile';
 import { useStats } from '@/features/user/hooks/useStats';
-import { useWallet } from '@/features/user/hooks/useWallet';
-
-type Params = {
-  user: User;
-  onNavigate: (page: Page, problemId?: string) => void;
-  onNavigateToEdit?: (page: Page, problemId: string, mode: 'create' | 'edit') => void;
-  onLogout: () => void;
-};
-
-export const useMyPageController = ({ user, onNavigate, onNavigateToEdit, onLogout }: Params) => {
-  const { profile, isSavingProfile, profileVersion, saveProfile, resetProfile } = useProfile(user);
-  const { stats, isLoadingStats } = useStats(profile.id);
-  const { wallet, isLoadingWallet } = useWallet();
-
-  const statsForCards = useMemo(
-    () => ({
-      totalProblems: stats.totalProblems ?? 0,
-      totalViews: stats.totalViews ?? 0,
-      totalLikes: stats.totalLikes ?? 0,
-      totalComments: stats.totalComments ?? 0,
-      avgLikesPerProblem: stats.avgLikesPerProblem ?? 0,
-      rank: stats.rank || undefined,
-    }),
-    [stats],
-  );
-
-  const handleCreateProblem = () => onNavigate();
-
-  const handleEditProblem = () => {
-    const dummyProblemId = crypto.randomUUID();
-    if (onNavigateToEdit) {
-      onNavigateToEdit(, dummyProblemId, 'edit');
-    } else {
-      onNavigate(, dummyProblemId);
-    }
-  };
-
-  const handleGoHome = () => onNavigate('home');
-
-  return {
-    profile,
-    stats: statsForCards,
-    wallet,
-    isLoadingStats,
-    isLoadingWallet,
-    isSavingProfile,
-    profileVersion,
-    handleProfileSave: saveProfile,
-    handleProfileCancel: resetProfile,
-    handleCreateProblem,
-    handleEditProblem,
-    handleGoHome,
-    handleLogout: onLogout,
-  };
+import { useWallet } from '@/features/user/hooks/useWallet'; type Params = { user: User; onNavigate: (page: Page, problemId?: string) => void; onNavigateToEdit?: (page: Page, problemId: string, mode: 'create' | 'edit') => void; onLogout: () => void;
+}; export const useMyPageController = ({ user, onNavigate, onNavigateToEdit, onLogout }: Params) => { const { profile, isSavingProfile, profileVersion, saveProfile, resetProfile } = useProfile(user); const { stats, isLoadingStats } = useStats(profile.id); const { wallet, isLoadingWallet } = useWallet(); const statsForCards = useMemo( () => ({ totalProblems: stats.totalProblems ?? 0, totalViews: stats.totalViews ?? 0, totalLikes: stats.totalLikes ?? 0, totalComments: stats.totalComments ?? 0, avgLikesPerProblem: stats.avgLikesPerProblem ?? 0, rank: stats.rank || undefined, }), [stats]); const handleCreateProblem = () => onNavigate(); const handleEditProblem = () => { const dummyProblemId = crypto.randomUUID(); if (onNavigateToEdit) { onNavigateToEdit( dummyProblemId, 'edit'); } else { onNavigate( dummyProblemId); } }; const handleGoHome = () => onNavigate('home'); return { profile, stats: statsForCards, wallet, isLoadingStats, isLoadingWallet, isSavingProfile, profileVersion, handleProfileSave: saveProfile, handleProfileCancel: resetProfile, handleCreateProblem, handleEditProblem, handleGoHome, handleLogout: onLogout, };
 };

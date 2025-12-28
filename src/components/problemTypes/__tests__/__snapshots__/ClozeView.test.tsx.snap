@@ -1,33 +1,7 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
-
-exports[`ClozeView > renders cloze markdown content 1`] = `
-<div>
-  <div>
-    <div>
-      <p>
-        Fill the blank: The capital of France is 
-        <strong>
-          ____
-        </strong>
-        .
-      </p>
-    </div>
-  </div>
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html exports[`ClozeView > renders cloze markdown content 1`] = `
+<div> <div> <div> <p> Fill the blank: The capital of France is <strong> ____ </strong> . </p> </div> </div>
 </div>
-`;
-
-exports[`ClozeView > renders cloze with answer shown 1`] = `
-<div>
-  <div>
-    <div>
-      <p>
-        Fill the blank: The capital of France is 
-        <strong>
-          Paris
-        </strong>
-        .
-      </p>
-    </div>
-  </div>
+`; exports[`ClozeView > renders cloze with answer shown 1`] = `
+<div> <div> <div> <p> Fill the blank: The capital of France is <strong> Paris </strong> . </p> </div> </div>
 </div>
 `;

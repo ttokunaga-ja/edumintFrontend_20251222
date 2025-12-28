@@ -1,219 +1,25 @@
 import type { Exam, ExamComment, Report } from '@/types';
 import { API_BASE_URL, getHeaders, handleResponse, ApiError } from '../httpClient';
-import type { SearchResponse } from './search';
-
-export interface CreateExamPayload {
-  examName: string;
-  universityId: number;
-  facultyId: number;
-  subjectId: string;
-  teacherId?: number;
-  examYear: number;
-  isPublic: boolean;
-  questions: Array<{
-    questionNumber: number;
-    questionContent: string;
-    questionFormat: 0 | 1;
-    difficulty: number;
-    keywords: string[];
-    subQuestions: Array<{
-      subQuestionNumber: number;
-      questionTypeId: number;
-      questionContent: string;
-      questionFormat: 0 | 1;
-      answerContent: string;
-      answerFormat: 0 | 1;
-      keywords: string[];
-    }>;
-  }>;
-}
-
-export const getExam = async (examId: string): Promise<Exam> => {
-  const response = await fetch(`${API_BASE_URL}/exams/${examId}`, {
-    method: 'GET',
-    headers: getHeaders(),
-  });
-
-  return handleResponse<Exam>(response);
-};
-
-export const createExam = async (payload: CreateExamPayload): Promise<Exam> => {
-  const response = await fetch(`${API_BASE_URL}/exams`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(payload),
-  });
-
-  return handleResponse<Exam>(response);
-};
-
-export const updateExam = async (examId: string, payload: Partial<CreateExamPayload>): Promise<Exam> => {
-  const response = await fetch(`${API_BASE_URL}/exams/${examId}`, {
-    method: 'PATCH',
-    headers: getHeaders(),
-    body: JSON.stringify(payload),
-  });
-
-  return handleResponse<Exam>(response);
-};
-
-export const deleteExam = async (examId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/exams/${examId}`, {
-    method: 'DELETE',
-    headers: getHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, 'Failed to delete exam');
-  }
-};
-
-export interface ExamHistory {
-  id: string;
-  examId: string;
-  version: number;
-  changedBy: string;
-  changedAt: string;
-  changes: Record<string, any>;
-}
-
-export const getExamHistory = async (examId: string): Promise<ExamHistory[]> => {
-  const response = await fetch(, {
-    method: 'GET',
-    headers: getHeaders(),
-  });
-
-  return handleResponse<ExamHistory[]>(response);
-};
-
-export const rollbackExam = async (examId: string, version: number): Promise<Exam> => {
-  const response = await fetch(, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify({ version }),
-  });
-
-  return handleResponse<Exam>(response);
-};
-
-export const likeExam = async (examId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/exams/${examId}/like`, {
-    method: 'POST',
-    headers: getHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, 'Failed to like exam');
-  }
-};
-
-export const unlikeExam = async (examId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/exams/${examId}/like`, {
-    method: 'DELETE',
-    headers: getHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, 'Failed to unlike exam');
-  }
-};
-
-export const bookmarkExam = async (examId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/exams/${examId}/bookmark`, {
-    method: 'POST',
-    headers: getHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, 'Failed to bookmark exam');
-  }
-};
-
-export const unbookmarkExam = async (examId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/exams/${examId}/bookmark`, {
-    method: 'DELETE',
-    headers: getHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, 'Failed to unbookmark exam');
-  }
-};
-
-export const shareExam = async (examId: string, platform: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/exams/${examId}/share`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify({ platform }),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, 'Failed to share exam');
-  }
-};
-
-export const getComments = async (examId: string): Promise<ExamComment[]> => {
-  const response = await fetch(`${API_BASE_URL}/comments?examId=${examId}`, {
-    method: 'GET',
-    headers: getHeaders(),
-  });
-
-  return handleResponse<ExamComment[]>(response);
-};
-
-export const addComment = async (examId: string, comment: string): Promise<ExamComment> => {
-  const response = await fetch(`${API_BASE_URL}/comments`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify({ examId, comment }),
-  });
-
-  return handleResponse<ExamComment>(response);
-};
-
-export const deleteComment = async (commentId: string): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/comments/${commentId}`, {
-    method: 'DELETE',
-    headers: getHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, 'Failed to delete comment');
-  }
-};
-
-export const voteComment = async (
-  commentId: string,
-  voteType: 'upvote' | 'downvote'
-): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/comments/${commentId}/vote`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify({ voteType }),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, 'Failed to vote comment');
-  }
-};
-
-export interface CreateReportPayload {
-  contentType: 'exam' | 'question' | 'sub_question' | 'exam_comment';
-  contentId: string;
-  reasonId: number;
-  details?: string;
-}
-
-export const createReport = async (payload: CreateReportPayload): Promise<Report> => {
-  const response = await fetch(`${API_BASE_URL}/reports`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(payload),
-  });
-
-  return handleResponse<Report>(response);
-};
-
-// Stubs for contract alignment (to be expanded when backend ready)
+import type { SearchResponse } from './search'; export interface CreateExamPayload { examName: string; universityId: number; facultyId: number; subjectId: string; teacherId?: number; examYear: number; isPublic: boolean; questions: Array<{ questionNumber: number; questionContent: string; questionFormat: 0 | 1; difficulty: number; keywords: string[]; subQuestions: Array<{ subQuestionNumber: number; questionTypeId: number; questionContent: string; questionFormat: 0 | 1; answerContent: string; answerFormat: 0 | 1; keywords: string[]; }>; }>;
+} export const getExam = async (examId: string): Promise<Exam> => { const response = await fetch(`${API_BASE_URL}/exams/${examId}`, { method: 'GET', headers: getHeaders(), }); return handleResponse<Exam>(response);
+}; export const createExam = async (payload: CreateExamPayload): Promise<Exam> => { const response = await fetch(`${API_BASE_URL}/exams`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload), }); return handleResponse<Exam>(response);
+}; export const updateExam = async (examId: string, payload: Partial<CreateExamPayload>): Promise<Exam> => { const response = await fetch(`${API_BASE_URL}/exams/${examId}`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify(payload), }); return handleResponse<Exam>(response);
+}; export const deleteExam = async (examId: string): Promise<void> => { const response = await fetch(`${API_BASE_URL}/exams/${examId}`, { method: 'DELETE', headers: getHeaders(), }); if (!response.ok) { throw new ApiError(response.status, 'Failed to delete exam'); }
+}; export interface ExamHistory { id: string; examId: string; version: number; changedBy: string; changedAt: string; changes: Record<string, any>;
+} export const getExamHistory = async (examId: string): Promise<ExamHistory[]> => { const response = await fetch( { method: 'GET', headers: getHeaders(), }); return handleResponse<ExamHistory[]>(response);
+}; export const rollbackExam = async (examId: string, version: number): Promise<Exam> => { const response = await fetch( { method: 'POST', headers: getHeaders(), body: JSON.stringify({ version }), }); return handleResponse<Exam>(response);
+}; export const likeExam = async (examId: string): Promise<void> => { const response = await fetch(`${API_BASE_URL}/exams/${examId}/like`, { method: 'POST', headers: getHeaders(), }); if (!response.ok) { throw new ApiError(response.status, 'Failed to like exam'); }
+}; export const unlikeExam = async (examId: string): Promise<void> => { const response = await fetch(`${API_BASE_URL}/exams/${examId}/like`, { method: 'DELETE', headers: getHeaders(), }); if (!response.ok) { throw new ApiError(response.status, 'Failed to unlike exam'); }
+}; export const bookmarkExam = async (examId: string): Promise<void> => { const response = await fetch(`${API_BASE_URL}/exams/${examId}/bookmark`, { method: 'POST', headers: getHeaders(), }); if (!response.ok) { throw new ApiError(response.status, 'Failed to bookmark exam'); }
+}; export const unbookmarkExam = async (examId: string): Promise<void> => { const response = await fetch(`${API_BASE_URL}/exams/${examId}/bookmark`, { method: 'DELETE', headers: getHeaders(), }); if (!response.ok) { throw new ApiError(response.status, 'Failed to unbookmark exam'); }
+}; export const shareExam = async (examId: string, platform: string): Promise<void> => { const response = await fetch(`${API_BASE_URL}/exams/${examId}/share`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ platform }), }); if (!response.ok) { throw new ApiError(response.status, 'Failed to share exam'); }
+}; export const getComments = async (examId: string): Promise<ExamComment[]> => { const response = await fetch(`${API_BASE_URL}/comments?examId=${examId}`, { method: 'GET', headers: getHeaders(), }); return handleResponse<ExamComment[]>(response);
+}; export const addComment = async (examId: string, comment: string): Promise<ExamComment> => { const response = await fetch(`${API_BASE_URL}/comments`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ examId, comment }), }); return handleResponse<ExamComment>(response);
+}; export const deleteComment = async (commentId: string): Promise<void> => { const response = await fetch(`${API_BASE_URL}/comments/${commentId}`, { method: 'DELETE', headers: getHeaders(), }); if (!response.ok) { throw new ApiError(response.status, 'Failed to delete comment'); }
+}; export const voteComment = async ( commentId: string, voteType: 'upvote' | 'downvote'
+): Promise<void> => { const response = await fetch(`${API_BASE_URL}/comments/${commentId}/vote`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ voteType }), }); if (!response.ok) { throw new ApiError(response.status, 'Failed to vote comment'); }
+}; export interface CreateReportPayload { contentType: 'exam' | 'question' | 'sub_question' | 'exam_comment'; contentId: string; reasonId: number; details?: string;
+} export const createReport = async (payload: CreateReportPayload): Promise<Report> => { const response = await fetch(`${API_BASE_URL}/reports`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload), }); return handleResponse<Report>(response);
+}; // Stubs for contract alignment (to be expanded when backend ready)
 // TODO: add content domain DTOs and validation
 export type { SearchResponse };

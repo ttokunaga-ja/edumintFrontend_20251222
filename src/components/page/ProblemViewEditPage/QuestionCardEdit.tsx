@@ -1,40 +1,5 @@
 import React from 'react';
-import { QuestionBlock } from './QuestionBlock';
-
-type QuestionCardEditProps = {
-  question: any;
-  onContentChange: (content: string) => void;
-  onFormatChange: (format: 0 | 1) => void;
-  onDifficultyChange?: (value: number) => void;
-  onKeywordAdd?: (keyword: string) => void;
-  onKeywordRemove?: (id: string) => void;
-  viewMode?: 'full' | 'structure';
-};
-
-export const QuestionCardEdit: React.FC<QuestionCardEditProps> = ({
-  question,
-  onContentChange,
-  onFormatChange,
-  onDifficultyChange,
-  onKeywordAdd,
-  onKeywordRemove,
-  viewMode = 'full',
-}) => {
-  return (
-    <QuestionBlock
-      questionNumber={question.question_number ?? question.questionNumber ?? 1}
-      content={question.question_content ?? ''}
-      format={(question.question_format ?? 0) as 0 | 1}
-      difficulty={question.difficulty ?? 0}
-      keywords={question.keywords ?? []}
-      canEdit
-      canSwitchFormat
-      onContentChange={onContentChange}
-      onFormatChange={onFormatChange}
-      onDifficultyChange={onDifficultyChange}
-      onKeywordAdd={onKeywordAdd}
-      onKeywordRemove={onKeywordRemove}
-      viewMode={viewMode}
-    />
-  );
+import { QuestionBlock } from './QuestionBlock'; type QuestionCardEditProps = { question: any; onContentChange: (content: string) => void; onFormatChange: (format: 0 | 1) => void; onDifficultyChange?: (value: number) => void; onKeywordAdd?: (keyword: string) => void; onKeywordRemove?: (id: string) => void; viewMode?: 'full' | 'structure';
+}; export const QuestionCardEdit: React.FC<QuestionCardEditProps> = ({ question, onContentChange, onFormatChange, onDifficultyChange, onKeywordAdd, onKeywordRemove, viewMode = 'full',
+}) => { return ( <QuestionBlock questionNumber={question.question_number ?? question.questionNumber ?? 1} content={question.question_content ?? ''} format={(question.question_format ?? 0) as 0 | 1} difficulty={question.difficulty ?? 0} keywords={question.keywords ?? []} canEdit canSwitchFormat onContentChange={onContentChange} onFormatChange={onFormatChange} onDifficultyChange={onDifficultyChange} onKeywordAdd={onKeywordAdd} onKeywordRemove={onKeywordRemove} viewMode={viewMode} /> );
 };

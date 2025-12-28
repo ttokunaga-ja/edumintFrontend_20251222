@@ -1,39 +1,7 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
-
-exports[`FreeTextView > renders latex content 1`] = `
-<div>
-  <div>
-    <div
-      aria-label="latex-render"
-      class="latex-block inline-block "
-    >
-      <span
-        class="katex"
-      >
-        \\frac{1}{2}
-      </span>
-    </div>
-  </div>
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html exports[`FreeTextView > renders latex content 1`] = `
+<div> <div> <div label="latex-render" > <span > \\frac{1}{2} </span> </div> </div>
 </div>
-`;
-
-exports[`FreeTextView > renders markdown content 1`] = `
-<div>
-  <div>
-    <div>
-      <h1>
-        Title
-      </h1>
-      
-
-      <p>
-        Some 
-        <strong>
-          bold
-        </strong>
-         text
-      </p>
-    </div>
-  </div>
+`; exports[`FreeTextView > renders markdown content 1`] = `
+<div> <div> <div> <h1> Title </h1> <p> Some <strong> bold </strong> text </p> </div> </div>
 </div>
 `;

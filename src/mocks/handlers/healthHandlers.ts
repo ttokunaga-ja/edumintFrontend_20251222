@@ -1,26 +1,4 @@
-import { http, HttpResponse } from 'msw';
-
-const apiBase =
-  (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
-const withBase = (path: string) => `${apiBase}${path}`;
-
-const defaultStatus = (service: string) => ({
-  category: service,
-  status: 'operational',
-  message: `${service} is operational (mock)`,
-  timestamp: new Date().toISOString(),
-});
-
-export const healthHandlers = [
-  http.get(withBase('/health/summary'), () =>
-    HttpResponse.json({
-      services: ['content', 'community', 'notifications', 'search', 'wallet', 'aiGenerator'].map(defaultStatus),
-      overallStatus: 'operational',
-      timestamp: new Date().toISOString(),
-    }),
-  ),
-  http.get(withBase('/health/:service'), ({ params }) => {
-    const service = typeof params.service === 'string' ? params.service : 'unknown';
-    return HttpResponse.json(defaultStatus(service));
-  }),
+import { http, HttpResponse } from 'msw'; const apiBase = (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+const withBase = (path: string) => `${apiBase}${path}`; const defaultStatus = (service: string) => ({ category: service, status: 'operational', message: `${service} is operational (mock)`, timestamp: new Date().toISOString(),
+}); export const healthHandlers = [ http.get(withBase('/health/summary'), () => HttpResponse.json({ services: ['content', 'community', 'notifications', 'search', 'wallet', 'aiGenerator'].map(defaultStatus), overallStatus: 'operational', timestamp: new Date().toISOString(), })), http.get(withBase('/health/:service'), ({ params }) => { const service = typeof params.service === 'string' ? params.service : 'unknown'; return HttpResponse.json(defaultStatus(service)); }),
 ];

@@ -1,130 +1,13 @@
 import React from 'react';
 import type { GenerationPhase } from '@/features/generation/types';
-import type {
-  CreateStep,
-  SourceType,
-  ExerciseOptionsState,
-  DocumentOptionsState,
+import type { CreateStep, SourceType, ExerciseOptionsState, DocumentOptionsState,
 } from './hooks/useProblemCreateFlow';
 import type { UploadFile } from '@/components/page/ProblemCreatePage/FileUploadQueue';
 import type { GenerationPhase as GenerationStep } from '@/features/generation/types';
 import type { GenerationCurrentStep } from '@/services/api/gateway/generation';
 import { StartPhase } from '@/components/page/ProblemCreatePage/StartPhase';
 import { AnalysisPhase } from '@/components/page/ProblemCreatePage/AnalysisPhase';
-import { GenerationPhase as GenerationPhaseComponent } from '@/components/page/ProblemCreatePage/GenerationPhase';
-
-type Props = {
-  step: CreateStep;
-  phase: GenerationPhase;
-  progress: number;
-  sourceType: SourceType;
-  setSourceType: (v: SourceType) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-  onFileInputClick: () => void;
-  onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  files: UploadFile[];
-  isProcessing: boolean;
-  isUploading: boolean;
-  onRemoveFile: (fileId: string) => void;
-  exerciseOptions: ExerciseOptionsState;
-  onChangeExerciseOptions: (v: ExerciseOptionsState) => void;
-  documentOptions: DocumentOptionsState;
-  onChangeDocumentOptions: (v: DocumentOptionsState) => void;
-  proceedFromStart: () => void;
-  examDraft: any;
-  setExamDraft: (v: any) => void;
-  goToGeneration: () => void;
-  backToStart: () => void;
-  backToAnalysis: () => void;
-  backFromGeneration: () => void;
-  generationStep: GenerationStep;
-  generationDetailedStep?: GenerationCurrentStep;
-  shouldConfirmStructure?: boolean;
-  jobId?: string | null;
-  errorMessage?: string | null;
-  onPublish: () => void;
-};
-
-export const ProblemCreateView: React.FC<Props> = ({
-  step,
-  phase,
-  progress,
-  sourceType,
-  setSourceType,
-  fileInputRef,
-  onFileInputClick,
-  onFileSelect,
-  files,
-  isProcessing,
-  isUploading,
-  onRemoveFile,
-  exerciseOptions,
-  onChangeExerciseOptions,
-  documentOptions,
-  onChangeDocumentOptions,
-  proceedFromStart,
-  examDraft,
-  setExamDraft,
-  goToGeneration,
-  backToStart,
-  backToAnalysis,
-  backFromGeneration,
-  generationStep,
-  generationDetailedStep,
-  shouldConfirmStructure,
-  jobId,
-  errorMessage,
-  onPublish,
-}) => {
-  return (
-    <div >
-      <main
-        style={{
-          // Ensure L0 starts below the fixed TopMenuBar (4rem) + ProgressHeader (~5-6rem) with a bit of breathing room
-          paddingLeft: "1rem",
-          paddingRight: "1rem",
-          paddingTop: 'clamp(9rem, 8vw + 6rem, 12rem)',
-        }}
-      >
-        {step === 'start' && (
-          <StartPhase
-            sourceType={sourceType}
-            onSourceTypeChange={setSourceType}
-            fileInputRef={fileInputRef}
-            onFileInputClick={onFileInputClick}
-            onFileSelect={onFileSelect}
-            files={files}
-            isUploading={isProcessing || isUploading}
-            onRemoveFile={onRemoveFile}
-            exerciseOptions={exerciseOptions}
-            onChangeExerciseOptions={onChangeExerciseOptions}
-            documentOptions={documentOptions}
-            onChangeDocumentOptions={onChangeDocumentOptions}
-            onProceed={proceedFromStart}
-          />
-        )}
-
-        {step === 'analysis' && (
-          <AnalysisPhase exam={examDraft} onChange={setExamDraft} onBack={backToStart} onNext={goToGeneration} />
-        )}
-
-        {step === 'generation' && (
-          <GenerationPhaseComponent
-            exam={examDraft}
-            onChange={setExamDraft}
-            onBack={backFromGeneration}
-            currentStep={generationStep}
-            detailedStep={generationDetailedStep}
-            shouldConfirmStructure={shouldConfirmStructure}
-            progress={progress}
-            jobId={jobId}
-            errorMessage={errorMessage}
-            onPublish={onPublish}
-          />
-        )}
-      </main>
-    </div>
-  );
-};
-
-export default ProblemCreateView;
+import { GenerationPhase as GenerationPhaseComponent } from '@/components/page/ProblemCreatePage/GenerationPhase'; type Props = { step: CreateStep; phase: GenerationPhase; progress: number; sourceType: SourceType; setSourceType: (v: SourceType) => void; fileInputRef: React.RefObject<HTMLInputElement>; onFileInputClick: () => void; onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void; files: UploadFile[]; isProcessing: boolean; isUploading: boolean; onRemoveFile: (fileId: string) => void; exerciseOptions: ExerciseOptionsState; onChangeExerciseOptions: (v: ExerciseOptionsState) => void; documentOptions: DocumentOptionsState; onChangeDocumentOptions: (v: DocumentOptionsState) => void; proceedFromStart: () => void; examDraft: any; setExamDraft: (v: any) => void; goToGeneration: () => void; backToStart: () => void; backToAnalysis: () => void; backFromGeneration: () => void; generationStep: GenerationStep; generationDetailedStep?: GenerationCurrentStep; shouldConfirmStructure?: boolean; jobId?: string | null; errorMessage?: string | null; onPublish: () => void;
+}; export const ProblemCreateView: React.FC<Props> = ({ step, phase, progress, sourceType, setSourceType, fileInputRef, onFileInputClick, onFileSelect, files, isProcessing, isUploading, onRemoveFile, exerciseOptions, onChangeExerciseOptions, documentOptions, onChangeDocumentOptions, proceedFromStart, examDraft, setExamDraft, goToGeneration, backToStart, backToAnalysis, backFromGeneration, generationStep, generationDetailedStep, shouldConfirmStructure, jobId, errorMessage, onPublish,
+}) => { return ( <div > <main style={{ // Ensure L0 starts below the fixed TopMenuBar (4rem) + ProgressHeader (~5-6rem) with a bit of breathing room paddingLeft: "1rem", paddingRight: "1rem", paddingTop: 'clamp(9rem, 8vw + 6rem, 12rem)', }} > {step === 'start' && ( <StartPhase sourceType={sourceType} onSourceTypeChange={setSourceType} fileInputRef={fileInputRef} onFileInputClick={onFileInputClick} onFileSelect={onFileSelect} files={files} isUploading={isProcessing || isUploading} onRemoveFile={onRemoveFile} exerciseOptions={exerciseOptions} onChangeExerciseOptions={onChangeExerciseOptions} documentOptions={documentOptions} onChangeDocumentOptions={onChangeDocumentOptions} onProceed={proceedFromStart} /> )} {step === 'analysis' && ( <AnalysisPhase exam={examDraft} onChange={setExamDraft} onBack={backToStart} onNext={goToGeneration} /> )} {step === 'generation' && ( <GenerationPhaseComponent exam={examDraft} onChange={setExamDraft} onBack={backFromGeneration} currentStep={generationStep} detailedStep={generationDetailedStep} shouldConfirmStructure={shouldConfirmStructure} progress={progress} jobId={jobId} errorMessage={errorMessage} onPublish={onPublish} /> )} </main> </div> );
+}; export default ProblemCreateView;

@@ -1,24 +1,4 @@
 import React from 'react';
-import { SubQuestionBlock } from './SubQuestionBlock';
-
-type SubQuestionCardViewProps = {
-  subQuestion: any;
-};
-
-export const SubQuestionCardView: React.FC<SubQuestionCardViewProps> = ({ subQuestion }) => {
-  return (
-    <SubQuestionBlock
-      subQuestionNumber={subQuestion.sub_question_number ?? subQuestion.subQuestionNumber ?? 1}
-      questionTypeId={subQuestion.sub_question_type_id ?? subQuestion.question_type_id ?? subQuestion.questionTypeId ?? 1}
-      questionContent={subQuestion.sub_question_content ?? subQuestion.question_content ?? ''}
-      questionFormat={(subQuestion.sub_question_format ?? subQuestion.question_format ?? 0) as 0 | 1}
-      answerContent={subQuestion.answer_content}
-      answerFormat={(subQuestion.answer_format ?? 0) as 0 | 1}
-      keywords={subQuestion.keywords ?? []}
-      options={subQuestion.options ?? []}
-      canEdit={false}
-      canSwitchFormat={false}
-      showAnswer={true}
-    />
-  );
+import { SubQuestionBlock } from './SubQuestionBlock'; type SubQuestionCardViewProps = { subQuestion: any;
+}; export const SubQuestionCardView: React.FC<SubQuestionCardViewProps> = ({ subQuestion }) => { return ( <SubQuestionBlock subQuestionNumber={subQuestion.sub_question_number ?? subQuestion.subQuestionNumber ?? 1} questionTypeId={subQuestion.sub_question_type_id ?? subQuestion.question_type_id ?? subQuestion.questionTypeId ?? 1} questionContent={subQuestion.sub_question_content ?? subQuestion.question_content ?? ''} questionFormat={(subQuestion.sub_question_format ?? subQuestion.question_format ?? 0) as 0 | 1} answerContent={subQuestion.answer_content} answerFormat={(subQuestion.answer_format ?? 0) as 0 | 1} keywords={subQuestion.keywords ?? []} options={subQuestion.options ?? []} canEdit={false} canSwitchFormat={false} showAnswer={true} /> );
 };

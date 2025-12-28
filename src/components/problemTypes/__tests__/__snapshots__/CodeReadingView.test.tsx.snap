@@ -1,35 +1,7 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
-
-exports[`CodeReadingView > renders code snippet 1`] = `
-<div>
-  <div>
-    <div
-      class="mb-2 text-sm text-gray-700"
-    >
-      コード読解
-    </div>
-    <pre
-      class="whitespace-pre-wrap bg-gray-50 p-3 rounded text-sm"
-    >
-      console.log(1+1);
-    </pre>
-  </div>
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html exports[`CodeReadingView > renders code snippet 1`] = `
+<div> <div> <div > コード読解 </div> <pre > console.log(1+1); </pre> </div>
 </div>
-`;
-
-exports[`CodeReadingView > renders with answer 1`] = `
-<div>
-  <div>
-    <div
-      class="mb-2 text-sm text-gray-700"
-    >
-      コード読解
-    </div>
-    <pre
-      class="whitespace-pre-wrap bg-gray-50 p-3 rounded text-sm"
-    >
-      Answer: 2
-    </pre>
-  </div>
+`; exports[`CodeReadingView > renders with answer 1`] = `
+<div> <div> <div > コード読解 </div> <pre > Answer: 2 </pre> </div>
 </div>
 `;

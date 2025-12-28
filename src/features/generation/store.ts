@@ -1,57 +1,6 @@
 import { useReducer } from 'react';
 import type { GenerationStatusResponse } from '@/features/generation/types';
-import { initialGenerationState, nextGenerationState, type GenerationMachineState } from './stateMachine';
-
-interface StoreState {
-  generation: GenerationMachineState;
-  result: GenerationStatusResponse | null;
-}
-
-type Action =
-  | { type: 'reset' }
-  | { type: 'set-state'; payload: GenerationMachineState }
-  | { type: 'advance'; payload: GenerationStatusResponse }
-  | { type: 'set-error'; payload: string; errorCode?: string }
-  | { type: 'set-result'; payload: GenerationStatusResponse | null };
-
-const reducer = (state: StoreState, action: Action): StoreState => {
-  switch (action.type) {
-    case 'reset':
-      return { generation: initialGenerationState, result: null };
-    case 'set-state':
-      return { ...state, generation: action.payload };
-    case 'advance':
-      return { ...state, generation: nextGenerationState(state.generation, action.payload) };
-    case 'set-error':
-      return {
-        ...state,
-        generation: { 
-          ...state.generation, 
-          phase: 'error', 
-          errorMessage: action.payload,
-          errorCode: action.errorCode,
-        },
-      };
-    case 'set-result':
-      return { ...state, result: action.payload };
-    default:
-      return state;
-  }
-};
-
-export const useGenerationStore = (seed?: GenerationMachineState) => {
-  const [state, dispatch] = useReducer(reducer, {
-    generation: seed ?? initialGenerationState,
-    result: null,
-  });
-
-  return {
-    state: state.generation,
-    result: state.result,
-    reset: () => dispatch({ type: 'reset' }),
-    setState: (next: GenerationMachineState) => dispatch({ type: 'set-state', payload: next }),
-    advance: (status: GenerationStatusResponse) => dispatch({ type: 'advance', payload: status }),
-    setError: (message: string, errorCode?: string) => dispatch({ type: 'set-error', payload: message, errorCode }),
-    setResult: (res: GenerationStatusResponse | null) => dispatch({ type: 'set-result', payload: res }),
-  };
+import { initialGenerationState, nextGenerationState, type GenerationMachineState } from './stateMachine'; interface StoreState { generation: GenerationMachineState; result: GenerationStatusResponse | null;
+} type Action = | { type: 'reset' } | { type: 'set-state'; payload: GenerationMachineState } | { type: 'advance'; payload: GenerationStatusResponse } | { type: 'set-error'; payload: string; errorCode?: string } | { type: 'set-result'; payload: GenerationStatusResponse | null }; const reducer = (state: StoreState, action: Action): StoreState => { switch (action.type) { case 'reset': return { generation: initialGenerationState, result: null }; case 'set-state': return { ...state, generation: action.payload }; case 'advance': return { ...state, generation: nextGenerationState(state.generation, action.payload) }; case 'set-error': return { ...state, generation: { ...state.generation, phase: 'error', errorMessage: action.payload, errorCode: action.errorCode, }, }; case 'set-result': return { ...state, result: action.payload }; default: return state; }
+}; export const useGenerationStore = (seed?: GenerationMachineState) => { const [state, dispatch] = useReducer(reducer, { generation: seed ?? initialGenerationState, result: null, }); return { state: state.generation, result: state.result, reset: () => dispatch({ type: 'reset' }), setState: (next: GenerationMachineState) => dispatch({ type: 'set-state', payload: next }), advance: (status: GenerationStatusResponse) => dispatch({ type: 'advance', payload: status }), setError: (message: string, errorCode?: string) => dispatch({ type: 'set-error', payload: message, errorCode }), setResult: (res: GenerationStatusResponse | null) => dispatch({ type: 'set-result', payload: res }), };
 };
