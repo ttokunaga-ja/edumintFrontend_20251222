@@ -11,7 +11,7 @@ export function AdminModerationPage({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
+    }}
       <div className={undefined}>
         <h1 className={undefined}>
           Admin Moderation

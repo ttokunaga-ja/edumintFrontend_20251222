@@ -73,11 +73,11 @@ export default function ProblemViewEditPage(props: ProblemViewEditPageProps) {
       <div style={{
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }}
         <div style={{
       display: "flex",
       alignItems: "center"
-    }}>
+    }}
           <PreviewEditToggle
             isEditMode={isEditMode}
             setIsEditMode={setIsEditMode}

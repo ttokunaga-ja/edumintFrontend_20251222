@@ -20,7 +20,7 @@ export function StructureConfirmPage({ user, onNavigate, onLogout, mode }: Struc
       <div style={{
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }}
         <header className={undefined}>
           <p className={undefined}>構造確認モード: {mode}</p>
           <h1 className={undefined}>StructureConfirmPage</h1>
@@ -38,7 +38,7 @@ export function StructureConfirmPage({ user, onNavigate, onLogout, mode }: Struc
         <div style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
+    }}
           <button
             type="button"
             onClick={proceedToGenerating}
@@ -48,7 +48,7 @@ export function StructureConfirmPage({ user, onNavigate, onLogout, mode }: Struc
       paddingRight: "1rem",
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
-    }}>
+    }}
             生成へ進む
           </button>
           <button
@@ -60,7 +60,7 @@ export function StructureConfirmPage({ user, onNavigate, onLogout, mode }: Struc
       paddingRight: "1rem",
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
-    }}>
+    }}
             問題閲覧へ戻る
           </button>
           <button
@@ -72,7 +72,7 @@ export function StructureConfirmPage({ user, onNavigate, onLogout, mode }: Struc
       paddingRight: "1rem",
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
-    }}>
+    }}
             ホームへ戻る
           </button>
           <button
@@ -84,7 +84,7 @@ export function StructureConfirmPage({ user, onNavigate, onLogout, mode }: Struc
       paddingRight: "1rem",
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
-    }}>
+    }}
             ログアウト
           </button>
         </div>

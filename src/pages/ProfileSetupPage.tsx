@@ -26,7 +26,7 @@ export function ProfileSetupPage({ onComplete, initialEmail }: ProfileSetupPageP
       justifyContent: "center",
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }}
       <form
         onSubmit={submit}
         className={undefined}
@@ -89,7 +89,7 @@ export function ProfileSetupPage({ onComplete, initialEmail }: ProfileSetupPageP
       paddingRight: "1rem",
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
-    }}>
+    }}
           設定を完了する
         </button>
       </form>

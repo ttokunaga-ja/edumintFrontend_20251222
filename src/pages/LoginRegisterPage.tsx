@@ -33,7 +33,7 @@ export function LoginRegisterPage({ onLogin }: LoginRegisterPageProps) {
 
         <div style={{
       display: "flex"
-    }}>
+    }}
           <button
             onClick={() => setActiveTab('login')}
             className={undefined}

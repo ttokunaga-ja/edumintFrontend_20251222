@@ -178,7 +178,7 @@ export function HomePage({
       <div style={{
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }}
         {(health.search === "degraded" ||
           health.search === "outage" ||
           health.search === "maintenance") && (
@@ -203,7 +203,7 @@ export function HomePage({
         <div style={{
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }}
           <AdvancedSearchPanel
             filters={filters}
             onFiltersChange={handleFiltersChange}
@@ -217,15 +217,15 @@ export function HomePage({
         <div style={{
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }}
           <div style={{
       display: "flex"
-    }}>
+    }}
             <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.75rem"
-    }}>
+    }}
               <span className={undefined}>
                 並び替え:
               </span>
@@ -267,7 +267,7 @@ export function HomePage({
         <div style={{
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }}
           {/* 📍 Alert Insertion Point B: Content Status */}
           {(health.content === "outage" ||
             health.content === "maintenance") && (
@@ -331,12 +331,12 @@ export function HomePage({
             <div style={{
       display: "flex",
       justifyContent: "center"
-    }}>
+    }}
               <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
-    }}>
+    }}
                 <button
                   onClick={() =>
                     setCurrentPage(Math.max(1, currentPage - 1))
