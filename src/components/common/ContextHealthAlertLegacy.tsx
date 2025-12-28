@@ -94,7 +94,11 @@ export interface ServiceHealthSummaryProps {
       label: string;
       onClick: () => void;
     };
+<<<<<<< HEAD
   };
+=======
+  }>;
+>>>>>>> parent of 0a29049 (fix(jsx): add missing closing brace before > (auto))
   className?: string;
 }
 

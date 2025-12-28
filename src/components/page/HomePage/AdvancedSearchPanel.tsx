@@ -193,7 +193,7 @@ export default function AdvancedSearchPanel({
                     onClick={() => {
                       clearFilter('universityId');
                       clearFilter('universityName');
-                    }} >
+                    } >
                     <X className={undefined} />
                   </Button>
                 )}
@@ -224,7 +224,7 @@ export default function AdvancedSearchPanel({
                     onClick={() => {
                       clearFilter('facultyId');
                       clearFilter('facultyName');
-                    }} >
+                    } >
                     <X className={undefined} />
                   </Button>
                 )}
@@ -255,7 +255,7 @@ export default function AdvancedSearchPanel({
                     onClick={() => {
                       clearFilter('subjectId');
                       clearFilter('subjectName');
-                    }} >
+                    } >
                     <X className={undefined} />
                   </Button>
                 )}
@@ -289,7 +289,7 @@ export default function AdvancedSearchPanel({
                     onClick={() => {
                       clearFilter('teacherId');
                       clearFilter('teacherName');
-                    }} >
+                    } >
                     <X className={undefined} />
                   </Button>
                 )}

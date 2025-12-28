@@ -36,7 +36,11 @@ export interface SearchSectionProps {
     id: string;
     label: string;
     onRemove: () => void;
+<<<<<<< HEAD
   };
+=======
+  }>;
+>>>>>>> parent of 0a29049 (fix(jsx): add missing closing brace before > (auto))
 
   /** Clear all filters handler */
   onClearAll?: () => void;
