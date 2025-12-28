@@ -69,10 +69,10 @@ export function UserStatsCards({ stats, isLoading = false, className = '' }: Use
     return (
       <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 ${className}`}>
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className={undefined}>
-            <div className={undefined}></div>
-            <div className={undefined}></div>
-            <div className={undefined}></div>
+          <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 animate-pulse">
+            <div className="w-10 h-10 bg-gray-200 rounded-lg mb-3"></div>
+            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+            <div className="h-6 bg-gray-200 rounded"></div>
           </div>
         ))}
       </div>
@@ -86,13 +86,13 @@ export function UserStatsCards({ stats, isLoading = false, className = '' }: Use
         return (
           <div
             key={index}
-            className={undefined}
+            className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow"
           >
             <div className={`w-10 h-10 ${card.bgColor} rounded-lg flex items-center justify-center mb-3`}>
               <Icon className={`w-5 h-5 ${card.color}`} />
             </div>
-            <div className={undefined}>{card.label}</div>
-            <div className={undefined}>{card.value}</div>
+            <div className="text-sm text-gray-600 mb-1">{card.label}</div>
+            <div className="text-xl font-semibold text-gray-900">{card.value}</div>
           </div>
         );
       })}

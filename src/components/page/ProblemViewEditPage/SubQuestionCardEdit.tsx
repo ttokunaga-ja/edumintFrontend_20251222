@@ -58,16 +58,16 @@ export const SubQuestionCardEdit: React.FC<SubQuestionCardEditProps> = ({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
+    }>
           ({number})
         </div>
-        <div className={undefined}>
+        <div className="flex-1 min-w-0">
           <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
-    }}>
-            <span className={undefined}>小問{number}</span>
+    }>
+            <span className="text-gray-900 text-sm font-medium">小問{number}</span>
           </div>
           <SubQuestionMetaEdit
             questionTypeId={typeId}
@@ -75,13 +75,14 @@ export const SubQuestionCardEdit: React.FC<SubQuestionCardEditProps> = ({
             keywords={subQuestion.keywords ?? []}
             onTypeChange={onTypeChange}
             onKeywordAdd={onKeywordAdd}
-            onKeywordRemove={onKeywordRemove} />
+            onKeywordRemove={onKeywordRemove}
+          />
         </div>
       </div>
       {viewMode === 'full' && (
         <Suspense fallback={<div style={{
       borderRadius: "0.375rem"
-    }}>編集UIを読み込み中...</div>}>
+    }>編集UIを読み込み中...</div>}>
           {Comp ? <Comp {...normalizedProps} /> : Fallback ? <Fallback {...normalizedProps} /> : null}
         </Suspense>
       )}

@@ -34,7 +34,7 @@ const mockUser: any = { // Using any to avoid complex type setup in stories or i
 export const Default: Story = {
     args: {
         user: mockUser,
-        onNavigate: () => {}},
-        onLogout: () => {}},
+        onNavigate: () => { },
+        onLogout: () => { },
     },
 };

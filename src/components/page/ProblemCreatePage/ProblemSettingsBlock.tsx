@@ -73,47 +73,48 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
       alignItems: "center",
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }}
+      >
         <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.75rem"
-    }}>
-          <Settings className={undefined} />
-          <div className={undefined}>
-            <h3 className={undefined}>問題設定</h3>
-            <p className={undefined}>生成オプションと公開設定</p>
+    }>
+          <Settings className="w-5 h-5 text-indigo-600" />
+          <div className="text-left">
+            <h3 className="font-medium text-gray-900">問題設定</h3>
+            <p className="text-xs text-gray-600 mt-0.5">生成オプションと公開設定</p>
           </div>
         </div>
         {isExpanded ? (
-          <ChevronUp className={undefined} />
+          <ChevronUp className="w-5 h-5 text-gray-500" />
         ) : (
-          <ChevronDown className={undefined} />
+          <ChevronDown className="w-5 h-5 text-gray-500" />
         )}
       </button>
 
       {/* コンテンツ */}
       {isExpanded && (
-        <div className={undefined}>
+        <div className="p-4 sm:p-6 space-y-6">
           {/* AI生成設定 */}
-          <div className={undefined}>
+          <div className="space-y-4">
             <h4 style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
-    }}>
+    }>
               <span>AI生成設定</span>
-              <Info className={undefined} title="AIによる問題自動生成の設定" />
+              <Info className="w-4 h-4 text-gray-400" title="AIによる問題自動生成の設定" />
             </h4>
 
             {/* 自動生成オン/オフ */}
             <label style={{
       display: "flex",
       alignItems: "center"
-    }}>
-              <div className={undefined}>
-                <div className={undefined}>自動問題生成</div>
-                <div className={undefined}>
+    }>
+              <div className="flex-1">
+                <div className="font-medium text-sm text-gray-900">自動問題生成</div>
+                <div className="text-xs text-gray-600 mt-0.5">
                   アップロードした資料からAIが問題を自動生成
                 </div>
               </div>
@@ -121,14 +122,14 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
                 type="checkbox"
                 checked={settings.autoGenerateQuestions}
                 onChange={() => handleToggle('autoGenerateQuestions')}
-                className={undefined}
+                className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
               />
             </label>
 
             {/* 問題数（自動生成がオンの場合のみ） */}
             {settings.autoGenerateQuestions && (
-              <div className={undefined}>
-                <label className={undefined}>
+              <div className="ml-4 space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
                   生成する問題数
                 </label>
                 <input
@@ -140,20 +141,25 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
                   style={{
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
+<<<<<<< HEAD
     }} />
                 <p className={undefined}>1〜20問の範囲で指定できます</p>
+=======
+    } />
+                <p className="text-xs text-gray-500">1〜20問の範囲で指定できます</p>
+>>>>>>> parent of b05c270 (chore(tailwind): strip Tailwind className usages (mechanical removal for Phase 4))
               </div>
             )}
 
             {/* 難易度レベル（自動生成がオンの場合のみ） */}
             {settings.autoGenerateQuestions && (
-              <div className={undefined}>
-                <label className={undefined}>
+              <div className="ml-4 space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
                   難易度レベル
                 </label>
                 <div style={{
       gap: "0.75rem"
-    }}>
+    }>
                   {difficultyOptions.map((option) => (
                     <label
                       key={option.value}
@@ -169,10 +175,10 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
                         value={option.value}
                         checked={settings.difficultyLevel === option.value}
                         onChange={() => handleNumberChange('difficultyLevel', option.value)}
-                        className={undefined}
+                        className="sr-only"
                       />
-                      <span className={undefined}>{option.label}</span>
-                      <span className={undefined}>{option.description}</span>
+                      <span className="font-medium text-sm text-gray-900">{option.label}</span>
+                      <span className="text-xs text-gray-600 mt-1">{option.description}</span>
                     </label>
                   ))}
                 </div>
@@ -181,13 +187,13 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
 
             {/* 問題形式（自動生成がオンの場合のみ） */}
             {settings.autoGenerateQuestions && (
-              <div className={undefined}>
-                <label className={undefined}>
+              <div className="ml-4 space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
                   問題形式（複数選択可）
                 </label>
                 <div style={{
       gap: "0.5rem"
-    }}>
+    }>
                   {questionTypeOptions.map((type) => (
                     <label
                       key={type.id}
@@ -201,9 +207,9 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
                         type="checkbox"
                         checked={settings.questionTypes?.includes(type.id) || false}
                         onChange={() => handleQuestionTypeToggle(type.id)}
-                        className={undefined}
+                        className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
                       />
-                      <span className={undefined}>{type.name}</span>
+                      <span className="text-sm text-gray-900">{type.name}</span>
                     </label>
                   ))}
                 </div>
@@ -212,16 +218,16 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
           </div>
 
           {/* コンテンツ設定 */}
-          <div className={undefined}>
-            <h4 className={undefined}>コンテンツ設定</h4>
+          <div className="space-y-4 pt-6 border-t border-gray-200">
+            <h4 className="font-medium text-gray-900">コンテンツ設定</h4>
 
             <label style={{
       display: "flex",
       alignItems: "center"
-    }}>
-              <div className={undefined}>
-                <div className={undefined}>解答を含める</div>
-                <div className={undefined}>
+    }>
+              <div className="flex-1">
+                <div className="font-medium text-sm text-gray-900">解答を含める</div>
+                <div className="text-xs text-gray-600 mt-0.5">
                   問題に対する解答を生成・表示
                 </div>
               </div>
@@ -229,17 +235,17 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
                 type="checkbox"
                 checked={settings.includeAnswers}
                 onChange={() => handleToggle('includeAnswers')}
-                className={undefined}
+                className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
               />
             </label>
 
             <label style={{
       display: "flex",
       alignItems: "center"
-    }}>
-              <div className={undefined}>
-                <div className={undefined}>解説を含める</div>
-                <div className={undefined}>
+    }>
+              <div className="flex-1">
+                <div className="font-medium text-sm text-gray-900">解説を含める</div>
+                <div className="text-xs text-gray-600 mt-0.5">
                   解答の詳しい解説を生成・表示
                 </div>
               </div>
@@ -247,17 +253,18 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
                 type="checkbox"
                 checked={settings.includeSolutions}
                 onChange={() => handleToggle('includeSolutions')}
-                className={undefined}
-                disabled={!settings.includeAnswers} />
+                className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
+                disabled={!settings.includeAnswers}
+              />
             </label>
 
             <label style={{
       display: "flex",
       alignItems: "center"
-    }}>
-              <div className={undefined}>
-                <div className={undefined}>キーワード自動抽出</div>
-                <div className={undefined}>
+    }>
+              <div className="flex-1">
+                <div className="font-medium text-sm text-gray-900">キーワード自動抽出</div>
+                <div className="text-xs text-gray-600 mt-0.5">
                   問題から重要キーワードを自動抽出
                 </div>
               </div>
@@ -265,22 +272,22 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
                 type="checkbox"
                 checked={settings.extractKeywords}
                 onChange={() => handleToggle('extractKeywords')}
-                className={undefined}
+                className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
               />
             </label>
           </div>
 
           {/* 公開設定 */}
-          <div className={undefined}>
-            <h4 className={undefined}>公開設定</h4>
+          <div className="space-y-4 pt-6 border-t border-gray-200">
+            <h4 className="font-medium text-gray-900">公開設定</h4>
 
             <label style={{
       display: "flex",
       alignItems: "center"
-    }}>
-              <div className={undefined}>
-                <div className={undefined}>公開する</div>
-                <div className={undefined}>
+    }>
+              <div className="flex-1">
+                <div className="font-medium text-sm text-gray-900">公開する</div>
+                <div className="text-xs text-gray-600 mt-0.5">
                   他のユーザーがこの問題を閲覧・検索できるようにする
                 </div>
               </div>
@@ -288,13 +295,13 @@ export function ProblemSettingsBlock({ settings, onChange, className = '' }: Pro
                 type="checkbox"
                 checked={settings.isPublic}
                 onChange={() => handleToggle('isPublic')}
-                className={undefined}
+                className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
               />
             </label>
 
             {!settings.isPublic && (
-              <div className={undefined}>
-                <p className={undefined}>
+              <div className="ml-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-800">
                   💡 非公開の場合、あなただけが閲覧できます。後から公開設定を変更することもできます。
                 </p>
               </div>

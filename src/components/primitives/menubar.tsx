@@ -14,7 +14,10 @@ function Menubar({
   return (
     <MenubarPrimitive.Root
       data-slot="menubar"
-      className={undefined}
+      className={cn(
+        "bg-background flex h-9 items-center gap-1 rounded-md border p-1 shadow-xs",
+        className,
+      )}
       {...props}
     />
   );
@@ -53,7 +56,10 @@ function MenubarTrigger({
   return (
     <MenubarPrimitive.Trigger
       data-slot="menubar-trigger"
-      className={undefined}
+      className={cn(
+        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex items-center rounded-sm px-2 py-1 text-sm font-medium outline-hidden select-none",
+        className,
+      )}
       {...props}
     />
   );
@@ -126,9 +132,9 @@ function MenubarCheckboxItem({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
+    }>
         <MenubarPrimitive.ItemIndicator>
-          <CheckIcon className={undefined} />
+          <CheckIcon className="size-4" />
         </MenubarPrimitive.ItemIndicator>
       </span>
       {children}
@@ -154,9 +160,9 @@ function MenubarRadioItem({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
+    }>
         <MenubarPrimitive.ItemIndicator>
-          <CircleIcon className={undefined} />
+          <CircleIcon className="size-2 fill-current" />
         </MenubarPrimitive.ItemIndicator>
       </span>
       {children}
@@ -175,8 +181,12 @@ function MenubarLabel({
     <MenubarPrimitive.Label
       data-slot="menubar-label"
       data-inset={inset}
-      className={undefined}
-      {...props} />
+      className={cn(
+        "px-2 py-1.5 text-sm font-medium data-[inset]:pl-8",
+        className,
+      )}
+      {...props}
+    />
   );
 }
 
@@ -187,7 +197,7 @@ function MenubarSeparator({
   return (
     <MenubarPrimitive.Separator
       data-slot="menubar-separator"
-      className={undefined}
+      className={cn("bg-border -mx-1 my-1 h-px", className)}
       {...props}
     />
   );
@@ -200,7 +210,10 @@ function MenubarShortcut({
   return (
     <span
       data-slot="menubar-shortcut"
-      className={undefined}
+      className={cn(
+        "text-muted-foreground ml-auto text-xs tracking-widest",
+        className,
+      )}
       {...props}
     />
   );
@@ -224,11 +237,14 @@ function MenubarSubTrigger({
     <MenubarPrimitive.SubTrigger
       data-slot="menubar-sub-trigger"
       data-inset={inset}
-      className={undefined}
+      className={cn(
+        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none select-none data-[inset]:pl-8",
+        className,
+      )}
       {...props}
     >
       {children}
-      <ChevronRightIcon className={undefined} />
+      <ChevronRightIcon className="ml-auto h-4 w-4" />
     </MenubarPrimitive.SubTrigger>
   );
 }

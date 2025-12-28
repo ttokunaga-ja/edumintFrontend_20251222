@@ -13,16 +13,16 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({
 }) => {
   return (
     <div className={`min-h-[60vh] flex items-center justify-center bg-gray-50 ${className}`}>
-      <div className={undefined}>
+      <div className="max-w-lg rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
         <div style={{
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
-          <span className={undefined}>🛠️</span>
+    }>
+          <span className="text-xl">🛠️</span>
         </div>
-        <h1 className={undefined}>{title}</h1>
-        <p className={undefined}>{message}</p>
+        <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
+        <p className="mt-3 text-sm text-gray-600">{message}</p>
       </div>
     </div>
   );

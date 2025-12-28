@@ -14,9 +14,9 @@ function Input(props: Omit<TextFieldProps, 'variant'> & { type?: string }) {
       fullWidth
       size="small"
       error={!!error}
-      inputProps={{ type }
+      inputProps={{ type }}
       {...rest}
-      InputProps={{ ...InputProps }
+      InputProps={{ ...InputProps }}
       data-slot="input"
     />
   );

@@ -18,7 +18,7 @@ export const QuestionMetaView: React.FC<QuestionMetaViewProps> = ({
   const meta = difficultyLabels[effectiveDifficulty] ?? difficultyLabels[0];
 
   return (
-    <div className={undefined}>
+    <div className="space-y-2 mb-4">
       {meta && (
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${meta.color}`}>
           {meta.label}

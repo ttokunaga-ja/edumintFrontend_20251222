@@ -23,29 +23,29 @@ describe('ProblemCreateView', () => {
         phase="generating"
         progress={42}
         sourceType={0 as any}
-        setSourceType={() => {}}
+        setSourceType={() => { }}
         fileInputRef={{ current: null }}
-        onFileInputClick={() => {}}
-        onFileSelect={() => {}}
+        onFileInputClick={() => { }}
+        onFileSelect={() => { }}
         files={[]}
         isProcessing={false}
         isUploading={false}
-        onRemoveFile={() => {}}
+        onRemoveFile={() => { }}
         exerciseOptions={{}}
-        onChangeExerciseOptions={() => {}}
+        onChangeExerciseOptions={() => { }}
         documentOptions={{}}
-        onChangeDocumentOptions={() => {}}
-        proceedFromStart={() => {}}
+        onChangeDocumentOptions={() => { }}
+        proceedFromStart={() => { }}
         examDraft={{}}
-        setExamDraft={() => {}}
-        goToGeneration={() => {}}
-        backToStart={() => {}}
-        backToAnalysis={() => {}}
-        backFromGeneration={() => {}}
+        setExamDraft={() => { }}
+        goToGeneration={() => { }}
+        backToStart={() => { }}
+        backToAnalysis={() => { }}
+        backFromGeneration={() => { }}
         generationStep={0 as any}
         jobId={null}
         errorMessage={null}
-        onPublish={() => {}}
+        onPublish={() => { }}
       />
     );
 

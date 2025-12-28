@@ -116,8 +116,8 @@ const statusConfig = {
  *   status="processing"
  *   progress={35}
  *   estimatedTimeRemaining="約 3 分"
- *   onPause={() => {}
- *   onCancel={() => {}
+ *   onPause={() => {}}
+ *   onCancel={() => {}}
  * />
  */
 export function JobStatusRibbon({
@@ -151,26 +151,30 @@ export function JobStatusRibbon({
       <div style={{
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }>
         <div style={{
       display: "flex",
       alignItems: "center"
-    }}> {/* 16px gap (grid) */}
+    }> {/* 16px gap (grid) */}
           {/* Left: Icon + Status + Job ID */}
           <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.75rem"
-    }}> {/* 12px gap (grid) */}
+    }> {/* 12px gap (grid) */}
             <Icon
-              className={undefined}
+              className={cn(
+                'w-5 h-5',
+                config.iconColor,
+                status === 'processing' && 'animate-spin'
+              )}
               aria-hidden="true"
             />
             <div>
-              <span className={undefined}>
+              <span className={cn('text-sm font-medium', config.text)}>
                 {config.label}
               </span>
-              <span className={undefined}>
+              <span className="text-xs text-gray-600 ml-3">
                 Job ID: {jobId}
               </span>
             </div>
@@ -181,7 +185,7 @@ export function JobStatusRibbon({
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
-    }}> {/* 8px gap (grid) */}
+    }> {/* 8px gap (grid) */}
             {status === 'processing' && onPause && (
               <Button variant="outline" size="sm" onClick={onPause}>
                 一時停止
@@ -212,10 +216,13 @@ export function JobStatusRibbon({
 
         {/* Progress Bar (processing/paused only) */}
         {(status === 'processing' || status === 'paused') && progress !== undefined && (
-          <div className={undefined}> {/* 12px margin (grid) */}
-            <div className={undefined}>
+          <div className="mt-3"> {/* 12px margin (grid) */}
+            <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className={undefined}
+                className={cn(
+                  'absolute inset-y-0 left-0 rounded-full transition-all duration-300',
+                  status === 'processing' ? 'bg-indigo-600' : 'bg-yellow-600'
+                )}
                 style={{ width: `${progress}%` }}
                 role="progressbar"
                 aria-valuenow={progress}
@@ -223,7 +230,7 @@ export function JobStatusRibbon({
                 aria-valuemax={100} />
             </div>
             {estimatedTimeRemaining && (
-              <p className={undefined}>
+              <p className="text-xs text-gray-600 mt-2">
                 推定残り時間: {estimatedTimeRemaining}
               </p>
             )}
@@ -232,14 +239,14 @@ export function JobStatusRibbon({
 
         {/* Error Message */}
         {status === 'error' && errorMessage && (
-          <p className={undefined}>
+          <p className="text-sm text-red-700 mt-2">
             {errorMessage}
           </p>
         )}
 
         {/* Completion Message */}
         {status === 'completed' && message && (
-          <p className={undefined}>
+          <p className="text-sm text-green-700 mt-2">
             {message}
           </p>
         )}

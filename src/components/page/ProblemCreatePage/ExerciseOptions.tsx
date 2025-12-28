@@ -35,26 +35,26 @@ export function ExerciseOptions({ options, onChange }: ExerciseOptionsProps) {
   };
 
   return (
-    <Card className={undefined}>
-      <div className={undefined} />
-      <div className={undefined}>
+    <Card className="p-8 border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
+      <div className="space-y-8">
         <div style={{
       display: "flex",
       alignItems: "center"
-    }}>
+    }>
           <div>
-            <h3 className={undefined}>演習問題から生成</h3>
-            <p className={undefined}>
+            <h3 className="text-xl font-bold text-gray-900">演習問題から生成</h3>
+            <p className="text-sm text-gray-500">
               既存の問題をベースに類題を生成します。公開や構造確認などの挙動をここで指定してください。
             </p>
           </div>
-          <Sparkles className={undefined} />
+          <Sparkles className="w-8 h-8 text-indigo-400 opacity-60" />
         </div>
 
-        <div className={undefined}>
-          <Label className={undefined}>難易度</Label>
+        <div className="space-y-3">
+          <Label className="text-sm text-gray-700">難易度</Label>
           <Select value={options.difficulty} onValueChange={(val) => handleDifficultyChange(val as Difficulty)}>
-            <SelectTrigger className={undefined}>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="難易度を選択" />
             </SelectTrigger>
             <SelectContent>
@@ -69,49 +69,49 @@ export function ExerciseOptions({ options, onChange }: ExerciseOptionsProps) {
 
         <div style={{
       gap: "0.75rem"
-    }}>
+    }>
           <label style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
+    }>
             <Checkbox
               checked={options.useDiagrams}
               onCheckedChange={() => handleCommonToggle('useDiagrams')}
-              className={undefined}
+              className="mt-1"
             />
             <div>
-              <div className={undefined}>図表を使用</div>
-              <p className={undefined}>図や表を解析対象に含めます</p>
+              <div className="font-semibold text-sm text-gray-900">図表を使用</div>
+              <p className="text-xs text-gray-600">図や表を解析対象に含めます</p>
             </div>
           </label>
 
           <label style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
+    }>
             <Checkbox
               checked={options.confirmStructure}
               onCheckedChange={() => handleCommonToggle('confirmStructure')}
-              className={undefined}
+              className="mt-1"
             />
             <div>
-              <div className={undefined}>問題構造を確認</div>
-              <p className={undefined}>OFFの場合は構造確認フェーズをスキップします</p>
+              <div className="font-semibold text-sm text-gray-900">問題構造を確認</div>
+              <p className="text-xs text-gray-600">OFFの場合は構造確認フェーズをスキップします</p>
             </div>
           </label>
 
           <label style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
+    }>
             <Checkbox
               checked={options.isPublic}
               onCheckedChange={() => handleCommonToggle('isPublic')}
-              className={undefined}
+              className="mt-1"
             />
             <div>
-              <div className={undefined}>生成問題を公開</div>
-              <p className={undefined}>完了後に自動で公開します</p>
+              <div className="font-semibold text-sm text-gray-900">生成問題を公開</div>
+              <p className="text-xs text-gray-600">完了後に自動で公開します</p>
             </div>
           </label>
         </div>

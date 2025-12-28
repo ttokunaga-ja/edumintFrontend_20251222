@@ -79,31 +79,31 @@ export function QuestionBlock({
   return (
     <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
       {/* ヘッダー */}
-      <div className={undefined}>
+      <div className="p-4 sm:p-6 bg-gray-50 border-b border-gray-100">
         <div style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
+    }>
           <div style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
+    }>
             {/* 問題番号 */}
             <div style={{
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
+    }>
               {derivedNumber}
             </div>
 
-            <div className={undefined}>
+            <div className="flex-1 min-w-0">
               <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
-    }}>
-                <h3 className={undefined}>大問{derivedNumber}</h3>
+    }>
+                <h3 className="text-gray-900">大問{derivedNumber}</h3>
               </div>
 
               {/* 難易度セレクト + キーワード（共通コンポーネント / 表示専用） */}
@@ -114,7 +114,8 @@ export function QuestionBlock({
                   keywords={derivedKeywords}
                   onDifficultyChange={onDifficultyChange}
                   onKeywordAdd={onKeywordAdd}
-                  onKeywordRemove={onKeywordRemove} />
+                  onKeywordRemove={onKeywordRemove}
+                />
               ) : (
                 <QuestionMetaView
                   difficulty={derivedDifficulty}
@@ -131,15 +132,15 @@ export function QuestionBlock({
                   onChange={(v) => {
                     setEditContent(v);
                     onContentChange?.(v);
-                  }
+                  }}
                   onFormatChange={(f) => {
                     setCurrentFormat(f);
                     onFormatChange?.(f);
-                  }
+                  }}
                   readOnly={!canEdit}
                   textareaLabel="問題文"
                   previewLabel="プレビュー"
-                  className={undefined}
+                  className="pt-2"
                 />
               )}
             </div>
@@ -150,14 +151,14 @@ export function QuestionBlock({
             <div style={{
       display: "flex",
       gap: "0.5rem"
-    }}>
+    }>
               {onDelete && (
                 <button
                   onClick={onDelete}
-                  className={undefined}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="削除"
                 >
-                  <Trash2 className={undefined} />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               )}
             </div>

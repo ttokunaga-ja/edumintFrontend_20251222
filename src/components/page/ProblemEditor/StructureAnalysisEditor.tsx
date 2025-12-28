@@ -179,9 +179,9 @@ export function StructureAnalysisEditor({ exam, onChange, canEdit = true }: Stru
     };
 
     return (
-        <div className={undefined}>
+        <div className="space-y-12">
             {questions.map((q: any, qIdx: number) => (
-                <div key={q.id || qIdx} className={undefined}>
+                <div key={q.id || qIdx} className="space-y-6">
                     {canEdit ? (
                         <>
                             <QuestionSectionEdit
@@ -204,10 +204,10 @@ export function StructureAnalysisEditor({ exam, onChange, canEdit = true }: Stru
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className={undefined}
+                                className="mt-2 border-dashed ml-8"
                                 onClick={() => addSubQuestion(qIdx)}
                             >
-                                <Plus className={undefined} />
+                                <Plus className="mr-2 h-4 w-4" />
                                 小問を追加
                             </Button>
                         </>
@@ -220,10 +220,10 @@ export function StructureAnalysisEditor({ exam, onChange, canEdit = true }: Stru
             {canEdit && (
                 <Button
                     variant="ghost"
-                    className={undefined}
+                    className="w-full rounded-xl border-2 border-dashed border-gray-200 py-8 text-gray-500 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
                     onClick={addQuestion}
                 >
-                    <Plus className={undefined} />
+                    <Plus className="mr-2 h-6 w-6" />
                     大問を追加
                 </Button>
             )}

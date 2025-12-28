@@ -22,7 +22,7 @@ export const QuestionMetaEdit: React.FC<QuestionMetaEditProps> = ({
   onKeywordRemove,
 }) => {
   return (
-    <div className={undefined}>
+    <div className="mb-4 space-y-2">
       <MetaSelect
         label="難易度"
         ariaLabel="大問の難易度"

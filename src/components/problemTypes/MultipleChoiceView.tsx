@@ -9,9 +9,9 @@ export default function MultipleChoiceView(props: ProblemTypeViewProps) {
   const renderOptionContent = (text: string) => {
     const looksLikeLatex = /\\\\|\\sum|\\frac|\\binom|\\int|\\lim/.test(text);
     if (looksLikeLatex) {
-      return <LatexBlock content={text} displayMode={false} className={undefined} />;
+      return <LatexBlock content={text} displayMode={false} className="text-sm text-gray-900" />;
     }
-    return <MarkdownBlock content={text} className={undefined} />;
+    return <MarkdownBlock content={text} className="text-sm text-gray-900" />;
   };
 
   return (
@@ -22,7 +22,7 @@ export default function MultipleChoiceView(props: ProblemTypeViewProps) {
         <LatexBlock content={questionContent} displayMode={false} />
       )}
 
-      <div className={undefined}>
+      <div className="mt-3 space-y-2">
         {options.map((opt, idx) => (
           <div
             key={opt.id}
@@ -33,19 +33,19 @@ export default function MultipleChoiceView(props: ProblemTypeViewProps) {
             <div style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
+    }>
               <div style={{
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
+    }>
                 {String.fromCharCode(65 + idx)}
               </div>
-              <div className={undefined}>
+              <div className="flex-1 min-w-0">
                 {renderOptionContent(opt.content)}
               </div>
               {showAnswer && opt.isCorrect && (
-                <div className={undefined}>正解</div>
+                <div className="ml-auto text-xs px-2 py-0.5 bg-green-600 text-white rounded">正解</div>
               )}
             </div>
           </div>

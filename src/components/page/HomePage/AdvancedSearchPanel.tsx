@@ -116,19 +116,19 @@ export default function AdvancedSearchPanel({
   const recentYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
   return (
-    <div className={undefined}>
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
       {/* ヘッダー */}
       <div style={{
       display: "flex",
       alignItems: "center",
       paddingLeft: "1rem",
       paddingRight: "1rem"
-    }}>
+    }>
         <div style={{
       display: "flex",
       alignItems: "center"
-    }}>
-          <h3 className={undefined}>検索条件</h3>
+    }>
+          <h3 className="font-medium">検索条件</h3>
           {activeFilterCount > 0 && (
             <Badge variant="secondary">{activeFilterCount}件の条件</Badge>
           )}
@@ -139,14 +139,14 @@ export default function AdvancedSearchPanel({
         <div style={{
       display: "flex",
       alignItems: "center"
-    }}>
+    }>
           {activeFilterCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
               onClick={clearAllFilters}
               disabled={isDisabled}
-              className={undefined}
+              className="text-gray-500 hover:text-gray-700"
             >
               すべてクリア
             </Button>
@@ -158,22 +158,23 @@ export default function AdvancedSearchPanel({
             style={{
       display: "flex",
       alignItems: "center"
-    }}>
+    }}
+          >
             <span>{isExpanded ? '検索条件を隠す' : '検索条件を表示'}</span>
-            {isExpanded ? <ChevronUp className={undefined} /> : <ChevronDown className={undefined} />}
+            {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
           </Button>
         </div>
       </div>
 
       {/* すべての検索条件（折りたたみ） */}
       {isExpanded && (
-        <div className={undefined}>
+        <div className="p-4 space-y-4">
           {/* Row 1: University, Faculty, Subject */}
-          <div className={undefined}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* 大学 */}
-            <div className={undefined}>
+            <div className="space-y-2">
               <Label htmlFor="university">大学</Label>
-              <div className={undefined}>
+              <div className="relative">
                 <MultilingualAutocomplete
                   value={filters.universityName || defaultUniversity || ''}
                   onChange={(value, item) => {
@@ -184,26 +185,28 @@ export default function AdvancedSearchPanel({
                   }}
                   placeholder="大学名を入力..."
                   category="university"
-                  className={isDisabled ? 'opacity-50 pointer-events-none' : ''} />
+                  className={isDisabled ? 'opacity-50 pointer-events-none' : ''}
+                />
                 {filters.universityName && !isDisabled && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={undefined}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 size-6 p-0"
                     onClick={() => {
                       clearFilter('universityId');
                       clearFilter('universityName');
-                    } >
-                    <X className={undefined} />
+                    }}
+                  >
+                    <X className="size-4" />
                   </Button>
                 )}
               </div>
             </div>
 
             {/* 学部 */}
-            <div className={undefined}>
+            <div className="space-y-2">
               <Label htmlFor="faculty">学部</Label>
-              <div className={undefined}>
+              <div className="relative">
                 <MultilingualAutocomplete
                   value={filters.facultyName || defaultFaculty || ''}
                   onChange={(value, item) => {
@@ -220,21 +223,22 @@ export default function AdvancedSearchPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={undefined}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 size-6 p-0"
                     onClick={() => {
                       clearFilter('facultyId');
                       clearFilter('facultyName');
-                    } >
-                    <X className={undefined} />
+                    }}
+                  >
+                    <X className="size-4" />
                   </Button>
                 )}
               </div>
             </div>
 
             {/* 科目 */}
-            <div className={undefined}>
+            <div className="space-y-2">
               <Label htmlFor="subject">科目</Label>
-              <div className={undefined}>
+              <div className="relative">
                 <MultilingualAutocomplete
                   value={filters.subjectName || ''}
                   onChange={(value, item) => {
@@ -251,12 +255,13 @@ export default function AdvancedSearchPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={undefined}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 size-6 p-0"
                     onClick={() => {
                       clearFilter('subjectId');
                       clearFilter('subjectName');
-                    } >
-                    <X className={undefined} />
+                    }}
+                  >
+                    <X className="size-4" />
                   </Button>
                 )}
               </div>
@@ -264,11 +269,11 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 2: Teacher, Exam Year */}
-          <div className={undefined}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* 教授 */}
-            <div className={undefined}>
+            <div className="space-y-2">
               <Label htmlFor="teacher">教授</Label>
-              <div className={undefined}>
+              <div className="relative">
                 <MultilingualAutocomplete
                   value={filters.teacherName || ''}
                   onChange={(value, item) => {
@@ -285,21 +290,22 @@ export default function AdvancedSearchPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={undefined}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 size-6 p-0"
                     onClick={() => {
                       clearFilter('teacherId');
                       clearFilter('teacherName');
-                    } >
-                    <X className={undefined} />
+                    }}
+                  >
+                    <X className="size-4" />
                   </Button>
                 )}
               </div>
             </div>
 
             {/* 試験年度 */}
-            <div className={undefined}>
+            <div className="space-y-2">
               <Label htmlFor="examYear">試験年度</Label>
-              <div className={undefined}>
+              <div className="space-y-2">
                 <Input
                   type="number"
                   id="examYear"
@@ -310,12 +316,12 @@ export default function AdvancedSearchPanel({
                   min="2000"
                   max={currentYear}
                   disabled={isDisabled}
-                  className={undefined}
+                  className="w-full"
                 />
                 <div style={{
       display: "flex",
       gap: "0.5rem"
-    }}>
+    }>
                   {recentYears.map(year => (
                     <Badge
                       key={year}
@@ -332,7 +338,7 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 3: Field (理系/文系) */}
-          <div className={undefined}>
+          <div className="space-y-2">
             <Label>分野</Label>
             <NativeSelect
               value={filters.majorType !== undefined ? String(filters.majorType) : undefined}
@@ -348,7 +354,7 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 4: Level (難易度) */}
-          <div className={undefined}>
+          <div className="space-y-2">
             <Label>レベル</Label>
             <NativeSelect
               value={filters.difficulty !== undefined ? String(filters.difficulty) : undefined}
@@ -366,11 +372,11 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 5: Problem Format (問題形式) */}
-          <div className={undefined}>
+          <div className="space-y-2">
             <Label>問題形式</Label>
             <div style={{
       gap: "0.5rem"
-    }}>
+    }>
               {problemFormats.map(format => (
                 <label
                   key={format.id}
@@ -385,16 +391,16 @@ export default function AdvancedSearchPanel({
                     onChange={() => toggleFormat(format.id)}
                     disabled={isDisabled}
                     name={`problem-format-${format.id}`}
-                    className={undefined}
+                    className="rounded"
                   />
-                  <span className={undefined}>{format.label}</span>
+                  <span className="text-sm">{format.label}</span>
                 </label>
               ))}
             </div>
           </div>
 
           {/* Row 6: Period (期間) */}
-          <div className={undefined}>
+          <div className="space-y-2">
             <Label>期間</Label>
             <NativeSelect
               value={filters.period || undefined}
@@ -414,18 +420,19 @@ export default function AdvancedSearchPanel({
             {filters.period === 'custom' && (
               <div style={{
       gap: "0.5rem"
-    }}>
-                <div className={undefined}>
-                  <Label className={undefined}>開始日</Label>
+    }>
+                <div className="space-y-1">
+                  <Label className="text-xs">開始日</Label>
                   <Input
                     type="date"
                     name="period-start"
                     value={filters.startDate || ''}
                     onChange={(e) => updateFilter('startDate', e.target.value || undefined)}
-                    disabled={isDisabled} />
+                    disabled={isDisabled}
+                  />
                 </div>
-                <div className={undefined}>
-                  <Label className={undefined}>終了日</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">終了日</Label>
                   <Input
                     type="date"
                     name="period-end"
@@ -439,7 +446,7 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 7: Duration (所要時間) */}
-          <div className={undefined}>
+          <div className="space-y-2">
             <Label>所要時間</Label>
             <NativeSelect
               value={filters.duration !== undefined ? String(filters.duration) : undefined}
@@ -462,8 +469,8 @@ export default function AdvancedSearchPanel({
             <div style={{
       display: "flex",
       gap: "0.5rem"
-    }}>
-              <span className={undefined}>適用中:</span>
+    }>
+              <span className="text-sm text-gray-500">適用中:</span>
               {Object.entries(filters).map(([key, value]) => {
                 if (key === 'sortBy' || key === 'page' || key === 'limit' || value === undefined) return null;
 
@@ -479,14 +486,14 @@ export default function AdvancedSearchPanel({
                   <Badge key={key} variant="secondary" style={{
       display: "flex",
       alignItems: "center"
-    }}>
-                    <span className={undefined}>{displayValue}</span>
+    }>
+                    <span className="text-xs">{displayValue}</span>
                     <button
                       onClick={() => clearFilter(key as keyof SearchFilters)}
-                      className={undefined}
+                      className="ml-1 hover:text-red-600"
                       disabled={isDisabled}
                     >
-                      <X className={undefined} />
+                      <X className="size-3" />
                     </button>
                   </Badge>
                 );

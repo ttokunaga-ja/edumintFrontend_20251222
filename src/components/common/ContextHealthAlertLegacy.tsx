@@ -60,22 +60,22 @@ export function ContextHealthAlert({
       <AlertTitle style={{
       display: "flex",
       alignItems: "center"
-    }}>
+    }>
         <span>{category}</span>
         {disableCTA && (
-          <span className={undefined}>
+          <span className="text-xs font-normal opacity-75">
             一時的にご利用いただけません
           </span>
         )}
       </AlertTitle>
-      <AlertDescription className={undefined}>
-        <p className={undefined}>{message}</p>
+      <AlertDescription className="mt-2">
+        <p className="text-sm mb-3">{message}</p>
         {action && (
           <Button
             variant="outline"
             size="sm"
             onClick={action.onClick}
-            className={undefined}
+            className="mt-2"
           >
             {action.label}
           </Button>
@@ -112,11 +112,11 @@ export function ServiceHealthSummary({ services, className = '' }: ServiceHealth
         <div style={{
       display: "flex",
       alignItems: "center"
-    }}>
-          <CheckCircle className={undefined} />
+    }>
+          <CheckCircle className="size-6 text-green-600" />
           <div>
-            <h3 className={undefined}>すべてのサービスが正常に稼働中</h3>
-            <p className={undefined}>
+            <h3 className="text-green-900">すべてのサービスが正常に稼働中</h3>
+            <p className="text-sm text-green-700 mt-1">
               現在、すべての機能を通常どおりご利用いただけます。
             </p>
           </div>
@@ -127,8 +127,8 @@ export function ServiceHealthSummary({ services, className = '' }: ServiceHealth
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <h3 className={undefined}>サービス状態</h3>
-      <div className={undefined}>
+      <h3 className="text-gray-900">サービス状態</h3>
+      <div className="grid gap-4 md:grid-cols-2">
         {services.map((service, index) => {
           const config = statusConfig[service.status];
           const Icon = config.icon;
@@ -141,19 +141,20 @@ export function ServiceHealthSummary({ services, className = '' }: ServiceHealth
             >
               <div style={{
       display: "flex"
-    }}>
+    }>
                 <Icon
                   className={`size-5 flex-shrink-0 mt-0.5 ${service.status === 'operational' ? 'text-gray-500' : config.iconClassName
-                    }`} />
-                <div className={undefined}>
-                  <h4 className={undefined}>{service.category}</h4>
-                  <p className={undefined}>{service.message}</p>
+                    }`}
+                />
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-medium text-sm mb-1">{service.category}</h4>
+                  <p className="text-xs opacity-90 mb-2">{service.message}</p>
                   {service.action && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={service.action.onClick}
-                      className={undefined}
+                      className="text-xs h-8"
                     >
                       {service.action.label}
                     </Button>

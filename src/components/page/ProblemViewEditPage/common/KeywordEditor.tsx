@@ -44,22 +44,23 @@ export const KeywordEditor: React.FC<KeywordEditorProps> = ({
       <div style={{
       display: "flex",
       gap: "0.5rem"
-    }}>
+    }>
         {normalized.map((kw) => (
           <span
             key={kw.id}
             style={{
       alignItems: "center",
       gap: "0.25rem"
-    }}>
+    }}
+          >
             {kw.keyword}
             {canEdit && onRemove && (
               <button
                 onClick={() => onRemove(kw.id)}
-                className={undefined}
+                className="rounded-full p-0.5 hover:bg-indigo-200"
                 aria-label="キーワード削除"
               >
-                <Trash2 className={undefined} />
+                <Trash2 className="w-3 h-3" />
               </button>
             )}
           </span>
@@ -70,7 +71,7 @@ export const KeywordEditor: React.FC<KeywordEditorProps> = ({
         <div style={{
       display: "flex",
       gap: "0.5rem"
-    }}>
+    }>
           <input
             aria-label={ariaLabelInput ?? 'キーワード入力'}
             type="text"
@@ -83,13 +84,13 @@ export const KeywordEditor: React.FC<KeywordEditorProps> = ({
               }
             }}
             placeholder={placeholder}
-            className={undefined}
+            className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           />
           <button
             onClick={handleAdd}
-            className={undefined}
+            className="rounded bg-indigo-100 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-200"
           >
-            <Plus className={undefined} />
+            <Plus className="w-4 h-4" />
           </button>
         </div>
       )}

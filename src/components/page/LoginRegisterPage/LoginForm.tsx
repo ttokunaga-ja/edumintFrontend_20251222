@@ -23,8 +23,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   setPassword,
 }) => {
   return (
-    <div className={undefined}>
-      <div className={undefined}>
+    <div className="space-y-4">
+      <div className="space-y-2">
         <Label htmlFor="login-email">メールアドレス</Label>
         <Input
           id="login-email"
@@ -34,7 +34,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           placeholder="you@example.com"
         />
       </div>
-      <div className={undefined}>
+      <div className="space-y-2">
         <Label htmlFor="login-password">パスワード</Label>
         <Input
           id="login-password"
@@ -44,7 +44,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           placeholder="••••••••"
         />
       </div>
-      <Button className={undefined} onClick={onSubmit} disabled={isSubmitting}>
+      <Button className="w-full" onClick={onSubmit} disabled={isSubmitting}>
         {isSubmitting ? 'ログイン中…' : 'ログイン'}
       </Button>
     </div>

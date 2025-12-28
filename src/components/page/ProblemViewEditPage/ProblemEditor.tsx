@@ -36,9 +36,9 @@ const questionTypeLabels: Record<number, string> = {
 };
 
 const FallbackEdit = ({ questionContent, answerContent, onQuestionChange, onAnswerChange }: ProblemTypeEditProps) => (
-    <div className={undefined}>
-        <div className={undefined}>専用の編集フォームが未登録です。暫定フォームを使用します。</div>
-        <label className={undefined}>問題文</label>
+    <div className="space-y-3 rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm">
+        <div className="text-gray-600">専用の編集フォームが未登録です。暫定フォームを使用します。</div>
+        <label className="block text-xs font-medium text-gray-700">問題文</label>
         <textarea
             value={questionContent}
             onChange={(e) => onQuestionChange?.(e.target.value)}
@@ -48,7 +48,7 @@ const FallbackEdit = ({ questionContent, answerContent, onQuestionChange, onAnsw
     }}
             placeholder="小問の問題文を入力..."
         />
-        <label className={undefined}>解答</label>
+        <label className="block text-xs font-medium text-gray-700">解答</label>
         <textarea
             value={answerContent ?? ''}
             onChange={(e) => onAnswerChange?.(e.target.value)}
@@ -214,9 +214,9 @@ export function ProblemEditor({ exam, onChange, canEdit = true }: ProblemEditorP
     };
 
     return (
-        <div className={undefined}>
+        <div className="space-y-12">
             {questions.map((q: any, qIdx: number) => (
-                <div key={q.id || qIdx} className={undefined}>
+                <div key={q.id || qIdx} className="space-y-6">
                     {canEdit ? (
                         <>
                             <QuestionSectionEdit
@@ -233,14 +233,15 @@ export function ProblemEditor({ exam, onChange, canEdit = true }: ProblemEditorP
                                 onSubKeywordAdd={(sqIdx, kw) => handleSubQuestionKeywordAdd(qIdx, sqIdx, kw)}
                                 onSubKeywordRemove={(sqIdx, kwId) => handleSubQuestionKeywordRemove(qIdx, sqIdx, kwId)}
                                 onSubTypeChange={(sqIdx, type) => handleSubQuestionTypeChange(qIdx, sqIdx, type)}
-                                editComponentLoaders={editComponentLoaders} />
+                                editComponentLoaders={editComponentLoaders}
+                            />
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className={undefined}
+                                className="mt-2 border-dashed ml-8"
                                 onClick={() => addSubQuestion(qIdx)}
                             >
-                                <Plus className={undefined} />
+                                <Plus className="mr-2 h-4 w-4" />
                                 小問を追加
                             </Button>
                         </>
@@ -253,10 +254,10 @@ export function ProblemEditor({ exam, onChange, canEdit = true }: ProblemEditorP
             {canEdit && (
                 <Button
                     variant="ghost"
-                    className={undefined}
+                    className="w-full rounded-xl border-2 border-dashed border-gray-200 py-8 text-gray-500 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
                     onClick={addQuestion}
                 >
-                    <Plus className={undefined} />
+                    <Plus className="mr-2 h-6 w-6" />
                     大問を追加
                 </Button>
             )}

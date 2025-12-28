@@ -16,6 +16,6 @@ type Story = StoryObj<typeof AdminModerationPage>;
 
 export const Default: Story = {
     args: {
-        onNavigate: () => {}},
+        onNavigate: () => { },
     },
 };

@@ -11,7 +11,7 @@ describe('QuestionBlock', () => {
     };
 
     it('hides question form in structure mode', () => {
-        render(<QuestionBlock question={mockQuestion} viewMode="structure" onContentChange={() => {}} />);
+        render(<QuestionBlock question={mockQuestion} viewMode="structure" onContentChange={() => { }} />);
 
         // Check if QuestionForm (which contains the content) is hidden
         // Based on QuestionBlock implementation: {viewMode === 'full' && <QuestionForm ... />}
@@ -24,7 +24,7 @@ describe('QuestionBlock', () => {
     });
 
     it('shows question form in full mode', () => {
-        render(<QuestionBlock question={mockQuestion} viewMode="full" onContentChange={() => {}} />);
+        render(<QuestionBlock question={mockQuestion} viewMode="full" onContentChange={() => { }} />);
         expect(screen.getByText('What is React?')).toBeDefined();
     });
 });

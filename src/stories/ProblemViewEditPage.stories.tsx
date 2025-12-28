@@ -42,7 +42,7 @@ type Story = StoryObj<typeof ProblemViewEditPage>;
 export const Default: Story = {
   args: {
     problemId: '1',
-    onNavigate: () => {}},
-    onLogout: () => {}},
+    onNavigate: () => { },
+    onLogout: () => { },
   },
 };

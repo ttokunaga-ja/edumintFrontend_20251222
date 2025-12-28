@@ -57,7 +57,8 @@ export const NativeDialog = ({ isOpen = false, onClose, children, className = ""
       onClose={() => {
         // `<dialog>`'s close event fires after close(); ensure React state reflects it
         onClose?.();
-      }} >
+      }}
+    >
       {children}
     </dialog>
   );

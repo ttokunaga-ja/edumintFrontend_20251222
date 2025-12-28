@@ -22,7 +22,7 @@ export const SubQuestionMetaEdit: React.FC<SubQuestionMetaEditProps> = ({
   onKeywordRemove,
 }) => {
   return (
-    <div className={undefined}>
+    <div className="mb-4 space-y-2">
       <MetaSelect
         label="小問タイプ"
         ariaLabel="小問タイプ"

@@ -9,11 +9,11 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
       data-slot="table-container"
-      className={undefined}
+      className="relative w-full overflow-x-auto"
     >
       <table
         data-slot="table"
-        className={undefined}
+        className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />
     </div>
@@ -24,7 +24,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={undefined}
+      className={cn("[&_tr]:border-b", className)}
       {...props}
     />
   );
@@ -34,7 +34,7 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return (
     <tbody
       data-slot="table-body"
-      className={undefined}
+      className={cn("[&_tr:last-child]:border-0", className)}
       {...props}
     />
   );
@@ -44,7 +44,10 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   return (
     <tfoot
       data-slot="table-footer"
-      className={undefined}
+      className={cn(
+        "bg-muted/50 border-t font-medium [&>tr]:last:border-b-0",
+        className,
+      )}
       {...props}
     />
   );
@@ -54,7 +57,10 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       data-slot="table-row"
-      className={undefined}
+      className={cn(
+        "hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
+        className,
+      )}
       {...props}
     />
   );
@@ -93,7 +99,7 @@ function TableCaption({
   return (
     <caption
       data-slot="table-caption"
-      className={undefined}
+      className={cn("text-muted-foreground mt-4 text-sm", className)}
       {...props}
     />
   );

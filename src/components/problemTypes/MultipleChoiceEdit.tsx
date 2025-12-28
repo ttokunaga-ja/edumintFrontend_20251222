@@ -65,18 +65,18 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
   };
 
   return (
-    <div className={undefined}>
+    <div className="space-y-4">
       <div>
         <div style={{
       display: "flex",
       alignItems: "center"
     }}>
-          <label className={undefined}>問題文</label>
+          <label className="block text-sm font-medium text-gray-700">問題文</label>
           <button
             type="button"
             onClick={toggleQuestionFormat}
             aria-label="問題文フォーマット切替"
-            className={undefined}
+            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
           >
             {questionFmt === 0 ? 'MD' : 'LaTeX'}
           </button>
@@ -93,14 +93,15 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
       paddingBottom: "0.5rem"
     }}
           placeholder={questionFmt === 0 ? 'Markdown 形式で入力...' : 'LaTeX 形式で入力...'} />
+        />
       </div>
 
-        <div className={undefined}>
+        <div className="space-y-3">
           <div style={{
       display: "flex",
       alignItems: "center"
     }}>
-            <label className={undefined}>選択肢</label>
+            <label className="text-sm font-medium text-gray-700">選択肢</label>
           <button
             type="button"
             onClick={handleAddOption}
@@ -110,12 +111,12 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
       borderRadius: "0.375rem"
     }}
           >
-            <Plus className={undefined} />
+            <Plus className="h-3.5 w-3.5" />
             追加
           </button>
         </div>
 
-        <div className={undefined}>
+        <div className="space-y-2">
           {localOptions.map((opt, idx) => (
             <div key={opt.id || idx} style={{
       display: "flex",
@@ -124,7 +125,7 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
               <button
                 type="button"
                 onClick={() => handleOptionChange(idx, { isCorrect: !opt.isCorrect })}
-                className={undefined}
+                className="mt-0.5 text-indigo-600 font-semibold text-sm"
                 aria-label={opt.isCorrect ? '正解に設定済み' : '正解としてマーク'}
               >
                 {opt.isCorrect ? '✔' : '□'}
@@ -138,13 +139,14 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
       paddingBottom: "0.5rem"
     }}
                 placeholder={`選択肢 ${String.fromCharCode(65 + idx)}`} />
+              />
               <button
                 type="button"
                 onClick={() => handleRemoveOption(idx)}
-                className={undefined}
+                className="text-red-500 hover:text-red-600"
                 aria-label="選択肢を削除"
               >
-                <Trash2 className={undefined} />
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           ))}
@@ -160,12 +162,12 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
           )}
         </div>
 
-        <div className={undefined}>
-          <div className={undefined}>問題文プレビュー</div>
+        <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm">
+          <div className="mb-2 text-xs font-semibold text-gray-600">問題文プレビュー</div>
           {questionFmt === 0 ? (
-            <MarkdownBlock content={question} className={undefined} />
+            <MarkdownBlock content={question} className="prose prose-sm max-w-none" />
           ) : (
-            <LatexBlock content={question} displayMode={false} className={undefined} />
+            <LatexBlock content={question} displayMode={false} className="text-gray-900" />
           )}
         </div>
       </div>
@@ -175,12 +177,12 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
       display: "flex",
       alignItems: "center"
     }}>
-          <label className={undefined}>解説 / 答え</label>
+          <label className="block text-sm font-medium text-gray-700">解説 / 答え</label>
           <button
             type="button"
             onClick={toggleAnswerFormat}
             aria-label="解答フォーマット切替"
-            className={undefined}
+            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
           >
             {answerFmt === 0 ? 'MD' : 'LaTeX'}
           </button>
@@ -200,12 +202,12 @@ export default function MultipleChoiceEdit(props: ProblemTypeEditProps) {
           placeholder={answerFmt === 0 ? 'Markdown 形式で入力...' : 'LaTeX 形式で入力...'} />
         />
 
-        <div className={undefined}>
-          <div className={undefined}>解説プレビュー</div>
+        <div className="mt-3 rounded-lg border border-gray-100 bg-blue-50 p-3 text-sm">
+          <div className="mb-2 text-xs font-semibold text-gray-700">解説プレビュー</div>
           {answerFmt === 0 ? (
-            <MarkdownBlock content={answer} className={undefined} />
+            <MarkdownBlock content={answer} className="prose prose-sm max-w-none" />
           ) : (
-            <LatexBlock content={answer} displayMode={false} className={undefined} />
+            <LatexBlock content={answer} displayMode={false} className="text-gray-900" />
           )}
         </div>
       </div>

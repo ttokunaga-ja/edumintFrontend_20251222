@@ -34,42 +34,42 @@ function StructureStatusCard({
   errorMessage?: string | null;
 }) {
   return (
-    <Card className={undefined} aria-busy={!isPaused && !isError}>
+    <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4" aria-busy={!isPaused && !isError}>
       <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.75rem"
-    }}>
+    }>
         <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
-    }}>
+    }>
           {isError ? (
-            <AlertTriangle className={undefined} />
+            <AlertTriangle className="w-5 h-5 text-red-500" />
           ) : isPaused ? (
-            <PauseCircle className={undefined} />
+            <PauseCircle className="w-5 h-5 text-amber-500" />
           ) : (
-            <Loader2 className={undefined} />
+            <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
           )}
-          <div className={undefined}>
+          <div className="text-sm font-semibold text-gray-900">
             Structure_{currentStep}
             {!shouldConfirmStructure && (
               <span style={{
       alignItems: "center",
       gap: "0.25rem"
-    }}>
+    }>
                 構造確認スキップ
               </span>
             )}
           </div>
         </div>
-        <div className={undefined}>
+        <div className="text-[11px] text-gray-500 uppercase tracking-wide">
           {isError ? 'error' : isPaused ? 'paused' : 'processing'}
         </div>
       </div>
       {errorMessage && isError && (
-        <p className={undefined}>{errorMessage}</p>
+        <p className="mt-3 text-xs text-red-700 leading-relaxed">{errorMessage}</p>
       )}
     </Card>
   );
@@ -89,42 +89,42 @@ function GenerationStatusCard({
   errorMessage?: string | null;
 }) {
   return (
-    <Card className={undefined} aria-busy={!isPaused && !isError}>
+    <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4" aria-busy={!isPaused && !isError}>
       <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.75rem"
-    }}>
+    }>
         <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
-    }}>
+    }>
           {isError ? (
-            <AlertTriangle className={undefined} />
+            <AlertTriangle className="w-5 h-5 text-red-500" />
           ) : isPaused ? (
-            <PauseCircle className={undefined} />
+            <PauseCircle className="w-5 h-5 text-amber-500" />
           ) : (
-            <Loader2 className={undefined} />
+            <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
           )}
-          <div className={undefined}>
+          <div className="text-sm font-semibold text-gray-900">
             Generation_{currentStep}
             {!shouldConfirmStructure && (
               <span style={{
       alignItems: "center",
       gap: "0.25rem"
-    }}>
+    }>
                 構造確認スキップ
               </span>
             )}
           </div>
         </div>
-        <div className={undefined}>
+        <div className="text-[11px] text-gray-500 uppercase tracking-wide">
           {isError ? 'error' : isPaused ? 'paused' : 'processing'}
         </div>
       </div>
       {errorMessage && isError && (
-        <p className={undefined}>{errorMessage}</p>
+        <p className="mt-3 text-xs text-red-700 leading-relaxed">{errorMessage}</p>
       )}
     </Card>
   );
@@ -312,21 +312,21 @@ export function GenerationPhase({
   }, [currentStep, detailedStep, shouldConfirmStructure]);
 
   return (
-    <div className={undefined}>
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 relative isolation:isolate">
       <div style={{
       display: "flex",
       alignItems: "center"
-    }}>
+    }>
         <div>
           {isComplete ? (
             <>
-              <h2 className={undefined}>最終確認と微調整</h2>
-              <p className={undefined}>全自動で生成された問題と解答を微調整し、公開してください。</p>
+              <h2 className="text-2xl font-bold text-gray-900">最終確認と微調整</h2>
+              <p className="text-gray-600 font-medium">全自動で生成された問題と解答を微調整し、公開してください。</p>
             </>
           ) : (
             <>
-              <h2 className={undefined}>問題生成中</h2>
-              <p className={undefined}>AIが問題と解答を生成しています。しばらくお待ちください。</p>
+              <h2 className="text-2xl font-bold text-gray-900">問題生成中</h2>
+              <p className="text-gray-600 font-medium">AIが問題と解答を生成しています。しばらくお待ちください。</p>
             </>
           )}
         </div>
@@ -334,8 +334,8 @@ export function GenerationPhase({
           <div style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
-            <Button variant="outline" onClick={onBack} className={undefined}>
+    }>
+            <Button variant="outline" onClick={onBack} className="rounded-xl px-6">
               キャンセル
             </Button>
           </div>
@@ -344,11 +344,11 @@ export function GenerationPhase({
           <div style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
-            <Button variant="outline" onClick={onBack} className={undefined}>
+    }>
+            <Button variant="outline" onClick={onBack} className="rounded-xl px-6">
               戻る
             </Button>
-            <Button onClick={onPublish} className={undefined}>
+            <Button onClick={onPublish} className="rounded-xl px-8 bg-indigo-600">
               公開して保存
             </Button>
           </div>
@@ -368,7 +368,8 @@ export function GenerationPhase({
             shouldConfirmStructure={shouldConfirmStructure}
             isPaused={isPaused}
             isError={isError}
-            errorMessage={errorMessage} />
+            errorMessage={errorMessage}
+          />
         ) : (
           <GenerationStatusCard
             currentStep={detailedStep || 'waiting_for_slot'}
@@ -381,23 +382,24 @@ export function GenerationPhase({
       )}
 
       {isComplete && (
-        <div className={undefined}>
-          <div className={undefined}>
-            <Card className={undefined}>
-              <h3 className={undefined}>問題本文・解答</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <Card className="p-8 rounded-2xl shadow-xl bg-white border-none">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">問題本文・解答</h3>
               <GenerationResultEditor exam={exam} onChange={onChange} />
             </Card>
           </div>
-          <div className={undefined}>
+          <div className="lg:col-span-1">
             <ProblemMetaBlock
               exam={exam}
               isOwner
-              onLike={() => {}}
-              onDislike={() => {}}
-              onBookmark={() => {}}
-              onShare={() => {}}
-              onReport={() => {}}
-              onExportPDF={() => {}} />
+              onLike={() => { }}
+              onDislike={() => { }}
+              onBookmark={() => { }}
+              onShare={() => { }}
+              onReport={() => { }}
+              onExportPDF={() => { }}
+            />
           </div>
         </div>
       )}

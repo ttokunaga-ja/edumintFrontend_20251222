@@ -19,7 +19,7 @@ describe('TopMenuBar', () => {
         // TopMenuBar uses NavLink and Navigate, so wrap in Router
         render(
             <BrowserRouter>
-                <TopMenuBar onNavigate={() => {}} />
+                <TopMenuBar onNavigate={() => { }} />
             </BrowserRouter>
         );
 

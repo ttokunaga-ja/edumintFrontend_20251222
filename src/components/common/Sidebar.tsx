@@ -71,7 +71,7 @@ export default function Sidebar({ isOpen, onClose, currentPage, onNavigate }: Si
                 aria-label="メインメニュー"
                 onClick={(e) => e.stopPropagation()}
             >
-                <nav className={undefined}>
+                <nav className="p-4 space-y-2">
                     {menuItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = currentPage === item.id;
@@ -80,10 +80,15 @@ export default function Sidebar({ isOpen, onClose, currentPage, onNavigate }: Si
                             <button
                                 key={item.id}
                                 onClick={() => handleNavigate(item.id as Page)}
-                                className={undefined}
+                                className={cn(
+                                    "flex items-center w-full gap-4 px-4 py-3 rounded-xl transition-all duration-200",
+                                    isActive
+                                        ? "bg-indigo-50 text-indigo-700 font-medium"
+                                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                )}
                                 aria-current={isActive ? "page" : undefined}
                             >
-                                <Icon className={undefined} />
+                                <Icon className={cn("h-5 w-5", isActive ? "text-indigo-600" : "text-gray-400")} />
                                 <span>{item.label}</span>
                             </button>
                         );
@@ -107,7 +112,7 @@ export default function Sidebar({ isOpen, onClose, currentPage, onNavigate }: Si
         >
 
 
-            <nav className={undefined}>
+            <nav className="p-4 space-y-2">
                 {menuItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = currentPage === item.id;
@@ -116,9 +121,14 @@ export default function Sidebar({ isOpen, onClose, currentPage, onNavigate }: Si
                         <button
                             key={item.id}
                             onClick={() => handleNavigate(item.id as Page)}
-                            className={undefined}
+                            className={cn(
+                                "flex items-center w-full gap-4 px-4 py-3 rounded-xl transition-all duration-200",
+                                isActive
+                                    ? "bg-indigo-50 text-indigo-700 font-medium"
+                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            )}
                             aria-current={isActive ? "page" : undefined}>
-                            <Icon className={undefined} />
+                            <Icon className={cn("h-5 w-5", isActive ? "text-indigo-600" : "text-gray-400")} />
                             <span>{item.label}</span>
                         </button>
                     );

@@ -22,7 +22,7 @@ export function LoginRegisterPage({ onLogin }: LoginRegisterPageProps) {
 
   return (
     <AuthLayout title="EduMint ログイン/登録" description="大学アカウントで安全にログイン">
-      <div className={undefined}>
+      <div className="space-y-6">
         <AuthProviderButtons
           onAuth={social.signInWithGoogle}
           onMicrosoft={social.signInWithMicrosoft}
@@ -33,33 +33,44 @@ export function LoginRegisterPage({ onLogin }: LoginRegisterPageProps) {
 
         <div style={{
       display: "flex"
+<<<<<<< HEAD
     }}
+=======
+    }>
+>>>>>>> parent of b05c270 (chore(tailwind): strip Tailwind className usages (mechanical removal for Phase 4))
           <button
             onClick={() => setActiveTab('login')}
-            className={undefined}
+            className={cn(
+              "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+              activeTab === 'login' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            )}
           >
             ログイン
           </button>
           <button
             onClick={() => setActiveTab('register')}
-            className={undefined}
+            className={cn(
+              "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+              activeTab === 'register' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            )}
           >
             新規登録
           </button>
         </div>
 
         {activeTab === 'login' ? (
-          <div className={undefined}>
+          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <LoginForm
               onSubmit={login.submit}
               email={login.email}
               password={login.password}
               isSubmitting={login.isSubmitting}
               setEmail={login.setEmail}
-              setPassword={login.setPassword} />
+              setPassword={login.setPassword}
+            />
           </div>
         ) : (
-          <div className={undefined}>
+          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <RegisterForm
               onSubmit={register.submit}
               email={register.email}

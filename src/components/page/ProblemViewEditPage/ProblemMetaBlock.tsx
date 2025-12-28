@@ -108,14 +108,14 @@ export default function ProblemMetaBlock({
 
   return (
     <Card className={`${className} ${isSticky ? 'md:sticky md:top-20' : ''}`}>
-      <CardContent className={undefined}>
+      <CardContent className="p-6 space-y-6">
         {/* タイトルとバッジ */}
-        <div className={undefined}>
-          <h1 className={undefined}>{exam.examName}</h1>
+        <div className="space-y-3">
+          <h1 className="text-2xl font-bold text-gray-900">{exam.examName}</h1>
           <div style={{
       display: "flex",
       gap: "0.5rem"
-    }}>
+    }>
             <Badge className={getDifficultyColor(0)}>
               {getDifficultyLabel(0)}
             </Badge>
@@ -134,15 +134,15 @@ export default function ProblemMetaBlock({
         {/* メタ情報 */}
         <div style={{
       gap: "0.75rem"
-    }}>
+    }>
           {metaItems.map((item, index) => (
             <div key={index} style={{
       display: "flex"
-    }}>
-              <item.icon className={undefined} />
-              <div className={undefined}>
-                <div className={undefined}>{item.label}</div>
-                <div className={undefined}>
+    }>
+              <item.icon className="size-4 text-gray-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="text-xs text-gray-500">{item.label}</div>
+                <div className="text-sm font-medium text-gray-900 truncate">
                   {item.value}
                 </div>
               </div>
@@ -150,22 +150,22 @@ export default function ProblemMetaBlock({
           ))}
           <div style={{
       display: "flex"
-    }}>
-            <UserIcon className={undefined} />
-            <div className={undefined}>
-              <div className={undefined}>投稿者</div>
-              <div className={undefined}>
+    }>
+            <UserIcon className="size-4 text-gray-500 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs text-gray-500">投稿者</div>
+              <div className="text-sm font-medium text-gray-900 truncate">
                 {exam.userName}
               </div>
             </div>
           </div>
           <div style={{
       display: "flex"
-    }}>
-            <Calendar className={undefined} />
-            <div className={undefined}>
-              <div className={undefined}>投稿日</div>
-              <div className={undefined}>
+    }>
+            <Calendar className="size-4 text-gray-500 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs text-gray-500">投稿日</div>
+              <div className="text-sm font-medium text-gray-900">
                 {formatDate(exam.createdAt)}
               </div>
             </div>
@@ -173,22 +173,22 @@ export default function ProblemMetaBlock({
         </div>
 
         {/* 統計情報 */}
-        <div className={undefined}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
           {stats.map((stat, index) => (
-            <div key={index} className={undefined}>
+            <div key={index} className="text-center">
               <stat.icon className={`size-5 mx-auto mb-1 ${stat.color}`} />
-              <div className={undefined}>{stat.value}</div>
-              <div className={undefined}>{stat.label}</div>
+              <div className="text-lg font-bold text-gray-900">{stat.value}</div>
+              <div className="text-xs text-gray-500">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {/* アクションボタン */}
-        <div className={undefined}>
+        <div className="pt-4 border-t border-gray-200 space-y-3">
           {/* インタラクションボタン */}
           <div style={{
       gap: "0.5rem"
-    }}>
+    }>
             <Button
               variant={exam.userLiked ? 'default' : 'outline'}
               size="sm"
@@ -198,8 +198,9 @@ export default function ProblemMetaBlock({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
-              <ThumbsUp className={undefined} />
+    }}
+            >
+              <ThumbsUp className="size-4" />
               <span>{exam.userLiked ? 'いいね済み' : 'いいね'}</span>
             </Button>
             <Button
@@ -211,8 +212,9 @@ export default function ProblemMetaBlock({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
-              <ThumbsDown className={undefined} />
+    }}
+            >
+              <ThumbsDown className="size-4" />
               <span>{exam.userDisliked ? 'バッド済み' : 'バッド'}</span>
             </Button>
           </div>
@@ -220,7 +222,7 @@ export default function ProblemMetaBlock({
           {/* ユーティリティボタン */}
           <div style={{
       gap: "0.5rem"
-    }}>
+    }>
             <Button
               variant={isBookmarked ? 'default' : 'outline'}
               size="sm"
@@ -230,8 +232,9 @@ export default function ProblemMetaBlock({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
-              <Bookmark className={undefined} />
+    }}
+            >
+              <Bookmark className="size-4" />
               <span>{isBookmarked ? 'ブックマーク済み' : 'ブックマーク'}</span>
             </Button>
             <Button
@@ -243,8 +246,9 @@ export default function ProblemMetaBlock({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
-              <Share2 className={undefined} />
+    }}
+            >
+              <Share2 className="size-4" />
               <span>共有</span>
             </Button>
           </div>
@@ -252,7 +256,7 @@ export default function ProblemMetaBlock({
           {/* エクスポート・通報ボタン */}
           <div style={{
       gap: "0.5rem"
-    }}>
+    }>
             <Button
               variant="outline"
               size="sm"
@@ -261,8 +265,9 @@ export default function ProblemMetaBlock({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
-              <FileText className={undefined} />
+    }}
+            >
+              <FileText className="size-4" />
               <span>PDF出力</span>
             </Button>
             {!isOwner && (
@@ -274,8 +279,9 @@ export default function ProblemMetaBlock({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }}>
-                <Flag className={undefined} />
+    }}
+              >
+                <Flag className="size-4" />
                 <span>報告</span>
               </Button>
             )}
@@ -283,7 +289,7 @@ export default function ProblemMetaBlock({
         </div>
 
         {/* 更新日時 */}
-        <div className={undefined}>
+        <div className="pt-4 border-t border-gray-200 text-xs text-gray-500 text-center">
           最終更新: {formatDate(exam.updatedAt)}
         </div>
       </CardContent>

@@ -77,14 +77,15 @@ export const ProblemCreateView: React.FC<Props> = ({
   onPublish,
 }) => {
   return (
-    <div className={undefined}>
+    <div className="min-h-screen">
       <main
         style={{
           // Ensure L0 starts below the fixed TopMenuBar (4rem) + ProgressHeader (~5-6rem) with a bit of breathing room
           paddingLeft: "1rem",
           paddingRight: "1rem",
           paddingTop: 'clamp(9rem, 8vw + 6rem, 12rem)',
-        }}>
+        }}
+      >
         {step === 'start' && (
           <StartPhase
             sourceType={sourceType}
@@ -99,7 +100,8 @@ export const ProblemCreateView: React.FC<Props> = ({
             onChangeExerciseOptions={onChangeExerciseOptions}
             documentOptions={documentOptions}
             onChangeDocumentOptions={onChangeDocumentOptions}
-            onProceed={proceedFromStart} />
+            onProceed={proceedFromStart}
+          />
         )}
 
         {step === 'analysis' && (

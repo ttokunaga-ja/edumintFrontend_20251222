@@ -1,5 +1,0 @@
-const fs = require('fs');
-const path = require('path');
-function walk(dir, files=[]) { for (const f of fs.readdirSync(dir)) { const p=path.join(dir,f); if(fs.statSync(p).isDirectory()) walk(p,files); else if(/\.(tsx|jsx|ts|js)$/.test(p)) files.push(p);} return files; }
-const files = walk('src'); let fixed=0; for(const file of files){ let s=fs.readFileSync(file,'utf8'); let orig=s; const lines = s.split('\n'); let out=[]; for(let i=0;i<lines.length;i++){ const line=lines[i]; const prevNonEmpty = (()=>{ for(let j=i-1;j>=0;j--){ if(lines[j].trim()!=='') return lines[j]; } return ''; })(); if(line.trim()==='/>'){ if(prevNonEmpty.trim().endsWith('/>')){ // skip this line
- continue; } } out.push(line); } s=out.join('\n'); if(s!==orig){ fs.writeFileSync(file,s,'utf8'); console.log('Cleaned lonely closers in', file); fixed++; } } console.log('Done', fixed, 'files');

@@ -308,7 +308,8 @@ function App() {
           }}
           onSearchSubmit={() => {
             handleNavigate("home");
-          }} />
+          }}
+        />
 
         <div className="relative">
           <NotificationPopover

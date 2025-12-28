@@ -19,13 +19,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     <div
       className={`rounded-xl border border-dashed border-gray-200 bg-white p-6 text-center space-y-3 ${className}`}
     >
-      <h3 className={undefined}>{title}</h3>
-      {description && <p className={undefined}>{description}</p>}
+      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+      {description && <p className="text-sm text-gray-600">{description}</p>}
       {children}
       {action && <div style={{
       display: "flex",
       justifyContent: "center"
-    }}>{action}</div>}
+    }>{action}</div>}
     </div>
   );
 };

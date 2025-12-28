@@ -24,7 +24,7 @@ type Story = StoryObj<typeof ProblemCreatePage>;
 
 export const Default: Story = {
   args: {
-    onNavigate: () => {}},
-    onLogout: () => {}},
+    onNavigate: () => { },
+    onLogout: () => { },
   },
 };

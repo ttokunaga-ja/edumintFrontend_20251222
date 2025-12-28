@@ -16,7 +16,7 @@ export const AuthProviderButtons: React.FC<AuthProviderButtonsProps> = ({
   return (
     <div style={{
       gap: "0.75rem"
-    }}>
+    }>
       <Button variant="outline" onClick={onAuth}>
         Google で続行
       </Button>

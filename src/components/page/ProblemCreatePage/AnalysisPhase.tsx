@@ -13,48 +13,49 @@ type AnalysisPhaseProps = {
 
 export function AnalysisPhase({ exam, onChange, onBack, onNext }: AnalysisPhaseProps) {
   return (
-    <div className={undefined}>
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
       <div style={{
       display: "flex",
       alignItems: "center"
-    }}>
+    }>
         <div>
-          <h2 className={undefined}>構造の確認と編集</h2>
-          <p className={undefined}>解析された問題構造を確認し、必要に応じて大問・小問の構成を調整してください。</p>
+          <h2 className="text-2xl font-bold text-gray-900">構造の確認と編集</h2>
+          <p className="text-gray-600 font-medium">解析された問題構造を確認し、必要に応じて大問・小問の構成を調整してください。</p>
         </div>
         <div style={{
       display: "flex",
       gap: "0.75rem"
-    }}>
-          <Button variant="outline" onClick={onBack} className={undefined}>
+    }>
+          <Button variant="outline" onClick={onBack} className="rounded-xl px-6">
             戻る
           </Button>
-          <Button onClick={onNext} className={undefined}>
+          <Button onClick={onNext} className="rounded-xl px-8 bg-indigo-600">
             次へ進む
           </Button>
         </div>
       </div>
 
-      <div className={undefined}>
-        <div className={undefined}>
-          <Card className={undefined}>
-            <h3 className={undefined}>構造ツリー</h3>
-            <div className={undefined}>
-              <p className={undefined}>大問・小問の構造</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Card className="p-8 rounded-2xl shadow-xl bg-white border-none">
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">構造ツリー</h3>
+            <div className="border border-indigo-100 rounded-2xl p-6 bg-indigo-50/20">
+              <p className="text-indigo-600 font-bold mb-4">大問・小問の構造</p>
               <StructureAnalysisEditor exam={exam} onChange={onChange} />
             </div>
           </Card>
         </div>
-        <div className={undefined}>
+        <div className="lg:col-span-1">
           <ProblemMetaBlock
             exam={exam}
             isOwner
-            onLike={() => {}}
-            onDislike={() => {}}
-            onBookmark={() => {}}
-            onShare={() => {}}
-            onReport={() => {}}
-            onExportPDF={() => {}} />
+            onLike={() => { }}
+            onDislike={() => { }}
+            onBookmark={() => { }}
+            onShare={() => { }}
+            onReport={() => { }}
+            onExportPDF={() => { }}
+          />
         </div>
       </div>
     </div>
