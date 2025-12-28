@@ -63,10 +63,10 @@ export function ProfileEditForm({ user, onSave, onCancel, className = '' }: Prof
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${className}`}>
-      <h2 className="text-gray-900 mb-6">プロフィール編集</h2>
+    <form onSubmit={handleSubmit} >
+      <h2 >プロフィール編集</h2>
 
-      <div className="space-y-6">
+      <div >
         {/* ユーザー名 */}
         <div>
           <label style={{
@@ -74,20 +74,19 @@ export function ProfileEditForm({ user, onSave, onCancel, className = '' }: Prof
       alignItems: "center",
       gap: "0.5rem"
     }>
-            <UserIcon className="w-4 h-4" />
-            <span>ユーザー名 <span className="text-red-500">*</span></span>
+            <UserIcon  />
+            <span>ユーザー名 <span >*</span></span>
           </label>
           <input
             type="text"
             value={formData.username}
             onChange={(e) => handleChange('username', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${errors.username ? 'border-red-500' : 'border-gray-300'
-              }`}
+            
             placeholder="田中太郎"
             maxLength={50}
           />
           {errors.username && (
-            <p className="mt-1 text-sm text-red-600">{errors.username}</p>
+            <p >{errors.username}</p>
           )}
         </div>
 
@@ -98,7 +97,7 @@ export function ProfileEditForm({ user, onSave, onCancel, className = '' }: Prof
       alignItems: "center",
       gap: "0.5rem"
     }>
-            <Mail className="w-4 h-4" />
+            <Mail  />
             <span>メールアドレス</span>
           </label>
           <input
@@ -110,14 +109,14 @@ export function ProfileEditForm({ user, onSave, onCancel, className = '' }: Prof
       paddingRight: "1rem",
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
-<<<<<<< HEAD
+
     }} />
           <p className={undefined}>
-=======
+
     }}
           />
-          <p className="mt-1 text-xs text-gray-500">
->>>>>>> parent of b05c270 (chore(tailwind): strip Tailwind className usages (mechanical removal for Phase 4))
+          <p >
+
             メールアドレスは変更できません
           </p>
         </div>
@@ -129,7 +128,7 @@ export function ProfileEditForm({ user, onSave, onCancel, className = '' }: Prof
       alignItems: "center",
       gap: "0.5rem"
     }>
-            <Building2 className="w-4 h-4" />
+            <Building2  />
             <span>所属学部</span>
           </label>
           <input
@@ -153,7 +152,7 @@ export function ProfileEditForm({ user, onSave, onCancel, className = '' }: Prof
       alignItems: "center",
       gap: "0.5rem"
     }>
-            <BookOpen className="w-4 h-4" />
+            <BookOpen  />
             <span>学問分野</span>
           </label>
           <select
@@ -179,20 +178,19 @@ export function ProfileEditForm({ user, onSave, onCancel, className = '' }: Prof
       alignItems: "center"
     }>
             <span>自己紹介</span>
-            <span className="text-xs text-gray-500">
+            <span >
               {formData.bio.length}/500文字
             </span>
           </label>
           <textarea
             value={formData.bio}
             onChange={(e) => handleChange('bio', e.target.value)}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[100px] ${errors.bio ? 'border-red-500' : 'border-gray-300'
-              }`}
+            
             placeholder="自己紹介を入力してください..."
             maxLength={500}
           />
           {errors.bio && (
-            <p className="mt-1 text-sm text-red-600">{errors.bio}</p>
+            <p >{errors.bio}</p>
           )}
         </div>
       </div>
@@ -216,7 +214,7 @@ export function ProfileEditForm({ user, onSave, onCancel, className = '' }: Prof
       paddingBottom: "0.5rem"
     }}
         >
-          <Save className="w-4 h-4" />
+          <Save  />
           <span>{isLoading ? '保存中...' : '変更を保存'}</span>
         </button>
         <button
@@ -230,7 +228,7 @@ export function ProfileEditForm({ user, onSave, onCancel, className = '' }: Prof
       paddingBottom: "0.5rem"
     }}
         >
-          <X className="w-4 h-4" />
+          <X  />
         </button>
       </div>
     </form>

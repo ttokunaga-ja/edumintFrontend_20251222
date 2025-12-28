@@ -26,24 +26,24 @@ export function ProfileSetupPage({ onComplete, initialEmail }: ProfileSetupPageP
       justifyContent: "center",
       paddingLeft: "1rem",
       paddingRight: "1rem"
-<<<<<<< HEAD
+
     }}
-=======
+
     }>
->>>>>>> parent of b05c270 (chore(tailwind): strip Tailwind className usages (mechanical removal for Phase 4))
+
       <form
         onSubmit={submit}
-        className="w-full max-w-md space-y-4 rounded-xl bg-white p-6 shadow-sm border border-gray-100"
+        
       >
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">プロフィール設定</h1>
-          <p className="text-sm text-gray-600">
+          <h1 >プロフィール設定</h1>
+          <p >
             本実装は暫定版です。最低限の情報を入力して完了してください。
           </p>
         </div>
 
-        <label className="space-y-1 block">
-          <span className="text-sm text-gray-700">ユーザー名</span>
+        <label >
+          <span >ユーザー名</span>
           <input
             style={{
       borderRadius: "0.375rem",
@@ -56,8 +56,8 @@ export function ProfileSetupPage({ onComplete, initialEmail }: ProfileSetupPageP
           />
         </label>
 
-        <label className="space-y-1 block">
-          <span className="text-sm text-gray-700">大学</span>
+        <label >
+          <span >大学</span>
           <input
             style={{
       borderRadius: "0.375rem",
@@ -70,8 +70,8 @@ export function ProfileSetupPage({ onComplete, initialEmail }: ProfileSetupPageP
           />
         </label>
 
-        <label className="space-y-1 block">
-          <span className="text-sm text-gray-700">学部</span>
+        <label >
+          <span >学部</span>
           <input
             style={{
       borderRadius: "0.375rem",
@@ -94,10 +94,10 @@ export function ProfileSetupPage({ onComplete, initialEmail }: ProfileSetupPageP
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
     }}
-<<<<<<< HEAD
-=======
+
+
         >
->>>>>>> parent of b05c270 (chore(tailwind): strip Tailwind className usages (mechanical removal for Phase 4))
+
           設定を完了する
         </button>
       </form>

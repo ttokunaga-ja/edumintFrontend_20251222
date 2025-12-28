@@ -25,10 +25,10 @@ export const MetaSelect: React.FC<MetaSelectProps> = ({
       alignItems: "center",
       gap: "0.75rem"
     }>
-      <label className="text-xs text-gray-600">{label}</label>
+      <label >{label}</label>
       <select
         aria-label={ariaLabel ?? label}
-        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 disabled:bg-gray-100 disabled:text-gray-400"
+        
         value={value}
         disabled={disabled}
         onChange={(e) => onChange?.(Number(e.target.value))}

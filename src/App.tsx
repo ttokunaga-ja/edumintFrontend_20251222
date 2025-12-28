@@ -282,7 +282,7 @@ function App() {
 
   return (
     <ServiceHealthProvider>
-      <div className="min-h-screen bg-gray-50">
+      <div >
         {/* TopMenuBar: ログイン済みユーザーのみ表示 */}
         {/* TopMenuBar: ログイン済みユーザーのみ表示 */}
         <TopMenuBar
@@ -311,7 +311,7 @@ function App() {
           }}
         />
 
-        <div className="relative">
+        <div >
           <NotificationPopover
             isOpen={isNotificationsOpen}
             onClose={() => setIsNotificationsOpen(false)}

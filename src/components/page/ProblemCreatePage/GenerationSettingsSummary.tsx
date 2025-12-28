@@ -46,7 +46,7 @@ export function GenerationSettingsSummary({
   className = '',
 }: GenerationSettingsSummaryProps) {
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden ${className}`}>
+    <div >
       {/* ヘッダー */}
       <div style={{
       display: "flex",
@@ -59,18 +59,18 @@ export function GenerationSettingsSummary({
       alignItems: "center",
       gap: "0.5rem"
     }>
-          <Settings className="w-4 h-4 text-gray-600" />
-          <h3 className="text-sm text-gray-900">生成設定</h3>
+          <Settings  />
+          <h3 >生成設定</h3>
         </div>
         {showEditButton && onEdit && (
-          <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 px-2 text-xs">
+          <Button variant="ghost" size="sm" onClick={onEdit} >
             編集
           </Button>
         )}
       </div>
 
       {/* 設定内容 */}
-      <div className="p-4 space-y-4">
+      <div >
         {/* AI生成設定 */}
         <div>
           <div style={{
@@ -78,16 +78,16 @@ export function GenerationSettingsSummary({
       alignItems: "center",
       gap: "0.5rem"
     }>
-            <Sparkles className="w-4 h-4 text-indigo-600" />
-            <h4 className="text-xs text-gray-700">AI生成</h4>
+            <Sparkles  />
+            <h4 >AI生成</h4>
           </div>
-          <div className="space-y-2">
+          <div >
             <div style={{
       display: "flex",
       alignItems: "center"
     }>
-              <span className="text-gray-600">自動問題生成</span>
-              <Badge variant={settings.autoGenerateQuestions ? 'default' : 'secondary'} className="text-xs">
+              <span >自動問題生成</span>
+              <Badge variant={settings.autoGenerateQuestions ? 'default' : 'secondary'} >
                 {settings.autoGenerateQuestions ? 'ON' : 'OFF'}
               </Badge>
             </div>
@@ -97,15 +97,15 @@ export function GenerationSettingsSummary({
       display: "flex",
       alignItems: "center"
     }>
-                  <span className="text-gray-600">生成数</span>
-                  <span className="text-gray-900">{settings.questionCount || 5}問</span>
+                  <span >生成数</span>
+                  <span >{settings.questionCount || 5}問</span>
                 </div>
                 <div style={{
       display: "flex",
       alignItems: "center"
     }>
-                  <span className="text-gray-600">難易度</span>
-                  <Badge variant="outline" className="text-xs">
+                  <span >難易度</span>
+                  <Badge variant="outline" >
                     {difficultyLabels[settings.difficultyLevel] || '標準'}
                   </Badge>
                 </div>
@@ -122,15 +122,15 @@ export function GenerationSettingsSummary({
       alignItems: "center",
       gap: "0.5rem"
     }>
-              <FileText className="w-4 h-4 text-blue-600" />
-              <h4 className="text-xs text-gray-700">問題形式</h4>
+              <FileText  />
+              <h4 >問題形式</h4>
             </div>
             <div style={{
       display: "flex",
       gap: "0.25rem"
     }>
               {settings.questionTypes.map(typeId => (
-                <Badge key={typeId} variant="secondary" className="text-xs">
+                <Badge key={typeId} variant="secondary" >
                   {questionTypeLabels[typeId] || `Type ${typeId}`}
                 </Badge>
               ))}
@@ -140,15 +140,15 @@ export function GenerationSettingsSummary({
 
         {/* コンテンツ設定 */}
         <div>
-          <h4 className="text-xs text-gray-700 mb-2">コンテンツ</h4>
-          <div className="space-y-1.5">
+          <h4 >コンテンツ</h4>
+          <div >
             {settings.includeAnswers && (
               <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
     }>
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                <div  />
                 <span>解答を含む</span>
               </div>
             )}
@@ -158,7 +158,7 @@ export function GenerationSettingsSummary({
       alignItems: "center",
       gap: "0.5rem"
     }>
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                <div  />
                 <span>解説を含む</span>
               </div>
             )}
@@ -168,7 +168,7 @@ export function GenerationSettingsSummary({
       alignItems: "center",
       gap: "0.5rem"
     }>
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                <div  />
                 <span>キーワード自動抽出</span>
               </div>
             )}
@@ -178,15 +178,15 @@ export function GenerationSettingsSummary({
         {/* 高度な設定 */}
         {(settings.useAdvancedAI || settings.preserveFormatting || settings.detectDiagrams) && (
           <div>
-            <h4 className="text-xs text-gray-700 mb-2">高度な設定</h4>
-            <div className="space-y-1.5">
+            <h4 >高度な設定</h4>
+            <div >
               {settings.useAdvancedAI && (
                 <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
     }>
-                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
+                  <div  />
                   <span>高度なAIモデル使用</span>
                 </div>
               )}
@@ -196,7 +196,7 @@ export function GenerationSettingsSummary({
       alignItems: "center",
       gap: "0.5rem"
     }>
-                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
+                  <div  />
                   <span>書式保持</span>
                 </div>
               )}
@@ -206,7 +206,7 @@ export function GenerationSettingsSummary({
       alignItems: "center",
       gap: "0.5rem"
     }>
-                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
+                  <div  />
                   <span>図表検出</span>
                 </div>
               )}
@@ -216,7 +216,7 @@ export function GenerationSettingsSummary({
       alignItems: "center",
       gap: "0.5rem"
     }>
-                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
+                  <div  />
                   <span>セクション分割</span>
                 </div>
               )}
@@ -226,7 +226,7 @@ export function GenerationSettingsSummary({
       alignItems: "center",
       gap: "0.5rem"
     }>
-                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
+                  <div  />
                   <span>モバイル最適化</span>
                 </div>
               )}
@@ -235,7 +235,7 @@ export function GenerationSettingsSummary({
         )}
 
         {/* 公開設定 */}
-        <div className="pt-3 border-t border-gray-200">
+        <div >
           <div style={{
       display: "flex",
       alignItems: "center"
@@ -246,13 +246,13 @@ export function GenerationSettingsSummary({
       gap: "0.5rem"
     }>
               {settings.isPublic ? (
-                <Unlock className="w-4 h-4 text-green-600" />
+                <Unlock  />
               ) : (
-                <Lock className="w-4 h-4 text-gray-400" />
+                <Lock  />
               )}
-              <span className="text-xs text-gray-700">公開設定</span>
+              <span >公開設定</span>
             </div>
-            <Badge variant={settings.isPublic ? 'default' : 'secondary'} className="text-xs">
+            <Badge variant={settings.isPublic ? 'default' : 'secondary'} >
               {settings.isPublic ? '公開' : '非公開'}
             </Badge>
           </div>
@@ -269,17 +269,17 @@ export function GenerationSettingsSummary({
       display: "flex",
       gap: "0.5rem"
     }>
-            <div className="flex-shrink-0">
-              <div className="w-1 h-1 mt-1.5 bg-blue-500 rounded-full" />
+            <div >
+              <div  />
             </div>
-            <div className="flex-1">
-              <p className="text-xs text-blue-900">
+            <div >
+              <p >
                 推定処理時間:
-                <span className="font-medium ml-1">
+                <span >
                   {settings.useAdvancedAI ? '3-5分' : '1-3分'}
                 </span>
               </p>
-              <p className="text-xs text-blue-700 mt-0.5">
+              <p >
                 バックグラウンドで処理されます
               </p>
             </div>

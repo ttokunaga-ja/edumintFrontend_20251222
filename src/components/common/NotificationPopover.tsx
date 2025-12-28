@@ -61,11 +61,11 @@ export default function NotificationPopover({ isOpen, onClose }: NotificationPop
     }, []);
     const getIcon = (type: string) => {
         switch (type) {
-            case 'like': return <Heart className="h-4 w-4 text-pink-500 fill-pink-500" />;
-            case 'comment': return <MessageSquare className="h-4 w-4 text-indigo-500" />;
-            case 'system': return <Info className="h-4 w-4 text-blue-500" />;
-            case 'report': return <CheckCircle className="h-4 w-4 text-orange-500" />;
-            default: return <Bell className="h-4 w-4 text-gray-500" />;
+            case 'like': return <Heart  />;
+            case 'comment': return <MessageSquare  />;
+            case 'system': return <Info  />;
+            case 'report': return <CheckCircle  />;
+            default: return <Bell  />;
         }
     };
 
@@ -107,11 +107,11 @@ export default function NotificationPopover({ isOpen, onClose }: NotificationPop
                 // @ts-ignore -- popover is a native attribute not yet in TypeScript DOM typings
                 popover="auto"
                 data-notifications="true"
-<<<<<<< HEAD
+
                 className={undefined}
-=======
-                className="fixed top-16 right-4 left-auto w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transition-all duration-150 origin-top-right [popover-open]:opacity-100 [popover-open]:scale-100 opacity-0 scale-95"
->>>>>>> parent of b05c270 (chore(tailwind): strip Tailwind className usages (mechanical removal for Phase 4))
+
+                
+
                 style={{ top: '4rem', right: '1rem', left: 'auto' }}
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
@@ -121,19 +121,19 @@ export default function NotificationPopover({ isOpen, onClose }: NotificationPop
       display: "flex",
       alignItems: "center"
     }>
-                    <h3 className="font-bold text-gray-900">通知</h3>
+                    <h3 >通知</h3>
                 </div>
 
-                <div className="p-8 text-center bg-gray-50/50">
+                <div >
                     <div style={{
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
     }>
-                        <Bell className="h-6 w-6 text-gray-400" />
+                        <Bell  />
                     </div>
-                    <h3 className="font-bold text-gray-900 mb-1">Coming Soon</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 >Coming Soon</h3>
+                    <p >
                         通知機能は現在開発中です。<br />
                         今後のアップデートをお待ちください。
                     </p>
@@ -147,33 +147,30 @@ export default function NotificationPopover({ isOpen, onClose }: NotificationPop
         <div
             id={popoverId}
             data-notifications="true"
-<<<<<<< HEAD
+
             className={undefined}
-=======
-            className={cn(
-                "fixed top-16 right-4 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-200 origin-top-right",
-                isOpen ? "opacity-100 scale-100 visible" : "opacity-0 scale-95 invisible pointer-events-none"
-            )}
->>>>>>> parent of b05c270 (chore(tailwind): strip Tailwind className usages (mechanical removal for Phase 4))
+
+            
+
             style={{ visibility: isOpen ? 'visible' : 'hidden' }}
             onClick={(e) => e.stopPropagation()}>
             <div style={{
       display: "flex",
       alignItems: "center"
     }>
-                <h3 className="font-bold text-gray-900">通知</h3>
+                <h3 >通知</h3>
             </div>
 
-            <div className="p-8 text-center bg-gray-50/50">
+            <div >
                 <div style={{
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
     }>
-                    <Bell className="h-6 w-6 text-gray-400" />
+                    <Bell  />
                 </div>
-                <h3 className="font-bold text-gray-900 mb-1">Coming Soon</h3>
-                <p className="text-sm text-gray-500">
+                <h3 >Coming Soon</h3>
+                <p >
                     通知機能は現在開発中です。<br />
                     今後のアップデートをお待ちください。
                 </p>

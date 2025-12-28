@@ -45,7 +45,7 @@ export function StartPhase({
   const canProceed = hasSuccessfulFiles || (files.length > 0 && !isUploading);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div >
       <div style={{
       display: "flex",
       justifyContent: "center"
@@ -53,24 +53,24 @@ export function StartPhase({
         <SourceToggle value={sourceType} onChange={onSourceTypeChange} />
       </div>
 
-      <div className="space-y-6">
-        <Card className="p-8 border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden relative">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-700 to-blue-900" />
+      <div >
+        <Card >
+          <div  />
           <div style={{
       display: "flex",
       alignItems: "center"
     }>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">
+              <h3 >
                 {sourceType === 'exercise' ? '過去問・既存問題のアップロード' : '学習資料のアップロード'}
               </h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <p >
                 {sourceType === 'exercise'
                   ? '既存の演習問題（PDF/Text）をベースに類題を生成します。'
                   : '講義資料やレジュメ（PDF/Text）を解析して問題を生成します。'}
               </p>
             </div>
-            <Upload className="w-8 h-8 text-indigo-400 opacity-50" />
+            <Upload  />
           </div>
 
           <div
@@ -101,7 +101,7 @@ export function StartPhase({
               type="file"
               accept=".pdf,.txt,.md,.tex"
               multiple
-              className="hidden"
+              
               onChange={onFileSelect}
             />
             <div style={{
@@ -109,13 +109,13 @@ export function StartPhase({
       alignItems: "center",
       justifyContent: "center"
     }>
-              <Upload className="w-8 h-8 text-indigo-600" />
+              <Upload  />
             </div>
-            <p className="font-bold text-indigo-900">ファイルを選択またはドラッグ＆ドロップ</p>
-            <p className="text-xs text-indigo-400 mt-2">PDF, Text, Markdown, LaTeX (最大 20MB)</p>
+            <p >ファイルを選択またはドラッグ＆ドロップ</p>
+            <p >PDF, Text, Markdown, LaTeX (最大 20MB)</p>
           </div>
 
-          <div className="mt-8">
+          <div >
             <FileUploadQueue files={files} onRemove={onRemoveFile} />
           </div>
         </Card>
@@ -127,10 +127,7 @@ export function StartPhase({
         )}
 
         <Button
-          className={cn(
-            'w-full py-8 text-lg font-bold rounded-2xl shadow-indigo-200 shadow-xl bg-indigo-600 hover:bg-indigo-700 transition-all',
-            !canProceed && 'opacity-60 cursor-not-allowed hover:translate-y-0',
-          )}
+          
           disabled={!canProceed}
           onClick={onProceed}
         >

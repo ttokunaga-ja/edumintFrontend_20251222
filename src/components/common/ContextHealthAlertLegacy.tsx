@@ -55,27 +55,27 @@ export function ContextHealthAlert({
   const Icon = config.icon;
 
   return (
-    <Alert className={`${config.className} ${className} mb-4`}>
-      <Icon className={`size-4 ${config.iconClassName}`} />
+    <Alert >
+      <Icon  />
       <AlertTitle style={{
       display: "flex",
       alignItems: "center"
     }>
         <span>{category}</span>
         {disableCTA && (
-          <span className="text-xs font-normal opacity-75">
+          <span >
             一時的にご利用いただけません
           </span>
         )}
       </AlertTitle>
-      <AlertDescription className="mt-2">
-        <p className="text-sm mb-3">{message}</p>
+      <AlertDescription >
+        <p >{message}</p>
         {action && (
           <Button
             variant="outline"
             size="sm"
             onClick={action.onClick}
-            className="mt-2"
+            
           >
             {action.label}
           </Button>
@@ -94,11 +94,11 @@ export interface ServiceHealthSummaryProps {
       label: string;
       onClick: () => void;
     };
-<<<<<<< HEAD
+
   };
-=======
+
   }>;
->>>>>>> parent of 0a29049 (fix(jsx): add missing closing brace before > (auto))
+
   className?: string;
 }
 
@@ -108,15 +108,15 @@ export function ServiceHealthSummary({ services, className = '' }: ServiceHealth
 
   if (alertServices.length === 0) {
     return (
-      <div className={`border border-green-200 bg-green-50 rounded-xl p-6 ${className}`}>
+      <div >
         <div style={{
       display: "flex",
       alignItems: "center"
     }>
-          <CheckCircle className="size-6 text-green-600" />
+          <CheckCircle  />
           <div>
-            <h3 className="text-green-900">すべてのサービスが正常に稼働中</h3>
-            <p className="text-sm text-green-700 mt-1">
+            <h3 >すべてのサービスが正常に稼働中</h3>
+            <p >
               現在、すべての機能を通常どおりご利用いただけます。
             </p>
           </div>
@@ -126,9 +126,9 @@ export function ServiceHealthSummary({ services, className = '' }: ServiceHealth
   }
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      <h3 className="text-gray-900">サービス状態</h3>
-      <div className="grid gap-4 md:grid-cols-2">
+    <div >
+      <h3 >サービス状態</h3>
+      <div >
         {services.map((service, index) => {
           const config = statusConfig[service.status];
           const Icon = config.icon;
@@ -136,25 +136,23 @@ export function ServiceHealthSummary({ services, className = '' }: ServiceHealth
           return (
             <div
               key={index}
-              className={`border rounded-xl p-4 ${service.status === 'operational' ? 'border-gray-200 bg-gray-50' : config.className
-                }`}
+              
             >
               <div style={{
       display: "flex"
     }>
                 <Icon
-                  className={`size-5 flex-shrink-0 mt-0.5 ${service.status === 'operational' ? 'text-gray-500' : config.iconClassName
-                    }`}
+                  
                 />
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm mb-1">{service.category}</h4>
-                  <p className="text-xs opacity-90 mb-2">{service.message}</p>
+                <div >
+                  <h4 >{service.category}</h4>
+                  <p >{service.message}</p>
                   {service.action && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={service.action.onClick}
-                      className="text-xs h-8"
+                      
                     >
                       {service.action.label}
                     </Button>

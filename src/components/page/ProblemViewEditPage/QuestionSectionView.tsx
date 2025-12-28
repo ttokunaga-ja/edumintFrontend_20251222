@@ -8,9 +8,9 @@ type QuestionSectionViewProps = {
 
 export const QuestionSectionView: React.FC<QuestionSectionViewProps> = ({ question }) => {
   return (
-    <div className="space-y-6">
+    <div >
       <QuestionCardView question={question} />
-      <div className="space-y-4 pl-8">
+      <div >
         {(question.sub_questions || []).map((sq: any, idx: number) => (
           <SubQuestionCardView key={sq.id || idx} subQuestion={sq} />
         ))}

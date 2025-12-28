@@ -52,8 +52,8 @@ export const SubQuestionCardEdit: React.FC<SubQuestionCardEditProps> = ({
   };
 
   return (
-    <div className={`rounded-xl border border-gray-100 bg-white p-4 shadow-sm ${viewMode === 'structure' ? 'border-dashed' : ''}`}>
-      <div className={`${viewMode === 'full' ? 'mb-3' : ''} flex items-start gap-3 sm:gap-4 flex-1`}>
+    <div >
+      <div >
         <div style={{
       display: "flex",
       alignItems: "center",
@@ -61,13 +61,13 @@ export const SubQuestionCardEdit: React.FC<SubQuestionCardEditProps> = ({
     }>
           ({number})
         </div>
-        <div className="flex-1 min-w-0">
+        <div >
           <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
     }>
-            <span className="text-gray-900 text-sm font-medium">小問{number}</span>
+            <span >小問{number}</span>
           </div>
           <SubQuestionMetaEdit
             questionTypeId={typeId}

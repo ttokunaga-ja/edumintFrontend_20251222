@@ -54,7 +54,7 @@ export const LatexBlock: React.FC<LatexBlockProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`latex-block ${displayMode ? 'text-center my-4' : 'inline-block'} ${className}`}
+      
       aria-label="latex-render"
     />
   );

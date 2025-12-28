@@ -25,8 +25,8 @@ const SearchInput = ({
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
     className?: string;
 }) => (
-    <div className={`relative ${className}`}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+    <div >
+        <Search  />
         <input
             type="text"
             value={value}
@@ -70,7 +70,7 @@ export default function TopMenuBar({
     };
 
     return (
-        <nav className="sticky top-0 z-app-bar w-full border-b border-gray-200 bg-white">
+        <nav >
             <div style={{
       paddingLeft: "1rem",
       paddingRight: "1rem"
@@ -86,11 +86,11 @@ export default function TopMenuBar({
       alignItems: "center",
       gap: "0.5rem"
     }>
-                        <Button variant="ghost" size="icon" className="text-gray-500" title="メニュー" data-trigger="menu-button" onClick={onMenuClick}>
-                            <Menu className="h-5 w-5" />
+                        <Button variant="ghost" size="icon"  title="メニュー" data-trigger="menu-button" onClick={onMenuClick}>
+                            <Menu  />
                         </Button>
-                        <div className="flex-shrink-0 cursor-pointer" onClick={() => onNavigate?.('home')}>
-                            <span className="text-xl font-bold bg-gradient-to-r from-blue-800 to-blue-950 bg-clip-text text-transparent">
+                        <div  onClick={() => onNavigate?.('home')}>
+                            <span >
                                 Edumint
                             </span>
                         </div>
@@ -101,7 +101,7 @@ export default function TopMenuBar({
       justifyContent: "center"
     }>
                         <SearchInput
-                            className="w-full"
+                            
                             value={localQuery}
                             onChange={handleInputChange}
                             onKeyDown={handleKeyDown}
@@ -117,15 +117,15 @@ export default function TopMenuBar({
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="text-blue-800 hover:bg-blue-50"
+                            
                             onClick={() => onNavigate?.('problem-create')}
                             title="問題をアップロード"
                         >
-                            <Plus className="h-5 w-5" />
+                            <Plus  />
                         </Button>
 
-                        <Button variant="ghost" size="icon" className="text-gray-500 hover:bg-gray-100" data-trigger="notification-bell" onClick={onNotificationClick}>
-                            <Bell className="h-5 w-5" />
+                        <Button variant="ghost" size="icon"  data-trigger="notification-bell" onClick={onNotificationClick}>
+                            <Bell  />
                         </Button>
 
                         <div style={{
@@ -133,22 +133,22 @@ export default function TopMenuBar({
       alignItems: "center",
       gap: "0.5rem"
     }>
-                            <div className="hidden lg:block text-right mr-1">
-                                <div className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
+                            <div >
+                                <div >
                                     {user?.username || 'ゲストユーザー'}
                                 </div>
                             </div>
-                            <Button variant="ghost" size="icon" className="rounded-full bg-gray-100 p-0 overflow-hidden" onClick={() => onNavigate?.('my-page')}>
-                                <User className="h-5 w-5 text-gray-600" />
+                            <Button variant="ghost" size="icon"  onClick={() => onNavigate?.('my-page')}>
+                                <User  />
                             </Button>
                         </div>
                     </div>
                 </div>
 
                 {/* Mobile Search Row (visible only on small screens) */}
-                <div className="md:hidden pb-4">
+                <div >
                     <SearchInput
-                        className="w-full"
+                        
                         value={localQuery}
                         onChange={handleInputChange}
                         onKeyDown={handleKeyDown}

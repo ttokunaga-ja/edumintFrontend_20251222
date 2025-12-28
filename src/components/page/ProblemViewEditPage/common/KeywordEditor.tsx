@@ -40,7 +40,7 @@ export const KeywordEditor: React.FC<KeywordEditorProps> = ({
   };
 
   return (
-    <div className={`space-y-2 ${className}`}>
+    <div >
       <div style={{
       display: "flex",
       gap: "0.5rem"
@@ -57,10 +57,10 @@ export const KeywordEditor: React.FC<KeywordEditorProps> = ({
             {canEdit && onRemove && (
               <button
                 onClick={() => onRemove(kw.id)}
-                className="rounded-full p-0.5 hover:bg-indigo-200"
+                
                 aria-label="キーワード削除"
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2  />
               </button>
             )}
           </span>
@@ -84,13 +84,13 @@ export const KeywordEditor: React.FC<KeywordEditorProps> = ({
               }
             }}
             placeholder={placeholder}
-            className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            
           />
           <button
             onClick={handleAdd}
-            className="rounded bg-indigo-100 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-200"
+            
           >
-            <Plus className="w-4 h-4" />
+            <Plus  />
           </button>
         </div>
       )}

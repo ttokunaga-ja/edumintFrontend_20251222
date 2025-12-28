@@ -24,7 +24,7 @@ export function PreviewEditToggle({ isEditMode, setIsEditMode, disabled = false,
       gap: "0.5rem"
     }}
       >
-        <Eye className="w-4 h-4" />
+        <Eye  />
         プレビュー
       </Button>
       <Button
@@ -38,7 +38,7 @@ export function PreviewEditToggle({ isEditMode, setIsEditMode, disabled = false,
       gap: "0.5rem"
     }}
         title={disabled ? disabledReason || '編集権限が必要です' : undefined}>
-        <Edit className="w-4 h-4" />
+        <Edit  />
         編集モード
       </Button>
     </div>

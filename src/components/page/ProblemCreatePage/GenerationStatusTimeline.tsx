@@ -61,17 +61,17 @@ export function GenerationStatusTimeline({
     <div className={className}>
       {/* 現在の状態表示 */}
       {!isError && !isComplete && (
-        <div className="mb-4">
+        <div >
           <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
     }>
-            <Loader className="w-4 h-4 animate-spin text-indigo-600" />
-            <span className="text-sm font-medium">{displayLabel}</span>
+            <Loader  />
+            <span >{displayLabel}</span>
           </div>
           {detailedStep && (
-            <p className="text-xs text-gray-500 mt-1 ml-6">
+            <p >
               {getStepDescription(detailedStep)}
             </p>
           )}
@@ -80,30 +80,30 @@ export function GenerationStatusTimeline({
 
       {/* 一時停止表示 */}
       {isPaused && (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div >
           <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
     }>
-            <Clock className="w-4 h-4 text-yellow-600" />
-            <span className="text-sm font-medium text-yellow-800">一時停止中</span>
+            <Clock  />
+            <span >一時停止中</span>
           </div>
         </div>
       )}
 
       {/* プログレスバー */}
       {!isError && !isComplete && (
-        <div className="mt-4">
+        <div >
           <div style={{
       display: "flex"
     }>
             <span>進行状況</span>
             <span>{progress}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div >
             <div
-              className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+              
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -112,32 +112,32 @@ export function GenerationStatusTimeline({
 
       {/* 完了表示 */}
       {isComplete && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div >
           <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.75rem"
     }>
-            <Check className="w-5 h-5 text-green-600" />
-            <span className="text-sm font-medium text-green-800">生成が完了しました</span>
+            <Check  />
+            <span >生成が完了しました</span>
           </div>
         </div>
       )}
 
       {/* エラーメッセージ */}
       {isError && errorMessage && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div >
           <div style={{
       display: "flex",
       gap: "0.75rem"
     }>
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
+            <AlertCircle  />
+            <div >
               {errorCode && (
-                <p className="text-xs text-red-600 font-mono mb-1">{errorCode}</p>
+                <p >{errorCode}</p>
               )}
-              <p className="text-sm text-red-800">{errorMessage}</p>
-              <p className="text-xs text-red-600 mt-2">
+              <p >{errorMessage}</p>
+              <p >
                 {getErrorAdvice(errorCode)}
               </p>
             </div>

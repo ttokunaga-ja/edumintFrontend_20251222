@@ -34,7 +34,7 @@ function StructureStatusCard({
   errorMessage?: string | null;
 }) {
   return (
-    <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4" aria-busy={!isPaused && !isError}>
+    <Card  aria-busy={!isPaused && !isError}>
       <div style={{
       display: "flex",
       alignItems: "center",
@@ -46,13 +46,13 @@ function StructureStatusCard({
       gap: "0.5rem"
     }>
           {isError ? (
-            <AlertTriangle className="w-5 h-5 text-red-500" />
+            <AlertTriangle  />
           ) : isPaused ? (
-            <PauseCircle className="w-5 h-5 text-amber-500" />
+            <PauseCircle  />
           ) : (
-            <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
+            <Loader2  />
           )}
-          <div className="text-sm font-semibold text-gray-900">
+          <div >
             Structure_{currentStep}
             {!shouldConfirmStructure && (
               <span style={{
@@ -64,12 +64,12 @@ function StructureStatusCard({
             )}
           </div>
         </div>
-        <div className="text-[11px] text-gray-500 uppercase tracking-wide">
+        <div >
           {isError ? 'error' : isPaused ? 'paused' : 'processing'}
         </div>
       </div>
       {errorMessage && isError && (
-        <p className="mt-3 text-xs text-red-700 leading-relaxed">{errorMessage}</p>
+        <p >{errorMessage}</p>
       )}
     </Card>
   );
@@ -89,7 +89,7 @@ function GenerationStatusCard({
   errorMessage?: string | null;
 }) {
   return (
-    <Card className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4" aria-busy={!isPaused && !isError}>
+    <Card  aria-busy={!isPaused && !isError}>
       <div style={{
       display: "flex",
       alignItems: "center",
@@ -101,13 +101,13 @@ function GenerationStatusCard({
       gap: "0.5rem"
     }>
           {isError ? (
-            <AlertTriangle className="w-5 h-5 text-red-500" />
+            <AlertTriangle  />
           ) : isPaused ? (
-            <PauseCircle className="w-5 h-5 text-amber-500" />
+            <PauseCircle  />
           ) : (
-            <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
+            <Loader2  />
           )}
-          <div className="text-sm font-semibold text-gray-900">
+          <div >
             Generation_{currentStep}
             {!shouldConfirmStructure && (
               <span style={{
@@ -119,12 +119,12 @@ function GenerationStatusCard({
             )}
           </div>
         </div>
-        <div className="text-[11px] text-gray-500 uppercase tracking-wide">
+        <div >
           {isError ? 'error' : isPaused ? 'paused' : 'processing'}
         </div>
       </div>
       {errorMessage && isError && (
-        <p className="mt-3 text-xs text-red-700 leading-relaxed">{errorMessage}</p>
+        <p >{errorMessage}</p>
       )}
     </Card>
   );
@@ -312,7 +312,7 @@ export function GenerationPhase({
   }, [currentStep, detailedStep, shouldConfirmStructure]);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 relative isolation:isolate">
+    <div >
       <div style={{
       display: "flex",
       alignItems: "center"
@@ -320,13 +320,13 @@ export function GenerationPhase({
         <div>
           {isComplete ? (
             <>
-              <h2 className="text-2xl font-bold text-gray-900">最終確認と微調整</h2>
-              <p className="text-gray-600 font-medium">全自動で生成された問題と解答を微調整し、公開してください。</p>
+              <h2 >最終確認と微調整</h2>
+              <p >全自動で生成された問題と解答を微調整し、公開してください。</p>
             </>
           ) : (
             <>
-              <h2 className="text-2xl font-bold text-gray-900">問題生成中</h2>
-              <p className="text-gray-600 font-medium">AIが問題と解答を生成しています。しばらくお待ちください。</p>
+              <h2 >問題生成中</h2>
+              <p >AIが問題と解答を生成しています。しばらくお待ちください。</p>
             </>
           )}
         </div>
@@ -335,7 +335,7 @@ export function GenerationPhase({
       display: "flex",
       gap: "0.75rem"
     }>
-            <Button variant="outline" onClick={onBack} className="rounded-xl px-6">
+            <Button variant="outline" onClick={onBack} >
               キャンセル
             </Button>
           </div>
@@ -345,10 +345,10 @@ export function GenerationPhase({
       display: "flex",
       gap: "0.75rem"
     }>
-            <Button variant="outline" onClick={onBack} className="rounded-xl px-6">
+            <Button variant="outline" onClick={onBack} >
               戻る
             </Button>
-            <Button onClick={onPublish} className="rounded-xl px-8 bg-indigo-600">
+            <Button onClick={onPublish} >
               公開して保存
             </Button>
           </div>
@@ -382,14 +382,14 @@ export function GenerationPhase({
       )}
 
       {isComplete && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <Card className="p-8 rounded-2xl shadow-xl bg-white border-none">
-              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">問題本文・解答</h3>
+        <div >
+          <div >
+            <Card >
+              <h3 >問題本文・解答</h3>
               <GenerationResultEditor exam={exam} onChange={onChange} />
             </Card>
           </div>
-          <div className="lg:col-span-1">
+          <div >
             <ProblemMetaBlock
               exam={exam}
               isOwner

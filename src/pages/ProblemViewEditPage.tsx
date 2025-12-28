@@ -68,24 +68,24 @@ export default function ProblemViewEditPage(props: ProblemViewEditPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div >
 
       <div style={{
       paddingLeft: "1rem",
       paddingRight: "1rem"
-<<<<<<< HEAD
+
     }}
         <div style={{
       display: "flex",
       alignItems: "center"
     }}
-=======
+
     }>
         <div style={{
       display: "flex",
       alignItems: "center"
     }>
->>>>>>> parent of b05c270 (chore(tailwind): strip Tailwind className usages (mechanical removal for Phase 4))
+
           <PreviewEditToggle
             isEditMode={isEditMode}
             setIsEditMode={setIsEditMode}
@@ -94,8 +94,8 @@ export default function ProblemViewEditPage(props: ProblemViewEditPageProps) {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
+        <div >
+          <div >
             {isEditMode ? (
               <ProblemEditor
                 exam={editedExam}
@@ -103,7 +103,7 @@ export default function ProblemViewEditPage(props: ProblemViewEditPageProps) {
                 canEdit={hasEditPermission}
               />
             ) : (
-              <div className="space-y-8">
+              <div >
                 {exam.questions.map((q: any) => (
                   <QuestionSectionView key={q.id} question={q} />
                 ))}
@@ -111,7 +111,7 @@ export default function ProblemViewEditPage(props: ProblemViewEditPageProps) {
             )}
           </div>
 
-          <div className="lg:col-span-1 space-y-4">
+          <div >
             {(health.community === 'degraded' || health.community === 'outage' || health.community === 'maintenance') && (
               <ContextHealthAlert
                 category="コミュニティ機能"

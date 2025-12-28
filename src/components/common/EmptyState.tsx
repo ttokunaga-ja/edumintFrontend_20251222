@@ -17,10 +17,10 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   return (
     <div
-      className={`rounded-xl border border-dashed border-gray-200 bg-white p-6 text-center space-y-3 ${className}`}
+      
     >
-      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-      {description && <p className="text-sm text-gray-600">{description}</p>}
+      <h3 >{title}</h3>
+      {description && <p >{description}</p>}
       {children}
       {action && <div style={{
       display: "flex",

@@ -7,7 +7,7 @@ export default function NumericView(props: ProblemTypeViewProps) {
   return (
     <div>
       <MarkdownBlock content={questionContent} />
-      <div className="mt-3 text-sm text-gray-700">数値を入力して解くタイプの問題です。</div>
+      <div >数値を入力して解くタイプの問題です。</div>
     </div>
   );
 }

@@ -27,8 +27,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   setPassword,
 }) => {
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
+    <div >
+      <div >
         <Label htmlFor="register-email">メールアドレス</Label>
         <Input
           id="register-email"
@@ -38,7 +38,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           placeholder="you@example.com"
         />
       </div>
-      <div className="space-y-2">
+      <div >
         <Label htmlFor="register-username">ユーザー名</Label>
         <Input
           id="register-username"
@@ -47,7 +47,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           placeholder="your name"
         />
       </div>
-      <div className="space-y-2">
+      <div >
         <Label htmlFor="register-password">パスワード</Label>
         <Input
           id="register-password"
@@ -57,7 +57,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           placeholder="••••••••"
         />
       </div>
-      <Button className="w-full" onClick={onSubmit} disabled={isSubmitting}>
+      <Button  onClick={onSubmit} disabled={isSubmitting}>
         {isSubmitting ? '登録中…' : 'アカウントを作成'}
       </Button>
     </div>

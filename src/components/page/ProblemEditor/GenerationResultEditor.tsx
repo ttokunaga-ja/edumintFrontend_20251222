@@ -176,9 +176,9 @@ export function GenerationResultEditor({ exam, onChange, canEdit = true }: Gener
     };
 
     return (
-        <div className="space-y-12">
+        <div >
             {questions.map((q: any, qIdx: number) => (
-                <div key={q.id || qIdx} className="space-y-6">
+                <div key={q.id || qIdx} >
                     {canEdit ? (
                         <>
                             <QuestionSectionEdit
@@ -201,10 +201,10 @@ export function GenerationResultEditor({ exam, onChange, canEdit = true }: Gener
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="mt-2 border-dashed ml-8"
+                                
                                 onClick={() => addSubQuestion(qIdx)}
                             >
-                                <Plus className="mr-2 h-4 w-4" />
+                                <Plus  />
                                 小問を追加
                             </Button>
                         </>
@@ -217,10 +217,10 @@ export function GenerationResultEditor({ exam, onChange, canEdit = true }: Gener
             {canEdit && (
                 <Button
                     variant="ghost"
-                    className="w-full rounded-xl border-2 border-dashed border-gray-200 py-8 text-gray-500 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                    
                     onClick={addQuestion}
                 >
-                    <Plus className="mr-2 h-6 w-6" />
+                    <Plus  />
                     大問を追加
                 </Button>
             )}

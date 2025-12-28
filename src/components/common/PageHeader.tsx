@@ -9,10 +9,10 @@ export interface PageHeaderProps {
 
 export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, actions, className = '' }) => {
   return (
-    <div className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+    <div >
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
-        {description && <p className="text-sm text-gray-600 mt-1">{description}</p>}
+        <h1 >{title}</h1>
+        {description && <p >{description}</p>}
       </div>
       {actions && <div style={{
       display: "flex",

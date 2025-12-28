@@ -88,27 +88,27 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
   };
 
   return (
-    <Card className="p-8 border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden relative">
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
-      <div className="space-y-8">
+    <Card >
+      <div  />
+      <div >
         <div style={{
       display: "flex",
       alignItems: "center"
     }>
           <div>
-            <h3 className="text-xl font-bold text-gray-900">資料から生成</h3>
-            <p className="text-sm text-gray-500">
+            <h3 >資料から生成</h3>
+            <p >
               講義資料を解析し、問題の難易度・数・形式を細かく指定できます。
             </p>
           </div>
-          <FileText className="w-8 h-8 text-indigo-400 opacity-60" />
+          <FileText  />
         </div>
 
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <Label className="text-sm text-gray-700">難易度</Label>
+        <div >
+          <div >
+            <Label >難易度</Label>
             <Select value={options.difficulty} onValueChange={(val) => handleDifficultyChange(val as Difficulty)}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger >
                 <SelectValue placeholder="難易度を選択" />
               </SelectTrigger>
               <SelectContent>
@@ -121,9 +121,9 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
             </Select>
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-sm text-gray-700">問題数 (5〜20)</Label>
-            <div className="space-y-4">
+          <div >
+            <Label >問題数 (5〜20)</Label>
+            <div >
               <input
                 type="number"
                 min={5}
@@ -137,12 +137,12 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
                 onChange={(e) => {
                   const val = parseInt(e.target.value);
                   if (!isNaN(val)) handleQuestionCountChange([val]);
-<<<<<<< HEAD
+
                 }} />
-=======
+
                 }}
               />
->>>>>>> parent of b05c270 (chore(tailwind): strip Tailwind className usages (mechanical removal for Phase 4))
+
               <div style={{
       paddingTop: "0.5rem",
       paddingBottom: "0.5rem"
@@ -153,19 +153,19 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
                   step={1}
                   value={questionCountValue}
                   onValueChange={handleQuestionCountChange}
-                  className="[&>span:first-child]:h-2 [&>span:first-child]:bg-blue-200 [&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=slider]]:bg-blue-600 [&_[role=slider]]:border-2 [&_[role=slider]]:border-white [&_[role=slider]]:shadow-md"
+                  
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div >
           <div style={{
       display: "flex",
       alignItems: "center"
     }>
-            <Label className="text-sm text-gray-700">問題形式</Label>
+            <Label >問題形式</Label>
             <label style={{
       display: "flex",
       alignItems: "center",
@@ -184,12 +184,12 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
       paddingLeft: "1rem",
       paddingRight: "1rem"
     }>
-              <AccordionTrigger className="py-3 hover:no-underline">
-                <span className={cn('text-sm font-semibold', options.formatConfig.isAuto && 'text-gray-400')}>
+              <AccordionTrigger >
+                <span >
                   個別指定（複数選択可）
                 </span>
               </AccordionTrigger>
-              <AccordionContent className="pb-4 pt-1">
+              <AccordionContent >
                 <div style={{
       gap: "0.5rem"
     }>
@@ -198,20 +198,16 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
                     return (
                       <label
                         key={format.id}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg border p-3 cursor-pointer transition-colors',
-                          isChecked ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300',
-                          options.formatConfig.isAuto && 'opacity-50 cursor-not-allowed',
-                        )}
+                        
                       >
                         <input
                           type="checkbox"
                           checked={isChecked}
                           disabled={options.formatConfig.isAuto}
                           onChange={() => handleFormatSelect(format.id)}
-                          className="h-4 w-4 accent-indigo-600"
+                          
                         />
-                        <span className="text-sm text-gray-900">{format.label}</span>
+                        <span >{format.label}</span>
                       </label>
                     );
                   })}
@@ -231,11 +227,11 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
             <Checkbox
               checked={options.useDiagrams}
               onCheckedChange={() => handleCommonToggle('useDiagrams')}
-              className="mt-1"
+              
             />
             <div>
-              <div className="font-semibold text-sm text-gray-900">図表を使用</div>
-              <p className="text-xs text-gray-600">図や表を解析対象に含めます</p>
+              <div >図表を使用</div>
+              <p >図や表を解析対象に含めます</p>
             </div>
           </label>
 
@@ -246,11 +242,11 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
             <Checkbox
               checked={options.confirmStructure}
               onCheckedChange={() => handleCommonToggle('confirmStructure')}
-              className="mt-1"
+              
             />
             <div>
-              <div className="font-semibold text-sm text-gray-900">問題構造を確認</div>
-              <p className="text-xs text-gray-600">OFFの場合は構造確認フェーズをスキップします</p>
+              <div >問題構造を確認</div>
+              <p >OFFの場合は構造確認フェーズをスキップします</p>
             </div>
           </label>
 
@@ -261,11 +257,11 @@ export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
             <Checkbox
               checked={options.isPublic}
               onCheckedChange={() => handleCommonToggle('isPublic')}
-              className="mt-1"
+              
             />
             <div>
-              <div className="font-semibold text-sm text-gray-900">生成問題を公開</div>
-              <p className="text-xs text-gray-600">完了後に自動で公開します</p>
+              <div >生成問題を公開</div>
+              <p >完了後に自動で公開します</p>
             </div>
           </label>
         </div>

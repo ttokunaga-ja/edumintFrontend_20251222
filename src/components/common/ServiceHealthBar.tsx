@@ -23,9 +23,9 @@ const ServiceHealthBar: React.FC<ServiceHealthBarProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`rounded-md border px-3 py-2 text-sm ${statusColor[status]} ${className}`}>
-      <div className="font-semibold">{serviceName}</div>
-      <div className="text-xs mt-1">
+    <div >
+      <div >{serviceName}</div>
+      <div >
         {message ||
           (status === 'operational'
             ? 'All systems are operational.'

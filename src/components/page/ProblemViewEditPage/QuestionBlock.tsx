@@ -77,9 +77,9 @@ export function QuestionBlock({
   };
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
+    <div >
       {/* ヘッダー */}
-      <div className="p-4 sm:p-6 bg-gray-50 border-b border-gray-100">
+      <div >
         <div style={{
       display: "flex",
       gap: "0.75rem"
@@ -97,13 +97,13 @@ export function QuestionBlock({
               {derivedNumber}
             </div>
 
-            <div className="flex-1 min-w-0">
+            <div >
               <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
     }>
-                <h3 className="text-gray-900">大問{derivedNumber}</h3>
+                <h3 >大問{derivedNumber}</h3>
               </div>
 
               {/* 難易度セレクト + キーワード（共通コンポーネント / 表示専用） */}
@@ -140,7 +140,7 @@ export function QuestionBlock({
                   readOnly={!canEdit}
                   textareaLabel="問題文"
                   previewLabel="プレビュー"
-                  className="pt-2"
+                  
                 />
               )}
             </div>
@@ -155,10 +155,10 @@ export function QuestionBlock({
               {onDelete && (
                 <button
                   onClick={onDelete}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  
                   title="削除"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2  />
                 </button>
               )}
             </div>

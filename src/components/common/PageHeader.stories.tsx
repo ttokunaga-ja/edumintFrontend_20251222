@@ -62,14 +62,14 @@ export const ProblemView: Story = {
     title: '微分積分学の基礎問題',
     tags: [
       {
-        icon: <BookOpen className="w-4 h-4" />,
+        icon: <BookOpen  />,
         label: '数学',
         variant: 'outline'
       },
       { label: '東京大学', variant: 'secondary' },
       { label: '理学部', variant: 'secondary' },
       {
-        icon: <Eye className="w-4 h-4" />,
+        icon: <Eye  />,
         label: '1,234 閲覧'
       },
     ],
@@ -128,7 +128,7 @@ export const WithAdBadge: Story = {
     },
     title: '線形代数の演習問題',
     tags: [
-      { icon: <BookOpen className="w-4 h-4" />, label: '数学' },
+      { icon: <BookOpen  />, label: '数学' },
       { label: '京都大学', variant: 'secondary' },
     ],
     statusBadges: <Badge variant="warning">初回広告あり</Badge>,

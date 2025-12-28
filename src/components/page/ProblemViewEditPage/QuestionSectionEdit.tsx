@@ -53,8 +53,8 @@ export const QuestionSectionEdit: React.FC<QuestionSectionEditProps> = ({
   ];
 
   return (
-    <div className="space-y-4" data-testid="question-section-edit" data-viewmode={viewMode}>
-      <div className="text-xs font-medium text-gray-500">
+    <div  data-testid="question-section-edit" data-viewmode={viewMode}>
+      <div >
         {viewMode === 'structure' ? 'Structure Mode' : 'Full Mode'}
       </div>
       <QuestionCardEdit
@@ -67,7 +67,7 @@ export const QuestionSectionEdit: React.FC<QuestionSectionEditProps> = ({
         viewMode={viewMode}
       />
 
-      <div className="space-y-4 pl-8">
+      <div >
         {subQuestions.map((sq: any, idx: number) => {
           const typeId = sq.sub_question_type_id ?? sq.question_type_id ?? sq.questionTypeId ?? 1;
           const EditComp = editComponentLoaders[typeId] ?? ProblemTypeRegistry.getProblemTypeEdit(typeId);

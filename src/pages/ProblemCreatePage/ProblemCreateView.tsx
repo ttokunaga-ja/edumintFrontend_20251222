@@ -77,7 +77,7 @@ export const ProblemCreateView: React.FC<Props> = ({
   onPublish,
 }) => {
   return (
-    <div className="min-h-screen">
+    <div >
       <main
         style={{
           // Ensure L0 starts below the fixed TopMenuBar (4rem) + ProgressHeader (~5-6rem) with a bit of breathing room

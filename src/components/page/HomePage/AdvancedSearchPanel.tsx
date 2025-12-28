@@ -116,7 +116,7 @@ export default function AdvancedSearchPanel({
   const recentYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div >
       {/* ヘッダー */}
       <div style={{
       display: "flex",
@@ -128,7 +128,7 @@ export default function AdvancedSearchPanel({
       display: "flex",
       alignItems: "center"
     }>
-          <h3 className="font-medium">検索条件</h3>
+          <h3 >検索条件</h3>
           {activeFilterCount > 0 && (
             <Badge variant="secondary">{activeFilterCount}件の条件</Badge>
           )}
@@ -146,7 +146,7 @@ export default function AdvancedSearchPanel({
               size="sm"
               onClick={clearAllFilters}
               disabled={isDisabled}
-              className="text-gray-500 hover:text-gray-700"
+              
             >
               すべてクリア
             </Button>
@@ -161,20 +161,20 @@ export default function AdvancedSearchPanel({
     }}
           >
             <span>{isExpanded ? '検索条件を隠す' : '検索条件を表示'}</span>
-            {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+            {isExpanded ? <ChevronUp  /> : <ChevronDown  />}
           </Button>
         </div>
       </div>
 
       {/* すべての検索条件（折りたたみ） */}
       {isExpanded && (
-        <div className="p-4 space-y-4">
+        <div >
           {/* Row 1: University, Faculty, Subject */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div >
             {/* 大学 */}
-            <div className="space-y-2">
+            <div >
               <Label htmlFor="university">大学</Label>
-              <div className="relative">
+              <div >
                 <MultilingualAutocomplete
                   value={filters.universityName || defaultUniversity || ''}
                   onChange={(value, item) => {
@@ -191,22 +191,22 @@ export default function AdvancedSearchPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 size-6 p-0"
+                    
                     onClick={() => {
                       clearFilter('universityId');
                       clearFilter('universityName');
                     }}
                   >
-                    <X className="size-4" />
+                    <X  />
                   </Button>
                 )}
               </div>
             </div>
 
             {/* 学部 */}
-            <div className="space-y-2">
+            <div >
               <Label htmlFor="faculty">学部</Label>
-              <div className="relative">
+              <div >
                 <MultilingualAutocomplete
                   value={filters.facultyName || defaultFaculty || ''}
                   onChange={(value, item) => {
@@ -223,22 +223,22 @@ export default function AdvancedSearchPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 size-6 p-0"
+                    
                     onClick={() => {
                       clearFilter('facultyId');
                       clearFilter('facultyName');
                     }}
                   >
-                    <X className="size-4" />
+                    <X  />
                   </Button>
                 )}
               </div>
             </div>
 
             {/* 科目 */}
-            <div className="space-y-2">
+            <div >
               <Label htmlFor="subject">科目</Label>
-              <div className="relative">
+              <div >
                 <MultilingualAutocomplete
                   value={filters.subjectName || ''}
                   onChange={(value, item) => {
@@ -255,13 +255,13 @@ export default function AdvancedSearchPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 size-6 p-0"
+                    
                     onClick={() => {
                       clearFilter('subjectId');
                       clearFilter('subjectName');
                     }}
                   >
-                    <X className="size-4" />
+                    <X  />
                   </Button>
                 )}
               </div>
@@ -269,11 +269,11 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 2: Teacher, Exam Year */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div >
             {/* 教授 */}
-            <div className="space-y-2">
+            <div >
               <Label htmlFor="teacher">教授</Label>
-              <div className="relative">
+              <div >
                 <MultilingualAutocomplete
                   value={filters.teacherName || ''}
                   onChange={(value, item) => {
@@ -290,22 +290,22 @@ export default function AdvancedSearchPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 size-6 p-0"
+                    
                     onClick={() => {
                       clearFilter('teacherId');
                       clearFilter('teacherName');
                     }}
                   >
-                    <X className="size-4" />
+                    <X  />
                   </Button>
                 )}
               </div>
             </div>
 
             {/* 試験年度 */}
-            <div className="space-y-2">
+            <div >
               <Label htmlFor="examYear">試験年度</Label>
-              <div className="space-y-2">
+              <div >
                 <Input
                   type="number"
                   id="examYear"
@@ -316,7 +316,7 @@ export default function AdvancedSearchPanel({
                   min="2000"
                   max={currentYear}
                   disabled={isDisabled}
-                  className="w-full"
+                  
                 />
                 <div style={{
       display: "flex",
@@ -326,7 +326,7 @@ export default function AdvancedSearchPanel({
                     <Badge
                       key={year}
                       variant={filters.examYear === year ? 'default' : 'outline'}
-                      className={`cursor-pointer ${isDisabled ? 'opacity-50 pointer-events-none' : ''}`}
+                      
                       onClick={() => !isDisabled && updateFilter('examYear', year)}
                     >
                       {year}
@@ -338,7 +338,7 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 3: Field (理系/文系) */}
-          <div className="space-y-2">
+          <div >
             <Label>分野</Label>
             <NativeSelect
               value={filters.majorType !== undefined ? String(filters.majorType) : undefined}
@@ -354,7 +354,7 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 4: Level (難易度) */}
-          <div className="space-y-2">
+          <div >
             <Label>レベル</Label>
             <NativeSelect
               value={filters.difficulty !== undefined ? String(filters.difficulty) : undefined}
@@ -372,7 +372,7 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 5: Problem Format (問題形式) */}
-          <div className="space-y-2">
+          <div >
             <Label>問題形式</Label>
             <div style={{
       gap: "0.5rem"
@@ -380,10 +380,7 @@ export default function AdvancedSearchPanel({
               {problemFormats.map(format => (
                 <label
                   key={format.id}
-                  className={`flex items-center space-x-2 p-2 border rounded cursor-pointer transition-colors ${selectedFormats.includes(format.id)
-                      ? 'bg-indigo-50 border-indigo-500'
-                      : 'bg-white border-gray-200 hover:border-gray-300'
-                    } ${isDisabled ? 'opacity-50 pointer-events-none' : ''}`}
+                  
                 >
                   <input
                     type="checkbox"
@@ -391,16 +388,16 @@ export default function AdvancedSearchPanel({
                     onChange={() => toggleFormat(format.id)}
                     disabled={isDisabled}
                     name={`problem-format-${format.id}`}
-                    className="rounded"
+                    
                   />
-                  <span className="text-sm">{format.label}</span>
+                  <span >{format.label}</span>
                 </label>
               ))}
             </div>
           </div>
 
           {/* Row 6: Period (期間) */}
-          <div className="space-y-2">
+          <div >
             <Label>期間</Label>
             <NativeSelect
               value={filters.period || undefined}
@@ -421,8 +418,8 @@ export default function AdvancedSearchPanel({
               <div style={{
       gap: "0.5rem"
     }>
-                <div className="space-y-1">
-                  <Label className="text-xs">開始日</Label>
+                <div >
+                  <Label >開始日</Label>
                   <Input
                     type="date"
                     name="period-start"
@@ -431,8 +428,8 @@ export default function AdvancedSearchPanel({
                     disabled={isDisabled}
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">終了日</Label>
+                <div >
+                  <Label >終了日</Label>
                   <Input
                     type="date"
                     name="period-end"
@@ -446,7 +443,7 @@ export default function AdvancedSearchPanel({
           </div>
 
           {/* Row 7: Duration (所要時間) */}
-          <div className="space-y-2">
+          <div >
             <Label>所要時間</Label>
             <NativeSelect
               value={filters.duration !== undefined ? String(filters.duration) : undefined}
@@ -470,7 +467,7 @@ export default function AdvancedSearchPanel({
       display: "flex",
       gap: "0.5rem"
     }>
-              <span className="text-sm text-gray-500">適用中:</span>
+              <span >適用中:</span>
               {Object.entries(filters).map(([key, value]) => {
                 if (key === 'sortBy' || key === 'page' || key === 'limit' || value === undefined) return null;
 
@@ -487,13 +484,13 @@ export default function AdvancedSearchPanel({
       display: "flex",
       alignItems: "center"
     }>
-                    <span className="text-xs">{displayValue}</span>
+                    <span >{displayValue}</span>
                     <button
                       onClick={() => clearFilter(key as keyof SearchFilters)}
-                      className="ml-1 hover:text-red-600"
+                      
                       disabled={isDisabled}
                     >
-                      <X className="size-3" />
+                      <X  />
                     </button>
                   </Badge>
                 );

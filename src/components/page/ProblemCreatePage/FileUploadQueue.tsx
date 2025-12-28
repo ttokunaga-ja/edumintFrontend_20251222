@@ -59,14 +59,14 @@ export function FileUploadQueue({
   const getStatusIcon = (file: UploadFile) => {
     switch (file.status) {
       case 'pending':
-        return <File className="w-5 h-5 text-gray-400" />;
+        return <File  />;
       case 'uploading':
       case 'validating':
-        return <Loader className="w-5 h-5 text-indigo-600 animate-spin" />;
+        return <Loader  />;
       case 'success':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle  />;
       case 'error':
-        return <XCircle className="w-5 h-5 text-red-500" />;
+        return <XCircle  />;
     }
   };
 
@@ -104,54 +104,50 @@ export function FileUploadQueue({
   }
 
   return (
-    <div className={`space-y-3 ${className}`}>
+    <div >
       {/* ヘッダー */}
       <div style={{
       display: "flex",
       alignItems: "center"
     }>
-        <h3 className="text-sm text-gray-700">
+        <h3 >
           アップロード待機列 ({files.length})
         </h3>
-        <p className="text-xs text-gray-500">
+        <p >
           対応形式: {acceptedExtensions.join(', ')} (最大 {maxFileSize}MB)
         </p>
       </div>
 
       {/* ファイルリスト */}
-      <div className="space-y-2">
+      <div >
         {files.map((uploadFile) => {
           const validation = validateFile(uploadFile.file);
 
           return (
             <div
               key={uploadFile.id}
-              className={`
-                p-4 rounded-lg border transition-all
-                ${uploadFile.status === 'error' ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}
-                ${uploadFile.status === 'success' ? 'bg-green-50 border-green-200' : ''}
-              `}
+              
             >
               <div style={{
       display: "flex",
       gap: "0.75rem"
     }>
                 {/* アイコン */}
-                <div className="flex-shrink-0 mt-0.5">
+                <div >
                   {getStatusIcon(uploadFile)}
                 </div>
 
                 {/* ファイル情報 */}
-                <div className="flex-1 min-w-0">
+                <div >
                   <div style={{
       display: "flex",
       gap: "0.5rem"
     }>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900 truncate">
+                    <div >
+                      <p >
                         {uploadFile.file.name}
                       </p>
-                      <p className={`text-xs mt-0.5 ${getStatusColor(uploadFile)}`}>
+                      <p >
                         {getStatusText(uploadFile)}
                       </p>
                       {!validation.valid && uploadFile.status === 'pending' && (
@@ -160,8 +156,8 @@ export function FileUploadQueue({
       alignItems: "center",
       gap: "0.25rem"
     }>
-                          <AlertTriangle className="w-3 h-3 text-amber-500" />
-                          <p className="text-xs text-amber-600">{validation.error}</p>
+                          <AlertTriangle  />
+                          <p >{validation.error}</p>
                         </div>
                       )}
                     </div>
@@ -177,7 +173,7 @@ export function FileUploadQueue({
                           variant="ghost"
                           size="sm"
                           onClick={() => onRetry(uploadFile.id)}
-                          className="h-7 px-2 text-xs"
+                          
                         >
                           再試行
                         </Button>
@@ -185,9 +181,9 @@ export function FileUploadQueue({
                       {(uploadFile.status === 'pending' || uploadFile.status === 'error') && (
                         <button
                           onClick={() => onRemove(uploadFile.id)}
-                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                          
                         >
-                          <X className="w-4 h-4 text-gray-500" />
+                          <X  />
                         </button>
                       )}
                     </div>
@@ -195,10 +191,10 @@ export function FileUploadQueue({
 
                   {/* プログレスバー */}
                   {(uploadFile.status === 'uploading' || uploadFile.status === 'validating') && (
-                    <div className="mt-2">
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div >
+                      <div >
                         <div
-                          className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
+                          
                           style={{ width: `${uploadFile.progress}%` }}
                         />
                       </div>
@@ -206,7 +202,7 @@ export function FileUploadQueue({
                   )}
 
                   {/* ファイルサイズ */}
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p >
                     {(uploadFile.file.size / 1024).toFixed(1)} KB
                   </p>
                 </div>
@@ -217,7 +213,7 @@ export function FileUploadQueue({
       </div>
 
       {/* サマリー */}
-      <div className="pt-2 border-t border-gray-200">
+      <div >
         <div style={{
       display: "flex",
       alignItems: "center"

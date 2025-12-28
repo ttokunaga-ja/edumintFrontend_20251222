@@ -94,8 +94,8 @@ export function SubQuestionBlock({
   };
 
   return (
-    <div className={`border-b border-gray-100 last:border-b-0 ${className}`}>
-      <div className="p-4 sm:p-6">
+    <div >
+      <div >
         <div style={{
       display: "flex",
       gap: "0.75rem"
@@ -111,14 +111,14 @@ export function SubQuestionBlock({
     }>
               ({subQuestionNumber})
             </div>
-            <div className="flex-1 min-w-0">
+            <div >
               <div style={{
       display: "flex",
       alignItems: "center",
       gap: "0.5rem"
     }>
-                <span className="text-gray-900 text-sm font-medium">小問{subQuestionNumber}</span>
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                <span >小問{subQuestionNumber}</span>
+                <span >
                   {questionTypeLabels[questionTypeId] || '記述式'}
                 </span>
               </div>
@@ -153,19 +153,19 @@ export function SubQuestionBlock({
               {!isEditingQuestion && (
                 <button
                   onClick={() => setIsEditingQuestion(true)}
-                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  
                   title="編集"
                 >
-                  <Edit className="w-4 h-4" />
+                  <Edit  />
                 </button>
               )}
               {onDelete && (
                 <button
                   onClick={onDelete}
-                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  
                   title="削除"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2  />
                 </button>
               )}
             </div>
@@ -173,13 +173,13 @@ export function SubQuestionBlock({
         </div>
 
         {/* 問題文 */}
-        <div className="mb-4">
+        <div >
           {isEditingQuestion ? (
-            <div className="space-y-3">
+            <div >
               <textarea
                 value={editQuestionContent}
                 onChange={(e) => setEditQuestionContent(e.target.value)}
-                className="w-full min-h-[150px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                
                 placeholder={currentQuestionFormat === 0 ? 'Markdown形式で入力...' : 'LaTeX形式で入力...'}
               />
               <div style={{
@@ -214,7 +214,7 @@ export function SubQuestionBlock({
               </div>
             </div>
           ) : (
-            <div className="relative">
+            <div >
               {canSwitchFormat && (
                 <button
                   onClick={handleQuestionFormatToggle}
@@ -226,13 +226,13 @@ export function SubQuestionBlock({
                 >
                   {currentQuestionFormat === 0 ? (
                     <>
-                      <FileText className="w-3 h-3" />
-                      <span className="hidden sm:inline">MD</span>
+                      <FileText  />
+                      <span >MD</span>
                     </>
                   ) : (
                     <>
-                      <FileCode className="w-3 h-3" />
-                      <span className="hidden sm:inline">LaTeX</span>
+                      <FileCode  />
+                      <span >LaTeX</span>
                     </>
                   )}
                 </button>
@@ -266,8 +266,8 @@ export function SubQuestionBlock({
                   }
 
                   return currentQuestionFormat === 0
-                    ? <MarkdownBlock content={questionContent} className="text-sm" />
-                    : <LatexBlock content={questionContent} displayMode={false} className="text-sm" />;
+                    ? <MarkdownBlock content={questionContent}  />
+                    : <LatexBlock content={questionContent} displayMode={false}  />;
                 })()}
               </div>
             </div>
@@ -277,7 +277,7 @@ export function SubQuestionBlock({
         {/* 選択肢（選択式の場合） */}
         {/* 解答セクション */}
         {answerContent && (
-          <div className="mt-4 border-t border-gray-200 pt-4">
+          <div >
             <button
               onClick={() => setAnswerExpanded(!answerExpanded)}
               style={{
@@ -287,21 +287,21 @@ export function SubQuestionBlock({
     }}
             >
               {answerExpanded ? (
-                <ChevronUp className="w-4 h-4" />
+                <ChevronUp  />
               ) : (
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown  />
               )}
               <span>解答を{answerExpanded ? '隠す' : '表示'}</span>
             </button>
 
             {answerExpanded && (
-              <div className="bg-blue-50 rounded-lg p-4">
+              <div >
                 {isEditingAnswer ? (
-                  <div className="space-y-3">
+                  <div >
                     <textarea
                       value={editAnswerContent}
                       onChange={(e) => setEditAnswerContent(e.target.value)}
-                      className="w-full min-h-[150px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      
                       placeholder={currentAnswerFormat === 0 ? 'Markdown形式で入力...' : 'LaTeX形式で入力...'}
                     />
                     <div style={{
@@ -341,7 +341,7 @@ export function SubQuestionBlock({
       display: "flex",
       alignItems: "center"
     }>
-                      <span className="text-sm font-medium text-blue-900">解答</span>
+                      <span >解答</span>
                       <div style={{
       display: "flex",
       gap: "0.5rem"
@@ -357,13 +357,13 @@ export function SubQuestionBlock({
                           >
                             {currentAnswerFormat === 0 ? (
                               <>
-                                <FileText className="w-3 h-3" />
-                                <span className="hidden sm:inline">MD</span>
+                                <FileText  />
+                                <span >MD</span>
                               </>
                             ) : (
                               <>
-                                <FileCode className="w-3 h-3" />
-                                <span className="hidden sm:inline">LaTeX</span>
+                                <FileCode  />
+                                <span >LaTeX</span>
                               </>
                             )}
                           </button>
@@ -371,19 +371,19 @@ export function SubQuestionBlock({
                         {canEdit && (
                           <button
                             onClick={() => setIsEditingAnswer(true)}
-                            className="p-1 text-blue-700 hover:bg-blue-100 rounded transition-colors"
+                            
                             title="編集"
                           >
-                            <Edit className="w-3 h-3" />
+                            <Edit  />
                           </button>
                         )}
                       </div>
                     </div>
                     {showAnswer && (
                       currentAnswerFormat === 0 ? (
-                        <MarkdownBlock content={answerContent} className="text-sm" />
+                        <MarkdownBlock content={answerContent}  />
                       ) : (
-                        <LatexBlock content={answerContent} displayMode={false} className="text-sm" />
+                        <LatexBlock content={answerContent} displayMode={false}  />
                       )
                     )}
                   </>

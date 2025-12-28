@@ -14,15 +14,12 @@ interface ProblemCardProps {
 export function ProblemCard({ problem, onClick, className }: ProblemCardProps) {
     return (
         <Card
-            className={cn(
-                "p-6 h-48 hover:shadow-md transition-shadow cursor-pointer flex flex-col justify-between",
-                className
-            )}
+            
             onClick={() => onClick?.(problem.id)}
         >
             <div>
                 {/* Title */}
-                <h3 className="text-gray-900 mb-2 line-clamp-2 font-medium leading-snug">
+                <h3 >
                     {problem.title || problem.examName}
                 </h3>
 
@@ -32,12 +29,12 @@ export function ProblemCard({ problem, onClick, className }: ProblemCardProps) {
       gap: "0.5rem"
     }>
                     {problem.subjectName && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" >
                             {problem.subjectName}
                         </Badge>
                     )}
                     {problem.universityName && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" >
                             {problem.universityName}
                         </Badge>
                     )}
@@ -54,7 +51,7 @@ export function ProblemCard({ problem, onClick, className }: ProblemCardProps) {
       alignItems: "center",
       gap: "0.25rem"
     }>
-                    <Eye className="w-3 h-3" />
+                    <Eye  />
                     {(problem.viewCount || 0).toLocaleString()}
                 </span>
                 <span style={{
@@ -62,7 +59,7 @@ export function ProblemCard({ problem, onClick, className }: ProblemCardProps) {
       alignItems: "center",
       gap: "0.25rem"
     }>
-                    <ThumbsUp className="w-3 h-3" />
+                    <ThumbsUp  />
                     {(problem.goodCount || 0).toLocaleString()}
                 </span>
                 <span style={{
@@ -70,7 +67,7 @@ export function ProblemCard({ problem, onClick, className }: ProblemCardProps) {
       alignItems: "center",
       gap: "0.25rem"
     }>
-                    <MessageSquare className="w-3 h-3" />
+                    <MessageSquare  />
                     {(problem.commentCount || 0).toLocaleString()}
                 </span>
             </div>

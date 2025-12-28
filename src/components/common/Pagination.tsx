@@ -21,7 +21,7 @@ const Pagination: React.FC<PaginationProps> = ({
   };
 
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <div >
       <button
         type="button"
         onClick={() => goTo(currentPage - 1)}
@@ -32,7 +32,7 @@ const Pagination: React.FC<PaginationProps> = ({
       >
         Prev
       </button>
-      <span className="text-sm text-gray-700">
+      <span >
         {currentPage} / {totalPages}
       </span>
       <button

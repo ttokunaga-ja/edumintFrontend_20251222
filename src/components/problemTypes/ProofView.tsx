@@ -7,7 +7,7 @@ export default function ProofView(props: ProblemTypeViewProps) {
   return (
     <div>
       <MarkdownBlock content={questionContent} />
-      <div className="mt-3 text-sm text-gray-700">証明問題。解答は論述で表現してください。</div>
+      <div >証明問題。解答は論述で表現してください。</div>
     </div>
   );
 }

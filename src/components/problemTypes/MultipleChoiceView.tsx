@@ -9,9 +9,9 @@ export default function MultipleChoiceView(props: ProblemTypeViewProps) {
   const renderOptionContent = (text: string) => {
     const looksLikeLatex = /\\\\|\\sum|\\frac|\\binom|\\int|\\lim/.test(text);
     if (looksLikeLatex) {
-      return <LatexBlock content={text} displayMode={false} className="text-sm text-gray-900" />;
+      return <LatexBlock content={text} displayMode={false}  />;
     }
-    return <MarkdownBlock content={text} className="text-sm text-gray-900" />;
+    return <MarkdownBlock content={text}  />;
   };
 
   return (
@@ -22,13 +22,11 @@ export default function MultipleChoiceView(props: ProblemTypeViewProps) {
         <LatexBlock content={questionContent} displayMode={false} />
       )}
 
-      <div className="mt-3 space-y-2">
+      <div >
         {options.map((opt, idx) => (
           <div
             key={opt.id}
-            className={`p-3 rounded-lg border ${
-              showAnswer && opt.isCorrect ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'
-            }`}
+            
           >
             <div style={{
       display: "flex",
@@ -41,11 +39,11 @@ export default function MultipleChoiceView(props: ProblemTypeViewProps) {
     }>
                 {String.fromCharCode(65 + idx)}
               </div>
-              <div className="flex-1 min-w-0">
+              <div >
                 {renderOptionContent(opt.content)}
               </div>
               {showAnswer && opt.isCorrect && (
-                <div className="ml-auto text-xs px-2 py-0.5 bg-green-600 text-white rounded">正解</div>
+                <div >正解</div>
               )}
             </div>
           </div>
