@@ -139,7 +139,7 @@ export default function AdvancedSearchPanel({
         <div style={{
       display: "flex",
       alignItems: "center"
-    }>
+    }}>
           {activeFilterCount > 0 && (
             <Button
               variant="ghost"
