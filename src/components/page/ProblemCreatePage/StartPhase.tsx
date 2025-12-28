@@ -78,7 +78,7 @@ export function StartPhase({
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
-    }
+    }}
             onClick={onFileInputClick}
             onDragOver={(e) => {
               e.preventDefault();
@@ -88,20 +88,13 @@ export function StartPhase({
               e.preventDefault();
               e.stopPropagation();
               if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                // Create a synthetic event or call a new prop?
-                // Since I can't easily create a ChangeEvent, I'll assume I need to handle this.
-                // But I don't have the parent's logic here. 
-                // I'll try to use the fileInputRef to set files if possible, or just ignore DnD for this specific step and focus on layout.
-                // The user specifically asked for Drag & Drop support.
-                // I will implement a local handler that manually triggers the file selection logic if I can access the handler references.
-                // Actually, modifying the input.files property and dispatching a change event is a hacker way but works.
                 if (fileInputRef.current) {
                   fileInputRef.current.files = e.dataTransfer.files;
                   const event = new Event('change', { bubbles: true });
                   fileInputRef.current.dispatchEvent(event);
                 }
               }
-            }}}
+            }}
           >
             <input
               ref={fileInputRef}
@@ -139,7 +132,7 @@ export function StartPhase({
             !canProceed && 'opacity-60 cursor-not-allowed hover:translate-y-0',
           )}
           disabled={!canProceed}
-          onClick={onProceed}}
+          onClick={onProceed}
         >
           問題生成を開始する
         </Button>
