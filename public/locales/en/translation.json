@@ -1,0 +1,35 @@
+{
+  "common": {
+    "app_name": "EduMint",
+    "home": "Home",
+    "search": "Search",
+    "my_page": "My Page",
+    "admin": "Admin",
+    "logout": "Logout",
+    "login": "Login",
+    "register": "Register",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create"
+  },
+  "auth": {
+    "login_title": "Login",
+    "register_title": "Register",
+    "email": "Email",
+    "password": "Password",
+    "confirm_password": "Confirm Password",
+    "invalid_email": "Invalid email address",
+    "password_required": "Password is required",
+    "passwords_not_match": "Passwords do not match"
+  },
+  "search": {
+    "search_problems": "Search Problems",
+    "search_placeholder": "Enter search query...",
+    "no_results": "No results found"
+  }
+}

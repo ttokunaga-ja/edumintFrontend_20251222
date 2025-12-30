@@ -1,7 +1,37 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html exports[`ProofView > renders proof content 1`] = `
-<div> <div> <div> <p> Prove something important. </p> </div> <div > 証明問題。解答は論述で表現してください。 </div> </div>
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ProofView > renders proof content 1`] = `
+<div>
+  <div>
+     
+    <div>
+      <p>
+        Prove something important.
+      </p>
+    </div>
+     
+    <div>
+      証明問題。解答は論述で表現してください。
+    </div>
+     
+  </div>
 </div>
-`; exports[`ProofView > renders proof with answer shown 1`] = `
-<div> <div> <div> <p> Proof steps... </p> </div> <div > 証明問題。解答は論述で表現してください。 </div> </div>
+`;
+
+exports[`ProofView > renders proof with answer shown 1`] = `
+<div>
+  <div>
+     
+    <div>
+      <p>
+        Proof steps...
+      </p>
+    </div>
+     
+    <div>
+      証明問題。解答は論述で表現してください。
+    </div>
+     
+  </div>
 </div>
 `;

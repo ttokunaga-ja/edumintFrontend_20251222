@@ -1,7 +1,140 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html exports[`MultipleChoiceView > renders options with answers revealed 1`] = `
-<div> <div> <div> <p> Choose one </p> </div> <div > <div > <div style="display: ; gap: 0.75rem;" > <div style="display: ; align-items: center; justify-content: center;" > A </div> <div > <div > <p> Option A </p> </div> </div> </div> </div> <div > <div style="display: ; gap: 0.75rem;" > <div style="display: ; align-items: center; justify-content: center;" > B </div> <div > <div > <p> Option B </p> </div> </div> <div > 正解 </div> </div> </div> <div > <div style="display: ; gap: 0.75rem;" > <div style="display: ; align-items: center; justify-content: center;" > C </div> <div > <div > <p> Option C </p> </div> </div> </div> </div> </div> </div>
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`MultipleChoiceView > renders options with answers revealed 1`] = `
+<div>
+  <div>
+    <div>
+      <p>
+        Choose one
+      </p>
+    </div>
+    <div>
+      <div>
+        <div
+          style="display: flex; gap: 0.75rem;"
+        >
+          <div
+            style="display: flex; align-items: center; justify-content: center;"
+          >
+            A
+          </div>
+          <div>
+            <div>
+              <p>
+                Option A
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div
+          style="display: flex; gap: 0.75rem;"
+        >
+          <div
+            style="display: flex; align-items: center; justify-content: center;"
+          >
+            B
+          </div>
+          <div>
+            <div>
+              <p>
+                Option B
+              </p>
+            </div>
+          </div>
+          <div>
+            正解
+          </div>
+        </div>
+      </div>
+      <div>
+        <div
+          style="display: flex; gap: 0.75rem;"
+        >
+          <div
+            style="display: flex; align-items: center; justify-content: center;"
+          >
+            C
+          </div>
+          <div>
+            <div>
+              <p>
+                Option C
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
-`; exports[`MultipleChoiceView > renders options without showing answers 1`] = `
-<div> <div> <div> <p> Choose one </p> </div> <div > <div > <div style="display: ; gap: 0.75rem;" > <div style="display: ; align-items: center; justify-content: center;" > A </div> <div > <div > <p> Option A </p> </div> </div> </div> </div> <div > <div style="display: ; gap: 0.75rem;" > <div style="display: ; align-items: center; justify-content: center;" > B </div> <div > <div > <p> Option B </p> </div> </div> </div> </div> <div > <div style="display: ; gap: 0.75rem;" > <div style="display: ; align-items: center; justify-content: center;" > C </div> <div > <div > <p> Option C </p> </div> </div> </div> </div> </div> </div>
+`;
+
+exports[`MultipleChoiceView > renders options without showing answers 1`] = `
+<div>
+  <div>
+    <div>
+      <p>
+        Choose one
+      </p>
+    </div>
+    <div>
+      <div>
+        <div
+          style="display: flex; gap: 0.75rem;"
+        >
+          <div
+            style="display: flex; align-items: center; justify-content: center;"
+          >
+            A
+          </div>
+          <div>
+            <div>
+              <p>
+                Option A
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div
+          style="display: flex; gap: 0.75rem;"
+        >
+          <div
+            style="display: flex; align-items: center; justify-content: center;"
+          >
+            B
+          </div>
+          <div>
+            <div>
+              <p>
+                Option B
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div
+          style="display: flex; gap: 0.75rem;"
+        >
+          <div
+            style="display: flex; align-items: center; justify-content: center;"
+          >
+            C
+          </div>
+          <div>
+            <div>
+              <p>
+                Option C
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 `;

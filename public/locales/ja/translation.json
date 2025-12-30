@@ -1,0 +1,35 @@
+{
+  "common": {
+    "app_name": "EduMint",
+    "home": "ホーム",
+    "search": "検索",
+    "my_page": "マイページ",
+    "admin": "管理画面",
+    "logout": "ログアウト",
+    "login": "ログイン",
+    "register": "登録",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "cancel": "キャンセル",
+    "save": "保存",
+    "delete": "削除",
+    "edit": "編集",
+    "create": "作成"
+  },
+  "auth": {
+    "login_title": "ログイン",
+    "register_title": "ユーザー登録",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "confirm_password": "パスワード(確認)",
+    "invalid_email": "無効なメールアドレスです",
+    "password_required": "パスワードが必要です",
+    "passwords_not_match": "パスワードが一致しません"
+  },
+  "search": {
+    "search_problems": "問題を検索",
+    "search_placeholder": "検索キーワードを入力...",
+    "no_results": "結果が見つかりません"
+  }
+}

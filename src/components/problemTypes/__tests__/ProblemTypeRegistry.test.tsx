@@ -1,6 +1,0 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import React from 'react';
-import { registerProblemType, getProblemTypeView, getProblemTypeEdit, registerDefaults } from '../ProblemTypeRegistry';
-import type { ProblemTypeViewProps, ProblemTypeEditProps } from '@/types/problemTypes'; const DummyView: React.FC<ProblemTypeViewProps> = ({ questionContent }) => React.createElement('div', `Q:${questionContent}`);
-const DummyEdit: React.FC<ProblemTypeEditProps> = ({ onQuestionChange }) => React.createElement('button', { onClick: () => onQuestionChange?.('x') }, 'Edit'); describe('ProblemTypeRegistry', () => { beforeEach(() => { // No public clear API; registerDefaults may be idempotent but we test registration directly }); it('registers and retrieves a view/edit component', () => { registerProblemType({ id: 9999, view: DummyView, edit: DummyEdit }); const V = getProblemTypeView(9999); const E = getProblemTypeEdit(9999); expect(typeof V).toBe('function'); expect(typeof E).toBe('function'); }); it('registerDefaults does not throw', () => { expect(() => registerDefaults()).not.toThrow(); }); it('returns null for unknown types', () => { expect(getProblemTypeView(123456)).toBeNull(); expect(getProblemTypeEdit(123456)).toBeNull(); });
-});

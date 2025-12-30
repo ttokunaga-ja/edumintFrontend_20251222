@@ -1,48 +1,179 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/primitives/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/primitives/avatar';
-import { ProfileEditForm } from '@/components/page/MyPage/ProfileEditForm';
-import { ProblemCard } from '@/components/common/ProblemCard';
-import { UserStatsCards } from '@/components/page/MyPage/UserStatsCards';
-import { WalletCard } from '@/components/page/MyPage/WalletCard';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/primitives/accordion";
-import { mockExams } from '@/mocks/mockData/search';
-import type { Page, User } from '@/types';
-import { useMyPageController } from './MyPage/hooks/useMyPageController'; export interface MyPageProps { user: User; onNavigate: (page: Page, problemId?: string) => void; onNavigateToEdit?: ( page: Page, problemId: string, mode: 'create' | 'edit') => void; onLogout: () => void;
-} export function MyPage({ user, onNavigate, onNavigateToEdit, onLogout,
-}: MyPageProps) { const { profile, stats, wallet, isLoadingStats, isLoadingWallet, isSavingProfile, profileVersion, handleProfileSave, handleProfileCancel, } = useMyPageController({ user, onNavigate, onNavigateToEdit, onLogout }); // Mock data for display const [viewedProblems] = useState(mockExams.slice(0, 4)); const [ratedProblems] = useState(mockExams.slice(2, 6)); const [commentedProblems] = useState(mockExams.slice(4, 7)); const [postedProblems] = useState(mockExams.slice(1, 4)); const ProblemSection = ({ title, problems, viewAllFilter }: { title: string, problems: any[], viewAllFilter: string }) => (
-  <section style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
-    <div style={{ display: undefined, alignItems: 'center', justifyContent: 'space-between' }}>
-      <h3>{title}</h3>
-      <Button variant="outline" size="sm" onClick={() => onNavigate('home', viewAllFilter)}>View all</Button>
-    </div>
+import {
+  Container,
+  Box,
+  Avatar,
+  Typography,
+  Button,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Card,
+  CardContent,
+  Stack,
+  CircularProgress,
+  Alert,
+  TextField,
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { useAuth, useLogout } from '@/features/auth/hooks/useAuth';
+import { useUserProfile } from '@/features/user/hooks/useUser';
+import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
-    {problems.length > 0 ? (
-      <div style={{ display: undefined, paddingLeft: '1rem', paddingRight: '1rem' }}>
-        {problems.map(p => (
-          <div key={p.id}><ProblemCard problem={p} onClick={(id) => onNavigate(id)} /></div>
-        ))}
-      </div>
-    ) : (
-      <p>履歴はありません。</p>
-    )}
-  </section>
-);
+export function MyPage() {
+  const navigate = useNavigate();
+  const { user, isLoading } = useAuth();
+  const { data: profile } = useUserProfile(user?.id || '');
+  const logoutMutation = useLogout();
+  const [editMode, setEditMode] = useState(false);
+  const [displayName, setDisplayName] = useState(profile?.displayName || '');
+
+  const handleLogout = () => {
+    logoutMutation.mutate(undefined, {
+      onSuccess: () => {
+        navigate('/login');
+      },
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <Container>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Container>
+        <Alert severity="warning" sx={{ mt: 4 }}>
+          ログインしてください
+        </Alert>
+      </Container>
+    );
+  }
 
   return (
-    <div>
-      <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
-        {/* Profile Header (YouTube Style) */}
-        <div style={{ display: undefined, alignItems: 'center', gap: '1rem' }}>
-          <Avatar>
-            <AvatarImage src={undefined} />
-            <AvatarFallback>{profile.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
-          </Avatar>
-          <div>
-            <h1>{profile.displayName || profile.username}</h1>
-            <div style={{ display: undefined, alignItems: 'center', gap: '0.5rem' }}>
-              <span>@{profile.username}</span>
-            </div>
-          </div>
-        </div> {/* History / Lists */} <div> <ProblemSection title="履歴" problems={viewedProblems} viewAllFilter="history" /> <ProblemSection title="高評価した問題" problems={ratedProblems} viewAllFilter="likes" /> <ProblemSection title="コメントした問題" problems={commentedProblems} viewAllFilter="comments" /> <ProblemSection title="投稿した問題" problems={postedProblems} viewAllFilter="posts" /> </div> {/* Settings Accordion */} <div> <Accordion type="single" collapsible> <AccordionItem value="settings"> <AccordionTrigger> <span>アカウント設定 & ステータス</span> </AccordionTrigger> <AccordionContent> {/* Stats & Wallet inside accordion */} <section> <h4>ステータス</h4> <div> <p> ステータス機能は現在開発中です (Coming Soon) </p> </div> </section> <section> <h4>ウォレット</h4> <div> <p> ウォレット機能は現在開発中です (Coming Soon) </p> </div> </section> <section> <h4>プロフィール編集</h4> <ProfileEditForm key={profileVersion} user={profile} onSave={handleProfileSave} onCancel={handleProfileCancel} /> </section> </AccordionContent> </AccordionItem> </Accordion> </div> </div> </div> );
-} export default MyPage;
+    <Container maxWidth="md">
+      <Box sx={{ py: 4 }}>
+        {/* Profile Header */}
+        <Card sx={{ mb: 4 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Avatar
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    bgcolor: 'primary.main',
+                    fontSize: '2rem',
+                  }}
+                >
+                  {user.username?.charAt(0).toUpperCase() || 'U'}
+                </Avatar>
+                <Box>
+                  <Typography variant="h5">{user.displayName || user.username}</Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    @{user.username}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    {user.email}
+                  </Typography>
+                </Box>
+              </Box>
+              <Button
+                variant="outlined"
+                color="error"
+                endIcon={<LogoutIcon />}
+                onClick={handleLogout}
+                disabled={logoutMutation.isPending}
+              >
+                ログアウト
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Settings Sections */}
+        <Box sx={{ mt: 4 }}>
+          {/* アカウント設定 */}
+          <Accordion defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">アカウント設定</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box sx={{ width: '100%' }}>
+                <Stack spacing={2}>
+                  <TextField
+                    fullWidth
+                    label="メールアドレス"
+                    value={user.email}
+                    disabled
+                    helperText="メールアドレスは変更できません"
+                  />
+                  <TextField
+                    fullWidth
+                    label="ユーザー名"
+                    value={user.username}
+                    disabled
+                    helperText="ユーザー名は変更できません"
+                  />
+                  <TextField
+                    fullWidth
+                    label="表示名"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    disabled={!editMode}
+                  />
+                  {editMode && (
+                    <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                      <Button onClick={() => setEditMode(false)}>キャンセル</Button>
+                      <Button variant="contained" onClick={() => setEditMode(false)}>
+                        保存
+                      </Button>
+                    </Stack>
+                  )}
+                  {!editMode && (
+                    <Button variant="outlined" onClick={() => setEditMode(true)}>
+                      編集
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+
+          {/* プリファレンス */}
+          <Accordion sx={{ mt: 2 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">プリファレンス</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box>
+                <Typography>学習言語やテーマ選択などの設定（近日対応）</Typography>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+
+          {/* プライバシー */}
+          <Accordion sx={{ mt: 2 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">プライバシー</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box>
+                <Typography>プライバシー設定とデータ管理（近日対応）</Typography>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+        </Box>
+      </Box>
+    </Container>
+  );
+}
+
+export default MyPage;

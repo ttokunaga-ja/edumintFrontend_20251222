@@ -1,17 +1,48 @@
-import React, { useMemo } from 'react';
-import { AlertTriangle, Loader2, PauseCircle, Sparkles } from 'lucide-react';
-import { Button } from '@/components/primitives/button';
-import { Card } from '@/components/primitives/card';
-import { ProblemMetaBlock } from '@/components/page/ProblemViewEditPage/ProblemMetaBlock';
-import type { GenerationCurrentStep } from '@/services/api/gateway/generation';
-import { GenerationResultEditor } from '../ProblemEditor/GenerationResultEditor';
-import type { GenerationPhase as GenerationStep } from '@/features/generation/types'; type GenerationPhaseProps = { exam: any; onChange: (exam: any) => void; onBack: () => void; onPublish: () => void; currentStep?: GenerationStep; detailedStep?: GenerationCurrentStep; progress?: number; jobId?: string | null; errorMessage?: string | null; shouldConfirmStructure?: boolean;
-}; function StructureStatusCard({ currentStep, shouldConfirmStructure, isPaused, isError, errorMessage,
-}: { currentStep: GenerationCurrentStep; shouldConfirmStructure: boolean; isPaused: boolean; isError: boolean; errorMessage?: string | null;
-}) { return ( <Card busy={!isPaused && !isError}> <div style={{ display: undefined, alignItems: "center", gap: "0.75rem" }> <div style={{ display: undefined, alignItems: "center", gap: "0.5rem" }> {isError ? ( <AlertTriangle /> ) : isPaused ? ( <PauseCircle /> ) : ( <Loader2 /> )} <div> Structure_{currentStep} {!shouldConfirmStructure && ( <span style={{ alignItems: "center", gap: "0.25rem" }> 構造確認スキップ </span> )} </div> </div> <div> {isError ? 'error' : isPaused ? 'paused' : 'processing'} </div> </div> {errorMessage && isError && ( <p>{errorMessage}</p> )} </Card> );
-} function GenerationStatusCard({ currentStep, shouldConfirmStructure, isPaused, isError, errorMessage,
-}: { currentStep: GenerationCurrentStep; shouldConfirmStructure: boolean; isPaused: boolean; isError: boolean; errorMessage?: string | null;
-}) { return ( <Card busy={!isPaused && !isError}> <div style={{ display: undefined, alignItems: "center", gap: "0.75rem" }> <div style={{ display: undefined, alignItems: "center", gap: "0.5rem" }> {isError ? ( <AlertTriangle /> ) : isPaused ? ( <PauseCircle /> ) : ( <Loader2 /> )} <div> Generation_{currentStep} {!shouldConfirmStructure && ( <span style={{ alignItems: "center", gap: "0.25rem" }> 構造確認スキップ </span> )} </div> </div> <div> {isError ? 'error' : isPaused ? 'paused' : 'processing'} </div> </div> {errorMessage && isError && ( <p>{errorMessage}</p> )} </Card> );
-} export function GenerationPhase({ exam, onChange, onBack, onPublish, currentStep = 'generating', detailedStep, progress = 0, jobId, errorMessage, shouldConfirmStructure = true,
-}: GenerationPhaseProps) { const isComplete = currentStep === 'complete'; const isPaused = currentStep === 'paused'; const isError = currentStep === 'error'; const busyMeta = useMemo(() => { type Stage = 'structure' | 'generation'; type Meta = { stage: Stage; title: string; description: string; hint?: string; status?: 'info' | 'warning' | 'error' | 'paused' | 'done'; allow?: string; showProgress?: boolean; }; const stageFromStep: Record<GenerationCurrentStep, Stage> = { waiting_for_upload: 'structure', uploading: 'structure', upload_verifying: 'structure', extracting: 'structure', sectioning: 'structure', structure_detecting: 'structure', structure_review: 'structure', waiting_for_slot: 'generation', generating: 'generation', postprocessing: 'generation', completed: 'generation', }; const metaByStep: Partial<Record<GenerationCurrentStep, Meta>> = { waiting_for_upload: { stage: 'structure', title: 'アップロード待機中', description: 'ジョブ登録済みです。ファイルのアップロード完了を待っています。', hint: 'キャンセルのみ可能です。', allow: 'キャンセル', showProgress: true, }, uploading: { stage: 'structure', title: 'アップロード中', description: 'ファイルを送信しています。失敗したファイルのみ再送可能です。', hint: 'アップロード完了まで操作できません。', allow: '再送 / キャンセル', showProgress: true, }, upload_verifying: { stage: 'structure', title: 'アップロード検証中', description: 'サーバーでMIME/サイズ検証とメタ登録を実行しています。', hint: '処理完了までお待ちください。', allow: 'キャンセル', showProgress: true, }, extracting: { stage: 'structure', title: '資料を解析中', description: 'OCR/テキスト抽出を実行しています。', hint: '処理中のため操作できません。', allow: '一時停止 / キャンセル', showProgress: true, }, sectioning: { stage: 'structure', title: 'セクションを抽出中', description: '段落検出と分割を実行しています。', hint: '処理中のため操作できません。', allow: '一時停止 / キャンセル', showProgress: true, }, structure_detecting: { stage: 'structure', title: '問題構造を推定中', description: '大問・小問の構造を推定しています。', hint: 'プレビュー準備ができたら構造確認へ進めます。', allow: '一時停止 / キャンセル', showProgress: true, }, structure_review: { stage: 'structure', title: '構造確認待ち', description: '検出した構造を確認・編集してください。', hint: '保存またはスキップすると次の工程に進みます。', allow: '編集 / 保存 / スキップ', showProgress: false, }, waiting_for_slot: { stage: 'generation', title: '生成キュー待ち', description: 'AI生成ワーカーの空き待ちです。', hint: 'この間は操作できません。', allow: '一時停止 / キャンセル', showProgress: false, }, generating: { stage: 'generation', title: 'AI生成中', description: '問題と解答を生成しています。', hint: '処理中のため操作できません。', allow: '一時停止 / キャンセル', showProgress: false, }, postprocessing: { stage: 'generation', title: '生成結果を検証中', description: '出力の正規化・毒性/著作権チェックを実行しています。', hint: '処理中のため操作できません。', allow: '一時停止 / キャンセル', showProgress: false, }, completed: { stage: 'generation', title: '完了', description: '生成が完了しました。', status: 'done', showProgress: false, }, }; const metaByPhase: Partial<Record<GenerationStep, Meta>> = { queued: { stage: 'structure', title: '待機中', description: '処理キューに登録されています。', hint: 'キャンセルのみ可能です。', allow: 'キャンセル', showProgress: false, }, uploading: metaByStep.uploading!, analyzing: metaByStep.extracting!, 'structure-review': metaByStep.structure_review!, generating: metaByStep.generating!, postprocessing: metaByStep.postprocessing!, paused: { stage: (detailedStep && stageFromStep[detailedStep]) || 'generation', title: '一時停止中', description: '処理を一時停止しています。再開できます。', status: 'paused', allow: '再開 / キャンセル', showProgress: false, }, error: { stage: (detailedStep && stageFromStep[detailedStep]) || 'generation', title: 'エラーが発生しました', description: '処理を継続できませんでした。リトライまたはキャンセルしてください。', status: 'error', allow: 'リトライ / キャンセル', showProgress: false, }, complete: metaByStep.completed!, }; let meta = (detailedStep && metaByStep[detailedStep]) || metaByPhase[currentStep] || metaByPhase.generating!; const stageTitle = meta.stage === 'structure' ? '1.5 問題構造を解析中' : '2.5 演習問題を生成中'; return { ...meta, stageTitle, stage: meta.stage, } as Meta & { stageTitle: string; stage: Stage }; }, [currentStep, detailedStep, shouldConfirmStructure]); return ( <div> <div style={{ display: undefined, alignItems: "center" }> <div> {isComplete ? ( <> <h2>最終確認と微調整</h2> <p>全自動で生成された問題と解答を微調整し、公開してください。</p> </> ) : ( <> <h2>問題生成中</h2> <p>AIが問題と解答を生成しています。しばらくお待ちください。</p> </> )} </div> {!isComplete && ( <div style={{ display: undefined, gap: "0.75rem" }> <Button variant="outline" onClick={onBack}> キャンセル </Button> </div> )} {isComplete && ( <div style={{ display: undefined, gap: "0.75rem" }> <Button variant="outline" onClick={onBack}> 戻る </Button> <Button onClick={onPublish}> 公開して保存 </Button> </div> )} </div> {!isComplete && ( (currentStep === 'queued' || currentStep === 'uploading' || detailedStep === 'upload_verifying' || detailedStep === 'extracting' || detailedStep === 'sectioning' || detailedStep === 'structure_detecting' || detailedStep === 'structure_review') ? ( <StructureStatusCard currentStep={detailedStep && detailedStep !== 'waiting_for_slot' ? detailedStep : 'waiting_for_upload'} shouldConfirmStructure={shouldConfirmStructure} isPaused={isPaused} isError={isError} errorMessage={errorMessage} /> ) : ( <GenerationStatusCard currentStep={detailedStep || 'waiting_for_slot'} shouldConfirmStructure={shouldConfirmStructure} isPaused={isPaused} isError={isError} errorMessage={errorMessage} /> ) )} {isComplete && ( <div> <div> <Card> <h3>問題本文・解答</h3> <GenerationResultEditor exam={exam} onChange={onChange} /> </Card> </div> <div> <ProblemMetaBlock exam={exam} isOwner onLike={() => {}} onDislike={() => {}} onBookmark={() => {}} onShare={() => {}} onReport={() => {}} onExportPDF={() => {}} /> </div> </div> )} </div> );
+import { Box, CircularProgress, LinearProgress, Stack, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { useGenerationStore } from '@/features/generation/stores/generationStore';
+
+export function GenerationPhase() {
+  const { setPhase } = useGenerationStore();
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    // シミュレーション: 5秒かけて進捗を進める
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        const newProgress = prev + Math.random() * 30;
+        if (newProgress >= 100) {
+          clearInterval(interval);
+          setTimeout(() => setPhase('completed'), 500);
+          return 100;
+        }
+        return newProgress;
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [setPhase]);
+
+  return (
+    <Stack
+      spacing={3}
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '400px',
+      }}
+    >
+      <CircularProgress size={60} variant="determinate" value={progress} />
+      <Typography variant="h6">演習問題を生成中...</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+        AIが問題文、解答、解説を生成しています。
+        <br />
+        進捗: {Math.round(progress)}%
+      </Typography>
+      <Box sx={{ width: '100%', maxWidth: 300 }}>
+        <LinearProgress variant="determinate" value={progress} />
+      </Box>
+    </Stack>
+  );
 }

@@ -51,3 +51,5 @@ storybook-static/
 .stylelintcache
 .vite
 .vitest
+.pnpm-store
+.pnpm-store/v3

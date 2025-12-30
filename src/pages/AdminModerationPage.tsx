@@ -1,17 +1,15 @@
-// @ts-nocheck
-export interface AdminModerationPageProps { onNavigate?: (path: string) => void;
-} export function AdminModerationPage({ onNavigate, }: AdminModerationPageProps) {
+import { Container, Box, Typography } from '@mui/material';
+
+export default function AdminModerationPage() {
   return (
-    <div style={{ display: undefined, alignItems: "center", justifyContent: "center" }}>
-      <div>
-        <h1>Admin Moderation</h1>
-        <p>Coming Soon. This page will handle content moderation and admin workflows.</p>
-        {onNavigate && (
-          <button onClick={() => onNavigate("home")}>Return to Home</button>
-        )}
-      </div>
-    </div>
+    <Container maxWidth="lg">
+      <Box sx={{ py: 4 }}>
+        <Typography variant="h2">Admin Moderation</Typography>
+        <Typography variant="body1" sx={{ mt: 2 }}>
+          Admin dashboard placeholder
+        </Typography>
+      </Box>
+    </Container>
   );
 }
 
-export default AdminModerationPage;

@@ -1,7 +1,37 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html exports[`NumericView > renders numeric prompt 1`] = `
-<div> <div> <div> <p> Solve: 2 + 2 = ____ </p> </div> <div > 数値を入力して解くタイプの問題です。 </div> </div>
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`NumericView > renders numeric prompt 1`] = `
+<div>
+  <div>
+     
+    <div>
+      <p>
+        Solve: 2 + 2 = ____
+      </p>
+    </div>
+     
+    <div>
+      数値を入力して解くタイプの問題です。
+    </div>
+     
+  </div>
 </div>
-`; exports[`NumericView > renders numeric with answer shown 1`] = `
-<div> <div> <div> <p> Answer: 4 </p> </div> <div > 数値を入力して解くタイプの問題です。 </div> </div>
+`;
+
+exports[`NumericView > renders numeric with answer shown 1`] = `
+<div>
+  <div>
+     
+    <div>
+      <p>
+        Answer: 4
+      </p>
+    </div>
+     
+    <div>
+      数値を入力して解くタイプの問題です。
+    </div>
+     
+  </div>
 </div>
 `;

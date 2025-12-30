@@ -1,13 +1,181 @@
-// @ts-nocheck
+import {
+  Collapse,
+  Box,
+  Card,
+  CardContent,
+  Stack,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  FormControlLabel,
+  Button,
+  Typography,
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, X, Calendar } from 'lucide-react';
-import { Button } from '@/components/primitives/button';
-import { Input } from '@/components/primitives/input';
-import { Label } from '@/components/primitives/label';
-import { Badge } from '@/components/primitives/badge';
-import NativeSelect from '@/components/primitives/native-select';
-import { MultilingualAutocomplete } from '@/components/common/MultilingualAutocomplete';
-import type { SearchFilters } from '@/features/search/models';
-import type { HealthStatus } from '@/types/health'; export interface AdvancedSearchPanelProps { filters: SearchFilters; onFiltersChange: (filters: SearchFilters) => void; defaultUniversity?: string; defaultFaculty?: string; /** Search service health status - disables panel when not operational */ searchStatus?: HealthStatus; /** Whether panel is initially expanded */ initialExpanded?: boolean;
-} /** * AdvancedSearchPanel Component * * Complete search filter panel with 10 filter types: * 1. University (text → autocomplete) * 2. Faculty (text → autocomplete, filtered by university) * 3. Subject (text → autocomplete) * 4. Teacher (text → autocomplete) * 5. Exam Year (number input + suggestions) * 6. Field (理系/文系 dropdown) * 7. Level (基礎/標準/応用/難関 dropdown) * 8. Problem Format (multiple checkboxes) * 9. Period (today/week/month/year/custom dropdown) * 10. Duration (5min/10min/30min/1h/other dropdown) * * Features: * - Integrates with useServiceHealth via searchStatus prop * - Disables all inputs when search service is not operational * - All text inputs use MultilingualAutocomplete + suggestReadings * - Defaults to useroperational', initialExpanded = false,
-}: AdvancedSearchPanelProps) { const [isExpanded, setIsExpanded] = useState(initialExpanded); const [selectedFormats, setSelectedFormats] = useState<number[]>(filters.formats || []); // Disable panel when search service is not operational const isDisabled = searchStatus !== 'operational'; const updateFilter = (key: keyof SearchFilters, value: any) => { onFiltersChange({ ...filters, [key]: value }); }; const clearFilter = (key: keyof SearchFilters) => { const newFilters = { ...filters }; delete newFilters[key]; onFiltersChange(newFilters); }; const clearAllFilters = () => { onFiltersChange({ sortBy: filters.sortBy || 'recommended', page: 1, }); setSelectedFormats([]); }; // Count active filters (exclude sortBy, page, limit) const activeFilterCount = Object.keys(filters).filter( (key) => key !== 'sortBy' && key !== 'page' && key !== 'limit' && filters[key as keyof SearchFilters] !== undefined ).length; // Problem format options const problemFormats = [ { id: 1, label: '記述式' }, { id: 2, label: '選択式' }, { id: 3, label: '穴埋め式' }, { id: 4, label: '正誤判定' }, { id: 5, label: '数値計算式' }, { id: 6, label: '証明問題' }, { id: 7, label: 'プログラミング' }, { id: 8, label: 'コード読解' }, ]; const toggleFormat = (formatId: number) => { const newFormats = selectedFormats.includes(formatId) ? selectedFormats.filter(id => id !== formatId) : [...selectedFormats, formatId]; setSelectedFormats(newFormats); updateFilter('formats検索条件を隠す' : '検索条件を表示'}</span> {isExpanded ? <ChevronUp /> : <ChevronDown />} </Button> </div> </div> {/* すべての検索条件（折りたたみ） */} {isExpanded && ( <div> {/* Row 1: University, Faculty, Subject */} <div> {/* 大学 */} <div> <Label htmlFor="university">大学</Label> <div> <MultilingualAutocomplete value={filters.universityName || defaultUniversity || ''} onChange={(value, item) => { updateFilter('universityName', value || undefined); if (item) { updateFilter('universityId', parseInt(item.id)); } }} placeholder="大学名を入力..." category="university" /> {filters.universityName && !isDisabled && ( <Button variant="ghost" size="sm" onClick={() => { clearFilter('universityId'); clearFilter('universityName'); }}> <X /> </Button> )} </div> </div> {/* 学部 */} <div> <Label htmlFor="faculty">学部</Label> <div> <MultilingualAutocomplete value={filters.facultyName || defaultFaculty || ''} onChange={(value, item) => { updateFilter('facultyName', value || undefined); if (item) { updateFilter('facultyId', parseInt(item.id)); } }} placeholder="学部名を入力..." category="faculty" /> {filters.facultyName && !isDisabled && ( <Button variant="ghost" size="sm" onClick={() => { clearFilter('facultyId'); clearFilter('facultyName'); }}> <X /> </Button> )} </div> </div> {/* 科目 */} <div> <Label htmlFor="subject">科目</Label> <div> <MultilingualAutocomplete value={filters.subjectName || ''} onChange={(value, item) => { updateFilter('subjectName', value || undefined); if (item) { updateFilter('subjectId', item.id); } }} placeholder="科目名を入力..." category="subject" /> {filters.subjectName && !isDisabled && ( <Button variant="ghost" size="sm" onClick={() => { clearFilter('subjectId'); clearFilter('subjectName'); }}> <X /> </Button> )} </div> </div> </div> {/* Row 2: Teacher, Exam Year */} <div> {/* 教授 */} <div> <Label htmlFor="teacher">教授</Label> <div> <MultilingualAutocomplete value={filters.teacherName || ''} onChange={(value, item) => { updateFilter('teacherName', value || undefined); if (item) { updateFilter('teacherId', parseInt(item.id)); } }} placeholder="教授名を入力..." category="teacher" /> {filters.teacherName && !isDisabled && ( <Button variant="ghost" size="sm" onClick={() => { clearFilter('teacherId'); clearFilter('teacherName'); }}> <X /> </Button> )} </div> </div> {/* 試験年度 */} <div> <Label htmlFor="examYear">試験年度</Label> <div> <Input type="number" id="examYear" name="examYear" value={filters.examYear || ''} onChange={(e) => updateFilter('examYeardefault' : 'outline'} onClick={() => !isDisabled && updateFilter('examYear', year)}> {year} </Badge> ))} </div> </div> </div> </div> {/* Row 3: Field (理系/文系) */} <div> <Label>分野</Label> <NativeSelect value={filters.majorType !== undefined ? String(filters.majorType) : undefined} onChange={(value) => updateFilter('majorType', value === 'clear' ? undefined : parseInt(value))} disabled={isDisabled} items={[ { value: 'clear', label: 'すべて' }, { value: '0', label: '理系' }, { value: '1', label: '文系' }, ]} placeholder="分野を選択..." /> </div> {/* Row 4: Level (難易度) */} <div> <Label>レベル</Label> <NativeSelect value={filters.difficulty !== undefined ? String(filters.difficulty) : undefined} onChange={(value) => updateFilter('difficulty', value === 'clear' ? undefined : parseInt(value))} disabled={isDisabled} items={[ { value: 'clear', label: 'すべて' }, { value: '1', label: '基礎' }, { value: '2', label: '標準' }, { value: '3', label: '応用' }, { value: '5', label: '難関period', value === 'clear' ? undefined : value)} disabled={isDisabled} items={[ { value: 'clear', label: 'すべて' }, { value: 'today', label: '今日' }, { value: 'week', label: '今週' }, { value: 'month', label: '今月' }, { value: 'year', label: '今年' }, { value: 'custom', label: '任意期間' }, ]} placeholder="期間を選択..." /> {/* Custom date picker (only show when 'custom' is selected) */} {filters.period === 'custom' && ( <div style={{ gap: "0.5rem" }> <div> <Label>開始日</Label> <Input type="date" name="period-start" value={filters.startDate || ''} onChange={(e) => updateFilter('startDate', e.target.value || undefined)} disabled={isDisabled} /> </div> <div> <Label>終了日</Label> <Input type="date" name="period-end" value={filters.endDate || ''} onChange={(e) => updateFilter('endDate', e.target.value || undefined)} disabled={isDisabled} /> </div> </div> )} </div> {/* Row 7: Duration (所要時間) */} <div> <Label>所要時間</Label> <NativeSelect value={filters.duration !== undefined ? String(filters.duration) : undefined} onChange={(value) => updateFilter('duration', value === 'clear' ? undefined : parseInt(value))} disabled={isDisabled} items={[ { value: 'clear', label: 'すべて' }, { value: '5', label: '5分' }, { value: '10', label: '10分' }, { value: '30', label: '30分' }, { value: '60', label: '1時間' }, { value: '0', label: 'その他sortBy' || key === 'page' || key === 'limit' || value === undefined) return null; let displayValue = String(value); if (key === 'majorType') displayValue = value === 0 ? '理系' : '文系'; if (key === 'difficulty') { const levels: Record<number, string> = { 1: '基礎', 2: '標準', 3: '応用', 5: '難関' }; displayValue = levels[value as number] || String(value); } if (key === 'formats
+
+export interface SearchFilters {
+  keyword?: string;
+  universities?: string[];
+  faculties?: string[];
+  subjects?: string[];
+  fieldType?: string;
+  level?: string;
+  formats?: string[];
+  duration?: string;
+  period?: string;
+  sortBy?: 'recommended' | 'newest' | 'popular' | 'views';
+}
+
+export interface AdvancedSearchPanelProps {
+  filters: SearchFilters;
+  onFiltersChange: (filters: SearchFilters) => void;
+  isOpen?: boolean;
+}
+
+/**
+ * HomePage の詳細検索パネル
+ * 科目、難易度、タグ、大学名などのフィルターを提供する
+ */
+export function AdvancedSearchPanel({
+  filters,
+  onFiltersChange,
+  isOpen = false,
+}: AdvancedSearchPanelProps) {
+  const [expanded, setExpanded] = useState(isOpen);
+
+  const handleFilterChange = (key: keyof SearchFilters, value: string | string[]) => {
+    onFiltersChange({
+      ...filters,
+      [key]: value,
+    });
+  };
+
+  const handleReset = () => {
+    onFiltersChange({
+      keyword: filters.keyword,
+      sortBy: filters.sortBy,
+    });
+  };
+
+  return (
+    <Box sx={{ mb: 3 }}>
+      {/* トグルボタン */}
+      <Button
+        fullWidth
+        onClick={() => setExpanded(!expanded)}
+        sx={{
+          justifyContent: 'space-between',
+          textAlign: 'left',
+          mb: 2,
+          py: 1.5,
+        }}
+        endIcon={expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+      >
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          詳細検索
+        </Typography>
+      </Button>
+
+      {/* 詳細フィルターパネル */}
+      <Collapse in={expanded}>
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Stack spacing={2}>
+              {/* 科目 */}
+              <FormControl fullWidth>
+                <InputLabel>科目</InputLabel>
+                <Select
+                  multiple
+                  label="科目"
+                  value={filters.subjects || []}
+                  onChange={(e) => handleFilterChange('subjects', e.target.value as string[])}
+                >
+                  <MenuItem value="math">数学</MenuItem>
+                  <MenuItem value="physics">物理</MenuItem>
+                  <MenuItem value="chemistry">化学</MenuItem>
+                  <MenuItem value="biology">生物</MenuItem>
+                  <MenuItem value="english">英語</MenuItem>
+                  <MenuItem value="history">歴史</MenuItem>
+                  <MenuItem value="geography">地理</MenuItem>
+                  <MenuItem value="japanese">国語</MenuItem>
+                </Select>
+              </FormControl>
+
+              {/* 難易度 */}
+              <FormControl fullWidth>
+                <InputLabel>難易度</InputLabel>
+                <Select
+                  label="難易度"
+                  value={filters.level || ''}
+                  onChange={(e) => handleFilterChange('level', e.target.value)}
+                >
+                  <MenuItem value="">全て</MenuItem>
+                  <MenuItem value="basic">基礎</MenuItem>
+                  <MenuItem value="standard">標準</MenuItem>
+                  <MenuItem value="advanced">応用</MenuItem>
+                  <MenuItem value="expert">難関</MenuItem>
+                </Select>
+              </FormControl>
+
+              {/* 大学 */}
+              <FormControl fullWidth>
+                <InputLabel>大学</InputLabel>
+                <Select
+                  multiple
+                  label="大学"
+                  value={filters.universities || []}
+                  onChange={(e) => handleFilterChange('universities', e.target.value as string[])}
+                >
+                  <MenuItem value="tokyo">東京大学</MenuItem>
+                  <MenuItem value="kyoto">京都大学</MenuItem>
+                  <MenuItem value="osaka">大阪大学</MenuItem>
+                  <MenuItem value="tohoku">東北大学</MenuItem>
+                  <MenuItem value="keio">慶應義塾大学</MenuItem>
+                  <MenuItem value="waseda">早稲田大学</MenuItem>
+                </Select>
+              </FormControl>
+
+              {/* 問題形式 */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                  問題形式
+                </Typography>
+                <Stack spacing={1}>
+                  {['記述式', '選択式', '穴埋め式', '正誤判定'].map((format) => (
+                    <FormControlLabel
+                      key={format}
+                      control={
+                        <Checkbox
+                          checked={filters.formats?.includes(format) || false}
+                          onChange={(e) => {
+                            const newFormats = e.target.checked
+                              ? [...(filters.formats || []), format]
+                              : (filters.formats || []).filter((f) => f !== format);
+                            handleFilterChange('formats', newFormats);
+                          }}
+                        />
+                      }
+                      label={format}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+
+              {/* リセットボタン */}
+              <Stack direction="row" spacing={2} sx={{ pt: 1 }}>
+                <Button variant="outlined" onClick={handleReset}>
+                  リセット
+                </Button>
+              </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Collapse>
+    </Box>
+  );
+}
