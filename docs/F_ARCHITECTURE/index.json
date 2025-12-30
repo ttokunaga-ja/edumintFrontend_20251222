@@ -1,20 +1,20 @@
 {
-  "generated_at": "2025-12-27T07:07:55.470Z",
+  "generated_at": "2025-12-30T15:07:52.746Z",
   "index": [
     {
       "id": "src_components_common",
       "name": "src/components/common",
       "path": "src/components/common",
-      "file_count": 20,
+      "file_count": 17,
       "entry_points": [
         "src/components/common/ContextHealthAlert.stories.tsx",
         "src/components/common/ContextHealthAlert.tsx",
-        "src/components/common/ContextHealthAlertLegacy.tsx",
         "src/components/common/EmptyState.tsx",
         "src/components/common/JobStatusRibbon.stories.tsx",
-        "src/components/common/JobStatusRibbon.tsx"
+        "src/components/common/LatexBlock.tsx",
+        "src/components/common/MaintenancePage.tsx"
       ],
-      "last_updated": "2025-12-27"
+      "last_updated": "2025-12-30"
     },
     {
       "id": "src_components_generation",
@@ -25,153 +25,103 @@
         "src/components/generation/GenerationProgressBar.tsx",
         "src/components/generation/GenerationTimeline.tsx"
       ],
-      "last_updated": "2025-12-27"
+      "last_updated": "2025-12-30"
     },
     {
       "id": "src_components_page",
       "name": "src/components/page",
       "path": "src/components/page",
-      "file_count": 49,
+      "file_count": 22,
       "entry_points": [
         "src/components/page/HomePage/AdvancedSearchPanel.tsx",
         "src/components/page/HomePage/SearchSection.tsx",
-        "src/components/page/LoginRegisterPage/AcademicDomainHint.tsx",
-        "src/components/page/LoginRegisterPage/AuthLayout.tsx",
-        "src/components/page/LoginRegisterPage/AuthProviderButtons.tsx",
-        "src/components/page/LoginRegisterPage/LoginForm.tsx"
+        "src/components/page/ProblemCreatePage/AnalysisPhase.tsx",
+        "src/components/page/ProblemCreatePage/GenerationPhase.tsx",
+        "src/components/page/ProblemCreatePage/ResultEditor.tsx",
+        "src/components/page/ProblemCreatePage/StartPhase.tsx"
       ],
-      "last_updated": "2025-12-27"
+      "last_updated": "2025-12-30"
     },
     {
       "id": "src_components_primitives_a-f",
       "name": "src/components/primitives",
       "path": "src/components/primitives",
-      "file_count": 52,
-      "entry_points": [
-        "src/components/primitives/accordion.tsx",
-        "src/components/primitives/alert-dialog.tsx",
-        "src/components/primitives/alert.tsx",
-        "src/components/primitives/aspect-ratio.tsx",
-        "src/components/primitives/avatar.tsx",
-        "src/components/primitives/badge.tsx",
-        "src/components/primitives/breadcrumb.tsx",
-        "src/components/primitives/button.tsx",
-        "src/components/primitives/calendar.tsx",
-        "src/components/primitives/card.tsx",
-        "src/components/primitives/carousel.tsx",
-        "src/components/primitives/chart.tsx",
-        "src/components/primitives/checkbox.tsx",
-        "src/components/primitives/collapsible.tsx",
-        "src/components/primitives/command.tsx",
-        "src/components/primitives/context-menu.tsx",
-        "src/components/primitives/dialog.tsx",
-        "src/components/primitives/drawer.tsx",
-        "src/components/primitives/dropdown-menu.tsx",
-        "src/components/primitives/form.tsx"
-      ],
-      "last_updated": "2025-12-27"
+      "file_count": 0,
+      "entry_points": [],
+      "last_updated": "2025-12-30"
     },
     {
       "id": "src_components_primitives_o-z",
       "name": "src/components/primitives",
       "path": "src/components/primitives",
-      "file_count": 52,
-      "entry_points": [
-        "src/components/primitives/pagination.tsx",
-        "src/components/primitives/popover.tsx",
-        "src/components/primitives/progress.tsx",
-        "src/components/primitives/radio-group.tsx",
-        "src/components/primitives/resizable.tsx",
-        "src/components/primitives/scroll-area.tsx",
-        "src/components/primitives/select.tsx",
-        "src/components/primitives/separator.tsx",
-        "src/components/primitives/sheet.tsx",
-        "src/components/primitives/sidebar.tsx",
-        "src/components/primitives/skeleton.tsx",
-        "src/components/primitives/slider.tsx",
-        "src/components/primitives/sonner.tsx",
-        "src/components/primitives/switch.tsx",
-        "src/components/primitives/table.tsx",
-        "src/components/primitives/tabs.tsx",
-        "src/components/primitives/textarea.tsx",
-        "src/components/primitives/toggle-group.tsx",
-        "src/components/primitives/toggle.tsx",
-        "src/components/primitives/tooltip.tsx",
-        "src/components/primitives/use-mobile.ts",
-        "src/components/primitives/utils.ts"
-      ],
-      "last_updated": "2025-12-27"
+      "file_count": 0,
+      "entry_points": [],
+      "last_updated": "2025-12-30"
     },
     {
       "id": "src_components_problemTypes",
       "name": "src/components/problemTypes",
       "path": "src/components/problemTypes",
-      "file_count": 18,
+      "file_count": 35,
       "entry_points": [
         "src/components/problemTypes/ClozeEdit.tsx",
+        "src/components/problemTypes/ClozeView.stories.tsx",
         "src/components/problemTypes/ClozeView.tsx",
         "src/components/problemTypes/CodeReadingEdit.tsx",
-        "src/components/problemTypes/CodeReadingView.tsx",
-        "src/components/problemTypes/FreeTextEdit.tsx",
-        "src/components/problemTypes/FreeTextView.tsx"
+        "src/components/problemTypes/CodeReadingView.stories.tsx",
+        "src/components/problemTypes/CodeReadingView.tsx"
       ],
-      "last_updated": "2025-12-27"
+      "last_updated": "2025-12-30"
     },
     {
       "id": "src_pages",
       "name": "src/pages",
       "path": "src/pages",
-      "file_count": 20,
+      "file_count": 7,
       "entry_points": [
         "src/pages/AdminModerationPage.tsx",
         "src/pages/HomePage.tsx",
-        "src/pages/LoginRegisterPage/hooks/index.ts",
-        "src/pages/LoginRegisterPage/hooks/useLoginForm.ts",
-        "src/pages/LoginRegisterPage/hooks/useRegisterForm.ts",
-        "src/pages/LoginRegisterPage/hooks/useSocialAuth.ts"
+        "src/pages/LoginRegisterPage.tsx",
+        "src/pages/MyPage.tsx",
+        "src/pages/ProblemCreatePage.tsx",
+        "src/pages/ProblemViewEditPage.tsx"
       ],
-      "last_updated": "2025-12-27"
+      "last_updated": "2025-12-30"
     },
     {
       "id": "src_features",
       "name": "src/features",
       "path": "src/features",
-      "file_count": 19,
+      "file_count": 38,
       "entry_points": [
-        "src/features/auth/index.ts",
-        "src/features/content/hooks/useExamDetail.ts",
-        "src/features/content/hooks/useExamEditor.ts",
-        "src/features/content/hooks/useFileUpload.ts",
-        "src/features/content/hooks/useGenerationStatus.ts",
-        "src/features/content/index.ts"
+        "src/features/auth/hooks/index.ts",
+        "src/features/auth/hooks/useAuth.ts",
+        "src/features/auth/hooks/useLoginForm.ts",
+        "src/features/auth/hooks/useRegisterForm.ts",
+        "src/features/auth/hooks/useSocialAuth.ts",
+        "src/features/auth/index.ts"
       ],
-      "last_updated": "2025-12-27"
+      "last_updated": "2025-12-30"
     },
     {
       "id": "src_services_api",
       "name": "src/services/api",
       "path": "src/services/api",
-      "file_count": 10,
+      "file_count": 3,
       "entry_points": [
-        "src/services/api/gateway/content.ts",
-        "src/services/api/gateway/files.ts",
-        "src/services/api/gateway/generation.ts",
-        "src/services/api/gateway/health.ts",
-        "src/services/api/gateway/notifications.ts",
-        "src/services/api/gateway/search.ts"
+        "src/services/api/endpoints.ts",
+        "src/services/api/httpClient.ts",
+        "src/services/api/index.ts"
       ],
-      "last_updated": "2025-12-27"
+      "last_updated": "2025-12-30"
     },
     {
       "id": "src_shared_utils",
       "name": "src/shared/utils",
       "path": "src/shared/utils",
-      "file_count": 2,
-      "entry_points": [
-        "src/shared/utils/cn.ts",
-        "src/shared/utils/index.ts"
-      ],
-      "last_updated": "2025-12-27"
+      "file_count": 0,
+      "entry_points": [],
+      "last_updated": "2025-12-30"
     }
   ]
 }

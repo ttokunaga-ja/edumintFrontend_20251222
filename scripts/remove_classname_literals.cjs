@@ -1,4 +1,0 @@
-#!/usr/bin/env node
-const fs=require('fs');const path=require('path');
-function walk(d,out){fs.readdirSync(d).forEach(n=>{const p=path.join(d,n);if(fs.lstatSync(p).isDirectory())walk(p,out);else if(p.endsWith('.tsx')||p.endsWith('.jsx'))out.push(p);});}
-const files=[];walk(path.join(__dirname,'..','src'),files);let changed=0;for(const f of files){let s=fs.readFileSync(f,'utf8');const orig=s;s=s.replace(/className\s*=\s*"[^"]*"/g,'');s=s.replace(/className\s*=\s*'[^']*'/g,'');s=s.replace(/className\s*=\s*\{`[\s\S]*?`\}/g,'');if(s!==orig){fs.writeFileSync(f,s,'utf8');console.log('Removed literals from',f);changed++;}}console.log('Done',changed);

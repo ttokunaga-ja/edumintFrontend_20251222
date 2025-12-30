@@ -10,9 +10,9 @@ entry_points:
   - "src/services/api/httpClient.ts"
   - "src/services/api/gateway.ts"
 status: "needs-refactor"
-file_count: 10
+file_count: 3
 size_hint: "small"
-last_updated: "2025-12-27"
+last_updated: "2025-12-30"
 ---
 
 ## 概要

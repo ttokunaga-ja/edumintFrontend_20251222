@@ -10,9 +10,9 @@ entry_points:
   - "src/components/primitives/scroll-area.tsx"
   - "src/components/primitives/tooltip.tsx"
 status: "pure-new"
-file_count: 52
+file_count: 0
 size_hint: "medium"
-last_updated: "2025-12-27"
+last_updated: "2025-12-30"
 ---
 
 ## ファイル一覧（O-Z）

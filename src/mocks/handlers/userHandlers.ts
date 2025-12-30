@@ -15,9 +15,17 @@ const paginate = <T,>(items: T[], page: number, limit: number) => {
 export const userHandlers = [
   http.get(withBase('/user/profile'), () => HttpResponse.json(mockUser)),
   http.get(withBase('/user/profile/:userId'), ({ params }) => HttpResponse.json({ ...mockUser, id: params.userId })),
+  // Add handler for /users/:userId to match useUser.ts
+  http.get(withBase('/users/:userId'), ({ params }) => HttpResponse.json({ ...mockUser, id: params.userId })),
+
   http.patch(withBase('/user/profile'), async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     return HttpResponse.json({ ...mockUser, ...body });
+  }),
+  // Add handler for PUT /users/:userId to match useUser.ts
+  http.put(withBase('/users/:userId'), async ({ request, params }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    return HttpResponse.json({ ...mockUser, ...body, id: params.userId });
   }),
   http.get(withBase('/user/stats'), () => HttpResponse.json(mockUserStats)),
   http.get(withBase('/user/stats/:userId'), ({ params }) => HttpResponse.json({ ...mockUserStats, userId: params.userId })),

@@ -3,10 +3,12 @@ import { create } from 'zustand';
 /**
  * 生成フェーズの状態遷移（3フェーズに統合）:
  * - start: 生成開始（ファイルアップロード・オプション設定）
+ * - analyzing: 解析中（OCR/構造解析）
  * - structure_confirmed: 構造解析完了・確認ページ
+ * - generating: 生成中
  * - completed: 生成完了・編集可能
  */
-export type GenerationPhase = 'start' | 'structure_confirmed' | 'completed';
+export type GenerationPhase = 'start' | 'analyzing' | 'structure_confirmed' | 'generating' | 'completed';
 
 export type GenerationMode = 'exercise' | 'document';
 
@@ -36,9 +38,11 @@ export interface GenerationState {
   mode: GenerationMode;
   setMode: (mode: GenerationMode) => void;
 
-  // アップロードファイル
-  file: UploadedFile | null;
-  setFile: (file: UploadedFile | null) => void;
+  // アップロードファイル（複数対応）
+  files: UploadedFile[];
+  setFiles: (files: UploadedFile[]) => void;
+  addFiles: (files: UploadedFile[]) => void;
+  removeFile: (fileName: string) => void;
 
   // テキスト入力（直接入力時）
   inputText: string;
@@ -71,14 +75,14 @@ export interface GenerationState {
 const initialState = {
   phase: 'start' as GenerationPhase,
   mode: 'exercise' as GenerationMode,
-  file: null,
+  files: [],
   inputText: '',
   options: {
-    difficulty: 'auto',
+    difficulty: 'auto' as const,
     count: 10,
     includeCharts: true,
     checkStructure: false,
-    isPublic: false,
+    isPublic: true, // デフォルトで自動公開
     formats: [],
     autoFormat: true,
   },
@@ -91,7 +95,17 @@ export const useGenerationStore = create<GenerationState>((set) => ({
 
   setMode: (mode) => set({ mode }),
 
-  setFile: (file) => set({ file }),
+  setFiles: (files) => set({ files }),
+
+  addFiles: (newFiles) =>
+    set((state) => ({
+      files: [...state.files, ...newFiles],
+    })),
+
+  removeFile: (fileName) =>
+    set((state) => ({
+      files: state.files.filter((f) => f.name !== fileName),
+    })),
 
   setInputText: (text) => set({ inputText: text }),
 

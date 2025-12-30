@@ -10,9 +10,9 @@ entry_points:
   - "src/components/common/TopMenuBar.tsx"
   - "src/components/common/FooterActionBar.tsx"
 status: "pure-new"
-file_count: 20
+file_count: 17
 size_hint: "medium"
-last_updated: "2025-12-27"
+last_updated: "2025-12-30"
 ---
 
 ## 概要

@@ -8,6 +8,10 @@ interface UserProfile {
   username: string;
   displayName?: string;
   avatar?: string;
+  university?: string;
+  faculty?: string;
+  field?: 'science' | 'humanities';
+  language?: 'ja' | 'en';
 }
 
 export function useUserProfile(userId: string) {

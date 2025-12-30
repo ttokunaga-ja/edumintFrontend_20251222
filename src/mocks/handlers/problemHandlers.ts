@@ -133,14 +133,53 @@ export const problemHandlers = [
     const limit = Number(url.searchParams.get('limit') || '20');
     const sortBy = url.searchParams.get('sortBy') || 'newest';
 
+    // Additional filters
+    const subjects = url.searchParams.getAll('subjects[]');
+    const universities = url.searchParams.getAll('universities[]');
+    const difficulty = url.searchParams.get('level'); // AdvancedSearchPanel uses 'level'
+
     // キーワードでフィルター
     let filtered = problems;
     if (keyword.trim()) {
-      filtered = problems.filter(
+      filtered = filtered.filter(
         (p) =>
           p.title.toLowerCase().includes(keyword.toLowerCase()) ||
           p.description?.toLowerCase().includes(keyword.toLowerCase())
       );
+    }
+
+    // Apply advanced filters
+    if (subjects.length > 0) {
+      // Mock data uses lowercase keys or mapped values? Mock has '数学', '物理学'. 
+      // Panel uses 'math', 'physics'. 
+      // Simple mapping for demo:
+      const subjectMap: Record<string, string> = {
+        math: '数学', physics: '物理学', chemistry: '化学', biology: '生物',
+        english: '英語', history: '歴史', geography: '地理', japanese: '国語'
+      };
+      const targetSubjects = subjects.map(s => subjectMap[s] || s);
+      filtered = filtered.filter(p => targetSubjects.some(t => p.subject.includes(t)));
+    }
+
+    if (universities.length > 0) {
+      // Mock 'tokyo' -> '東京大学' etc.
+      const uniMap: Record<string, string> = {
+        tokyo: '東京大学', kyoto: '京都大学', osaka: '大阪大学',
+        tohoku: '東北大学', keio: '慶應義塾大学', waseda: '早稲田大学'
+      };
+      const targetUnis = universities.map(u => uniMap[u] || u);
+      filtered = filtered.filter(p => targetUnis.some(u => p.university.includes(u)));
+    }
+
+    if (difficulty) {
+      // Map 'basic', 'standard', 'advanced', 'expert' to mock difficulties
+      // Mock has 'standard', 'difficult', 'applied'.
+      // Mapping 'advanced' -> 'difficult' | 'applied'.
+      if (difficulty === 'advanced') {
+        filtered = filtered.filter(p => p.difficulty === 'difficult' || p.difficulty === 'applied');
+      } else {
+        filtered = filtered.filter(p => p.difficulty === difficulty);
+      }
     }
 
     // ソート
@@ -148,6 +187,8 @@ export const problemHandlers = [
       filtered = filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     } else if (sortBy === 'recommended') {
       filtered = filtered.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+    } else if (sortBy === 'views') {
+      filtered = filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
     } else {
       // newest がデフォルト
       filtered = filtered.sort(
@@ -159,7 +200,12 @@ export const problemHandlers = [
     const total = filtered.length;
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const items = filtered.slice(startIndex, endIndex);
+
+    // Map to response format (add authorName)
+    const items = filtered.slice(startIndex, endIndex).map(p => ({
+      ...p,
+      authorName: p.author.name // Flatten for frontend
+    }));
 
     return HttpResponse.json({
       data: items,

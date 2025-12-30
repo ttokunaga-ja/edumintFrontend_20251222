@@ -6,7 +6,10 @@ interface SearchParams {
   keyword?: string;
   page?: number;
   limit?: number;
-  sortBy?: 'newest' | 'popular' | 'recommended';
+  sortBy?: 'newest' | 'popular' | 'recommended' | 'views';
+  subjects?: string[];
+  universities?: string[];
+  level?: string;
 }
 
 interface Problem {
@@ -16,11 +19,21 @@ interface Problem {
   subjectName?: string;
   universityName?: string;
   content?: string;
+  authorName?: string;
+  university?: string;
+  difficulty?: string;
+  likes?: number;
+  views?: number;
+  createdAt?: string;
+  rating?: number;
+  comments?: number;
+  tags?: string[];
 }
 
 interface SearchResponse {
   data: Problem[];
   total: number;
+  hasMore?: boolean;
 }
 
 export function useSearch(params: SearchParams) {

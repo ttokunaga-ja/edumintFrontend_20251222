@@ -19,7 +19,7 @@ const lightPalette = {
     paper: '#ffffff',
   },
   text: {
-    primary: '#000000', // 黒
+    primary: '#1a1a1a', // 完全な黒
     secondary: 'rgba(0, 0, 0, 0.6)',
   },
   divider: '#e0e0e0',
@@ -138,6 +138,75 @@ export function useTheme() {
         components: {
           MuiCssBaseline: {
             styleOverrides: {
+              '@global': {
+                '@keyframes slide-in': {
+                  from: {
+                    opacity: 0,
+                    transform: 'translateX(100%)',
+                  },
+                  to: {
+                    opacity: 1,
+                    transform: 'translateX(0)',
+                  },
+                },
+                '@keyframes slide-out': {
+                  from: {
+                    opacity: 1,
+                    transform: 'translateX(0)',
+                  },
+                  to: {
+                    opacity: 0,
+                    transform: 'translateX(100%)',
+                  },
+                },
+                '@keyframes scale-in': {
+                  from: {
+                    opacity: 0,
+                    transform: 'scale(0.95)',
+                  },
+                  to: {
+                    opacity: 1,
+                    transform: 'scale(1)',
+                  },
+                },
+                '*': {
+                  margin: 0,
+                  padding: 0,
+                  boxSizing: 'border-box',
+                },
+                'html, body, #root': {
+                  height: '100%',
+                  fontFamily: [
+                    '-apple-system',
+                    'BlinkMacSystemFont',
+                    '"Segoe UI"',
+                    '"Roboto"',
+                    '"Oxygen"',
+                    '"Ubuntu"',
+                    '"Cantarell"',
+                    '"Fira Sans"',
+                    '"Droid Sans"',
+                    '"Helvetica Neue"',
+                    'sans-serif',
+                  ].join(','),
+                  WebkitFontSmoothing: 'antialiased',
+                  MozOsxFontSmoothing: 'grayscale',
+                },
+                code: {
+                  fontFamily: 'source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace',
+                },
+                'img, svg, video, canvas': {
+                  maxWidth: '100%',
+                  height: 'auto',
+                  display: 'block',
+                },
+                'button, input, select, textarea': {
+                  font: 'inherit',
+                },
+                'iframe[src*="/mockServiceWorker.js"]': {
+                  display: 'none !important',
+                },
+              },
               body: {
                 backgroundColor: prefersDarkMode ? '#121212' : '#ffffff',
                 color: prefersDarkMode ? '#ffffff' : '#000000',
@@ -160,7 +229,7 @@ export function useTheme() {
                 textTransform: 'none',
                 fontWeight: 600,
                 padding: '10px 20px',
-                borderRadius: '10px',
+                borderRadius: '12px',
                 transition: 'all 0.2s ease',
               },
               contained: {
@@ -313,6 +382,56 @@ export function useTheme() {
               paper: {
                 backgroundColor: prefersDarkMode ? '#1e1e1e' : '#ffffff',
                 borderRight: `1px solid ${prefersDarkMode ? '#303030' : '#e0e0e0'}`,
+              },
+            },
+          },
+          MuiStepper: {
+            styleOverrides: {
+              root: {
+                backgroundColor: prefersDarkMode ? '#1e1e1e' : '#ffffff',
+                padding: '20px 16px',
+                borderBottom: `1px solid ${prefersDarkMode ? '#303030' : '#e0e0e0'}`,
+              },
+            },
+          },
+          MuiStep: {
+            styleOverrides: {
+              root: {
+                padding: 0,
+              },
+            },
+          },
+          MuiStepLabel: {
+            styleOverrides: {
+              root: {
+                color: prefersDarkMode ? '#ffffff' : '#1a1a1a',
+              },
+              label: {
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                color: prefersDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(26, 26, 26, 0.7)',
+                '&.Mui-active': {
+                  color: prefersDarkMode ? '#ffffff' : '#1a1a1a',
+                  fontWeight: 600,
+                },
+                '&.Mui-completed': {
+                  color: prefersDarkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(26, 26, 26, 0.6)',
+                },
+              },
+            },
+          },
+          MuiStepIcon: {
+            styleOverrides: {
+              root: {
+                color: prefersDarkMode ? '#444' : '#d0d0d0',
+                '&.Mui-active': {
+                  color: '#00bcd4',
+                  fontSize: '1.75rem',
+                },
+                '&.Mui-completed': {
+                  color: '#4caf50',
+                  fontSize: '1.75rem',
+                },
               },
             },
           },

@@ -9,9 +9,9 @@ tags: ["utils","shared","lib"]
 entry_points:
   - "src/shared/utils/index.ts"
 status: "pure-new"
-file_count: 2
+file_count: 0
 size_hint: "small"
-last_updated: "2025-12-27"
+last_updated: "2025-12-30"
 ---
 
 ## 概要

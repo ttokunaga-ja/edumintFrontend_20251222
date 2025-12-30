@@ -10,9 +10,9 @@ entry_points:
   - "src/components/page/HomePage/AdvancedSearchPanel.tsx"
   - "src/components/page/ProblemViewEditPage/ProblemEditor.tsx"
 status: "pure-new"
-file_count: 49
+file_count: 22
 size_hint: "large"
-last_updated: "2025-12-27"
+last_updated: "2025-12-30"
 ---
 
 ## 概要

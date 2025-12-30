@@ -72,6 +72,7 @@ interface User {
   email: string;
   username: string;
   displayName?: string;
+  role?: 'user' | 'admin';
 }
 
 export function useAuth() {

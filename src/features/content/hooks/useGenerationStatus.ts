@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GenerationStatusResponse } from '@/services/api/gateway/generation';
 import { getGenerationStatus, startStructureGeneration } from '@/features/generation/api';
-import { initialGenerationState, nextGenerationState, seedAfterStart } from '@/features/generation/stateMachine';
-import { useGenerationStore } from '@/features/generation/store';
+import { initialGenerationState, nextGenerationState, seedAfterStart, type GenerationMachineState } from '@/features/generation/stateMachine';
 
 export type { GenerationPhase } from '@/features/generation/stateMachine';
 
@@ -26,10 +25,10 @@ export const useGenerationStatus = ({
   allowStructureSkip = true,
 }: Params) => {
   const [jobId, setJobId] = useState<string | null>(initialJobId ?? null);
-
-  const { state, result, reset: resetStore, setState, advance, setError, setResult } = useGenerationStore(
+  const [state, setState] = useState<GenerationMachineState>(
     initialJobId ? { phase: 'generating', currentStep: 'generating', progress: 60 } : initialGenerationState,
   );
+  const [result, setResult] = useState<GenerationStatusResponse | null>(null);
 
   const stateRef = useRef(state);
   const lastStablePhaseRef = useRef(state.phase);
@@ -43,7 +42,11 @@ export const useGenerationStatus = ({
   }, [state]);
 
   const setErrorState = (message: string, errorCode?: string) => {
-    setError(message);
+    setState((prev) => ({
+      ...prev,
+      phase: 'error',
+      errorMessage: message,
+    }));
     onError?.(message, errorCode);
   };
 
@@ -120,8 +123,8 @@ export const useGenerationStatus = ({
   const reset = () => {
     setJobId(null);
     setResult(null);
+    setState(initialGenerationState);
     lastStablePhaseRef.current = initialGenerationState.phase;
-    resetStore();
   };
 
   useEffect(() => {
@@ -171,7 +174,8 @@ export const useGenerationStatus = ({
         }
 
         // 通常の状態更新
-        advance(status);
+        const nextState = nextGenerationState(state, status);
+        setState(nextState);
         stateRef.current = nextState;
       } catch (error) {
         console.error('Failed to poll generation status', error);

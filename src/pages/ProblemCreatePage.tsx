@@ -1,4 +1,4 @@
-import { Box, Container, LinearProgress, Stack, useTheme } from '@mui/material';
+import { Box, Container, Stepper, Step, StepLabel, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useGenerationStore } from '@/features/generation/stores/generationStore';
 import { StartPhase } from '@/components/page/ProblemCreatePage/StartPhase';
@@ -24,43 +24,38 @@ export default function ProblemCreatePage() {
     phase;
 
   const phaseOrder = ['start', 'structure_confirmed', 'completed'] as const;
+  const phaseLabels = ['1. 生成開始', '2. 構造解析', '3. 生成完了'];
   const displayPhaseIndex = phaseOrder.indexOf(displayPhase as any);
-  const progress = ((displayPhaseIndex + 1) / phaseOrder.length) * 100;
 
   return (
     <>
-      {/* 固定プログレスバー */}
+      {/* 固定 Stepper（MUI Stepper） */}
       <Box sx={{ 
         position: 'sticky', 
         top: 64, // TopMenuBar の高さ
         zIndex: 99, 
         backgroundColor: 'background.paper', 
-        borderBottom: `1px solid ${theme.palette.divider}` 
+        borderBottom: `1px solid ${theme.palette.divider}`
       }}>
-        <LinearProgress 
-          variant="determinate" 
-          value={progress} 
-          sx={{ 
-            height: 6,
-            background: theme.palette.mode === 'dark' ? '#303030' : '#e0e0e0',
-            '& .MuiLinearProgress-bar': {
-              backgroundImage: `linear-gradient(90deg, #00bcd4, #4dd0e1)`,
-              borderRadius: '3px',
-            },
-          }} 
-        />
+        <Stepper activeStep={displayPhaseIndex} alternativeLabel sx={{ py: 2, px: { xs: 1, sm: 2 } }}>
+          {phaseLabels.map((label, index) => (
+            <Step key={index}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
       </Box>
 
       <Container maxWidth="md">
-        <Box sx={{ py: 2 }}>
+        <Box sx={{ py: 3 }}>
           {/* フェーズコンテンツ */}
-          <Stack sx={{ mb: 4 }}>
+          <Box>
             {phase === 'start' && <StartPhase />}
             {phase === 'analyzing' && <StartPhase />}
             {phase === 'structure_confirmed' && <StructureConfirmation />}
             {phase === 'generating' && <StructureConfirmation />}
             {phase === 'completed' && <ResultEditor />}
-          </Stack>
+          </Box>
         </Box>
       </Container>
     </>

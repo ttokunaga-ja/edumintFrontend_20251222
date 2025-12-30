@@ -14,7 +14,7 @@ interface AppLayoutProps {
  */
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
-  
+
   // TopMenuBar を非表示にするパス
   const hideTopMenuBarPaths = ['/login', '/register'];
   const shouldShowTopMenuBar = !hideTopMenuBarPaths.includes(location.pathname);
@@ -25,7 +25,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
-        backgroundColor: '#fafafa',
+        backgroundColor: 'background.default',
       }}
     >
       {/* TopMenuBar */}

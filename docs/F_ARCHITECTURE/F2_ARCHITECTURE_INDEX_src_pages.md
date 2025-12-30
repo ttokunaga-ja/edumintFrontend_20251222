@@ -10,9 +10,9 @@ entry_points:
   - "src/pages/HomePage.tsx"
   - "src/pages/ProblemViewEditPage.tsx"
 status: "mixed"
-file_count: 20
+file_count: 7
 size_hint: "small"
-last_updated: "2025-12-27"
+last_updated: "2025-12-30"
 ---
 
 ## 概要

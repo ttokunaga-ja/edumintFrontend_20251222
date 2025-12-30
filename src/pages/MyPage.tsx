@@ -11,12 +11,28 @@ import {
   Alert,
   useTheme,
   TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Grid,
+  Chip,
+  CardActions,
+  IconButton,
 } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
-import CreateIcon from '@mui/icons-material/Create';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { useAuth, useLogout } from '@/features/auth/hooks/useAuth';
 import { useUserProfile } from '@/features/user/hooks/useUser';
+import { useSearch } from '@/features/content/hooks/useContent';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+
 
 export function MyPage() {
   const navigate = useNavigate();
@@ -24,6 +40,27 @@ export function MyPage() {
   const { user, isLoading } = useAuth();
   const { data: profile } = useUserProfile(user?.id || '');
   const logoutMutation = useLogout();
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+  // アコーディオン展開状態
+  const [expandedAccordion, setExpandedAccordion] = useState<string | false>(false);
+
+  // ユーザーの投稿問題を取得（フィルター付き）
+  const { data: postedData, isLoading: isPostedLoading } = useSearch({
+    keyword: '',
+    page: 1,
+    sortBy: 'newest',
+    limit: 4,
+  });
+
+  // プロフィール編集フォーム状態
+  const [editForm, setEditForm] = useState({
+    displayName: user?.displayName || '',
+    university: profile?.university || '',
+    faculty: profile?.faculty || '',
+    field: profile?.field || 'science',
+    language: profile?.language || 'ja',
+  });
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
@@ -31,6 +68,15 @@ export function MyPage() {
         navigate('/login');
       },
     });
+  };
+
+  const handleAccordionChange = (panel: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+    setExpandedAccordion(isExpanded ? panel : false);
+  };
+
+  const handleSaveProfile = () => {
+    console.log('Saving profile:', editForm);
+    setIsEditingProfile(false);
   };
 
   if (isLoading) {
@@ -53,39 +99,11 @@ export function MyPage() {
     );
   }
 
-  // 仮のカードコンポーネント（横スクロール用）
-  const ScrollCard = ({ title, subtitle }: { title: string; subtitle?: string }) => (
-    <Card
-      sx={{
-        minWidth: 280,
-        borderRadius: '12px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        cursor: 'pointer',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-        },
-      }}
-    >
-      <CardContent>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="body2" color="textSecondary">
-            {subtitle}
-          </Typography>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   return (
     <Container maxWidth="lg">
       <Box sx={{ py: 4 }}>
-        {/* Profile Header */}
-        <Card sx={{ mb: 6, borderRadius: '16px', boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)' }}>
+        {/* プロフィールヘッダー */}
+        <Card sx={{ mb: 4, borderRadius: '16px', boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -112,10 +130,10 @@ export function MyPage() {
                     {user.email}
                   </Typography>
                   {user.role === 'admin' && (
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        display: 'inline-block', 
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'inline-block',
                         mt: 1,
                         backgroundColor: theme.palette.error.main,
                         color: '#ffffff',
@@ -132,10 +150,7 @@ export function MyPage() {
               </Box>
               <Stack spacing={1}>
                 {user.role === 'admin' && (
-                  <Button
-                    variant="outlined"
-                    onClick={() => navigate('/admin')}
-                  >
+                  <Button variant="outlined" onClick={() => navigate('/admin')}>
                     管理画面へ
                   </Button>
                 )}
@@ -153,165 +168,496 @@ export function MyPage() {
           </CardContent>
         </Card>
 
-        {/* Horizontal Scroll Sections */}
-        <Stack spacing={6}>
-          {/* 学習履歴セクション */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                📚 学習履歴
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                最近の学習内容
-              </Typography>
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 2,
-                overflowX: 'auto',
-                pb: 1,
-                '&::-webkit-scrollbar': {
-                  height: '4px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: theme.palette.action.hover,
-                  borderRadius: '2px',
-                },
-              }}
-            >
-              <ScrollCard title="数学の基礎" subtitle="2024年12月15日" />
-              <ScrollCard title="英文法-時制" subtitle="2024年12月14日" />
-              <ScrollCard title="物理-運動力学" subtitle="2024年12月13日" />
-              <ScrollCard title="歴史-江戸時代" subtitle="2024年12月12日" />
-            </Box>
-          </Box>
-
-          {/* 高評価セクション */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                👍 お気に入り
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                高評価した問題
-              </Typography>
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 2,
-                overflowX: 'auto',
-                pb: 1,
-                '&::-webkit-scrollbar': {
-                  height: '4px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: theme.palette.action.hover,
-                  borderRadius: '2px',
-                },
-              }}
-            >
-              <ScrollCard title="化学-化学結合" subtitle="難度: 中級" />
-              <ScrollCard title="地理-気候変動" subtitle="難度: 上級" />
-              <ScrollCard title="生物-細胞分裂" subtitle="難度: 中級" />
-            </Box>
-          </Box>
-
-          {/* 投稿した問題セクション */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                ✏️ 作成した問題
-              </Typography>
-              <Button 
-                variant="contained" 
-                size="small"
-                startIcon={<CreateIcon />}
-                onClick={() => navigate('/problem/create')}
-              >
-                新規作成
-              </Button>
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 2,
-                overflowX: 'auto',
-                pb: 1,
-                '&::-webkit-scrollbar': {
-                  height: '4px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: theme.palette.action.hover,
-                  borderRadius: '2px',
-                },
-              }}
-            >
-              <ScrollCard title="確率論の基礎" subtitle="2024年11月10日公開" />
-              <ScrollCard title="記述式問題集" subtitle="2024年10月25日公開" />
-            </Box>
-          </Box>
-
-          {/* 個人情報編集セクション */}
-          <Box sx={{ mt: 4, pt: 4, borderTop: `1px solid ${theme.palette.divider}` }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
-              ⚙️ プロフィール編集
+        {/* YouTube風の横スクロール: 学習済 (Coming Soon) */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              学習済
             </Typography>
-            <Stack spacing={2} sx={{ maxWidth: '500px' }}>
-              <TextField
-                label="表示名"
-                defaultValue={user.displayName || ''}
-                fullWidth
-                variant="outlined"
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                  },
-                }}
-              />
-              <TextField
-                label="ユーザー名"
-                defaultValue={user.username}
-                disabled
-                fullWidth
-                variant="outlined"
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                  },
-                }}
-              />
-              <TextField
-                label="メールアドレス"
-                defaultValue={user.email}
-                disabled
-                fullWidth
-                variant="outlined"
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                  },
-                }}
-              />
-              <Button variant="contained" sx={{ mt: 2 }}>
-                変更を保存
-              </Button>
-            </Stack>
+            <Typography variant="caption" sx={{ color: 'primary.main', cursor: 'pointer' }}>
+              すべて表示
+            </Typography>
           </Box>
-        </Stack>
+
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              pb: 1,
+              '&::-webkit-scrollbar': {
+                height: '6px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'transparent',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: '#ccc',
+                borderRadius: '3px',
+              },
+              '&::-webkit-scrollbar-thumb:hover': {
+                background: '#999',
+              },
+            }}
+          >
+            {[1, 2, 3, 4].map((i) => (
+              <Card
+                key={i}
+                sx={{
+                  minWidth: '240px',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15)',
+                  },
+                }}
+              >
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', py: 4 }}>
+                  <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
+                    Coming Soon...
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary" sx={{ fontSize: '0.75rem' }}>
+                    学習済み機能は開発中です
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        </Box>
+
+        {/* YouTube風の横スクロール: 高評価 (Coming Soon) */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              高評価
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'primary.main', cursor: 'pointer' }}>
+              すべて表示
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              pb: 1,
+              '&::-webkit-scrollbar': {
+                height: '6px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'transparent',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: '#ccc',
+                borderRadius: '3px',
+              },
+              '&::-webkit-scrollbar-thumb:hover': {
+                background: '#999',
+              },
+            }}
+          >
+            {[1, 2, 3, 4].map((i) => (
+              <Card
+                key={i}
+                sx={{
+                  minWidth: '240px',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15)',
+                  },
+                }}
+              >
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', py: 4 }}>
+                  <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
+                    Coming Soon...
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary" sx={{ fontSize: '0.75rem' }}>
+                    高評価機能は開発中です
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        </Box>
+
+        {/* YouTube風の横スクロール: コメント (Coming Soon) */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              コメント
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'primary.main', cursor: 'pointer' }}>
+              すべて表示
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              pb: 1,
+              '&::-webkit-scrollbar': {
+                height: '6px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'transparent',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: '#ccc',
+                borderRadius: '3px',
+              },
+              '&::-webkit-scrollbar-thumb:hover': {
+                background: '#999',
+              },
+            }}
+          >
+            {[1, 2, 3, 4].map((i) => (
+              <Card
+                key={i}
+                sx={{
+                  minWidth: '240px',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15)',
+                  },
+                }}
+              >
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', py: 4 }}>
+                  <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
+                    Coming Soon...
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary" sx={{ fontSize: '0.75rem' }}>
+                    コメント機能は開発中です
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        </Box>
+
+        {/* 投稿セクション */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              投稿
+            </Typography>
+            <Typography 
+              variant="caption" 
+              sx={{ color: 'primary.main', cursor: 'pointer' }}
+              onClick={() => navigate('/home')}
+            >
+              すべて表示
+            </Typography>
+          </Box>
+
+          {isPostedLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : postedData && postedData.data.length > 0 ? (
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 2,
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                pb: 1,
+                '&::-webkit-scrollbar': {
+                  height: '6px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: 'transparent',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: '#ccc',
+                  borderRadius: '3px',
+                },
+                '&::-webkit-scrollbar-thumb:hover': {
+                  background: '#999',
+                },
+              }}
+            >
+              {postedData.data.map((problem) => (
+                <Card
+                  key={problem.id}
+                  sx={{
+                    minWidth: '280px',
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: 3,
+                    },
+                  }}
+                >
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    {/* 著者情報 */}
+                    <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
+                      <Avatar sx={{ width: 32, height: 32 }}>
+                        {problem.authorName?.charAt(0) || 'U'}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }}>
+                          {problem.authorName || 'Unknown'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {problem.university || 'University'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    {/* タイトル */}
+                    <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, minHeight: '48px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {problem.title}
+                    </Typography>
+
+                    {/* 試験情報 */}
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {problem.examName && `試験: ${problem.examName}`}
+                    </Typography>
+
+                    {/* メタデータチップ */}
+                    <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                      {problem.subjectName && (
+                        <Chip label={problem.subjectName} size="small" variant="outlined" />
+                      )}
+                      {problem.difficulty && (
+                        <Chip
+                          label={problem.difficulty}
+                          size="small"
+                          color={
+                            problem.difficulty === 'advanced'
+                              ? 'error'
+                              : problem.difficulty === 'standard'
+                                ? 'warning'
+                                : 'default'
+                          }
+                          variant="outlined"
+                        />
+                      )}
+                    </Stack>
+
+                    {/* 問題プレビュー */}
+                    <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {problem.content?.substring(0, 80)}...
+                    </Typography>
+                  </CardContent>
+
+                  {/* 統計情報 */}
+                  <CardActions disableSpacing>
+                    <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <VisibilityIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                        <Typography variant="caption" color="text.secondary">
+                          {problem.views || 0}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <FavoriteBorderIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                        <Typography variant="caption" color="text.secondary">
+                          {problem.likes || 0}
+                        </Typography>
+                      </Stack>
+                    </Stack>
+                    <IconButton size="small">
+                      <FavoriteBorderIcon fontSize="small" />
+                    </IconButton>
+                  </CardActions>
+                </Card>
+              ))}
+            </Box>
+          ) : (
+            <Card sx={{ py: 10 }}>
+              <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
+                  投稿がまだありません
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  問題を投稿して、コミュニティに貢献しましょう
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
+        </Box>
+
+        {/* アコーディオン形式の設定パネル */}
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+            Edumintアカウント設定
+          </Typography>
+
+          {/* ステータスアコーディオン */}
+          <Accordion expanded={expandedAccordion === 'status'} onChange={handleAccordionChange('status')}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography sx={{ fontWeight: 500 }}>ステータス</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+                <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
+                  Coming Soon...
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  ステータス機能は開発中です
+                </Typography>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+
+          {/* ウォレットアコーディオン */}
+          <Accordion expanded={expandedAccordion === 'wallet'} onChange={handleAccordionChange('wallet')}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography sx={{ fontWeight: 500 }}>ウォレット</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+                <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
+                  Coming Soon...
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  ウォレット機能は開発中です
+                </Typography>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+
+          {/* プロフィール編集アコーディオン */}
+          <Accordion expanded={expandedAccordion === 'profile'} onChange={handleAccordionChange('profile')}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography sx={{ fontWeight: 500 }}>プロフィール編集</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box sx={{ width: '100%' }}>
+                {isEditingProfile ? (
+                  <Stack spacing={2}>
+                    <TextField
+                      label="表示名"
+                      value={editForm.displayName}
+                      onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+                      fullWidth
+                      variant="outlined"
+                      size="small"
+                    />
+                    <TextField
+                      label="大学名"
+                      value={editForm.university}
+                      onChange={(e) => setEditForm({ ...editForm, university: e.target.value })}
+                      fullWidth
+                      variant="outlined"
+                      size="small"
+                    />
+                    <TextField
+                      label="学部"
+                      value={editForm.faculty}
+                      onChange={(e) => setEditForm({ ...editForm, faculty: e.target.value })}
+                      fullWidth
+                      variant="outlined"
+                      size="small"
+                    />
+                    <FormControl fullWidth size="small">
+                      <InputLabel>分野</InputLabel>
+                      <Select
+                        label="分野"
+                        value={editForm.field}
+                        onChange={(e) => setEditForm({ ...editForm, field: e.target.value })}
+                      >
+                        <MenuItem value="science">理系</MenuItem>
+                        <MenuItem value="humanities">文系</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>言語</InputLabel>
+                      <Select
+                        label="言語"
+                        value={editForm.language}
+                        onChange={(e) => setEditForm({ ...editForm, language: e.target.value })}
+                      >
+                        <MenuItem value="ja">日本語</MenuItem>
+                        <MenuItem value="en">English</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                      <Button variant="contained" onClick={handleSaveProfile} fullWidth>
+                        保存
+                      </Button>
+                      <Button variant="outlined" onClick={() => setIsEditingProfile(false)} fullWidth>
+                        キャンセル
+                      </Button>
+                    </Stack>
+                  </Stack>
+                ) : (
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                        プロフィール編集
+                      </Typography>
+                      <Typography variant="body2">{user.displayName || '未設定'}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                        ユーザー名
+                      </Typography>
+                      <Typography variant="body2">{user.username}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                        メールアドレス
+                      </Typography>
+                      <Typography variant="body2">{user.email}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                        大学名
+                      </Typography>
+                      <Typography variant="body2">{profile?.university || '未設定'}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                        学部
+                      </Typography>
+                      <Typography variant="body2">{profile?.faculty || '未設定'}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                        分野
+                      </Typography>
+                      <Typography variant="body2">
+                        {profile?.field === 'science' ? '理系' : profile?.field === 'humanities' ? '文系' : '未設定'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                        言語
+                      </Typography>
+                      <Typography variant="body2">
+                        {profile?.language === 'ja' ? '日本語' : profile?.language === 'en' ? 'English' : '未設定'}
+                      </Typography>
+                    </Box>
+                    <Button variant="contained" onClick={() => setIsEditingProfile(true)} fullWidth sx={{ mt: 2 }}>
+                      編集する
+                    </Button>
+                  </Stack>
+                )}
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+        </Box>
       </Box>
     </Container>
   );

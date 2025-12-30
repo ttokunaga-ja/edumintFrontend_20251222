@@ -22,6 +22,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useNotification } from '@/contexts/NotificationContext';
 import { useProblemDetail, useUpdateProblem } from '@/features/content/hooks/useContent';
+import { useAppBarAction } from '@/contexts/AppBarActionContext';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -42,10 +43,18 @@ export default function ProblemViewEditPage() {
   const { data: problem, isLoading, error } = useProblemDetail(id || '');
   const updateMutation = useUpdateProblem(id || '');
 
+  const { setActions } = useAppBarAction();
+
   // UI状態
   const [isEditMode, setIsEditMode] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [rating, setRating] = useState(0);
+
+
+
+
+
+  // UI状態
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // 編集用フォームデータ
@@ -87,6 +96,63 @@ export default function ProblemViewEditPage() {
       }
     );
   };
+
+  // App Bar Actions
+  useEffect(() => {
+    if (isLoading || !problem) {
+      setActions(null);
+      return;
+    }
+
+    if (isEditMode) {
+      setActions(
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            onClick={() => setIsEditMode(false)}
+            disabled={updateMutation.isPending}
+            size="small"
+            sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}
+          >
+            キャンセル
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={updateMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+            onClick={handleSaveEdit}
+            disabled={updateMutation.isPending}
+            size="small"
+            color="secondary"
+          >
+            保存
+          </Button>
+        </Stack>
+      );
+    } else {
+      setActions(
+        <Stack direction="row" spacing={1}>
+          <IconButton
+            size="large"
+            onClick={() => setIsFavorite(!isFavorite)}
+            color="inherit"
+          >
+            {isFavorite ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
+          </IconButton>
+          <Button
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => setIsEditMode(true)}
+            size="small"
+            sx={{ color: 'inherit', borderColor: 'currentColor' }}
+          >
+            編集
+          </Button>
+        </Stack>
+      );
+    }
+
+    return () => setActions(null);
+  }, [isEditMode, problem, isFavorite, updateMutation.isPending, setActions, isLoading]);
 
   const handleDeleteConfirm = async () => {
     // 削除API呼び出し（後で実装）
@@ -199,26 +265,7 @@ export default function ProblemViewEditPage() {
                   </Box>
                 </Box>
 
-                {/* アクションボタン */}
-                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 2 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={() => setIsEditMode(false)}
-                    disabled={updateMutation.isPending}
-                  >
-                    キャンセル
-                  </Button>
-                  <Button
-                    variant="contained"
-                    startIcon={
-                      updateMutation.isPending ? <CircularProgress size={20} /> : <SaveIcon />
-                    }
-                    onClick={handleSaveEdit}
-                    disabled={updateMutation.isPending}
-                  >
-                    {updateMutation.isPending ? '保存中...' : '保存'}
-                  </Button>
-                </Box>
+
               </Stack>
             ) : (
               // 表示モード
@@ -239,22 +286,7 @@ export default function ProblemViewEditPage() {
                         )}
                       </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <IconButton
-                        size="large"
-                        onClick={() => setIsFavorite(!isFavorite)}
-                        color={isFavorite ? 'error' : 'default'}
-                      >
-                        {isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-                      </IconButton>
-                      <Button
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={() => setIsEditMode(true)}
-                      >
-                        編集
-                      </Button>
-                    </Box>
+
                   </Box>
                 </Box>
 

@@ -1,2 +1,0 @@
-export const tokens = { palette: { primary: { main: '#1976d2', contrastText: '#fff' }, secondary: { main: '#9c27b0', contrastText: '#fff' }, background: { default: '#ffffff', paper: '#ffffff' }, text: { primary: '#0b0b0b', secondary: '#5f6b73' } }, spacing: (factor: number) => `${factor * 8}px`, shape: { borderRadius: 8 }, typography: { fontFamily: undefined, h1: { fontSize: '2rem' } }
-} as const;

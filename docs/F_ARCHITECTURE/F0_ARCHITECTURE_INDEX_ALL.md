@@ -6,7 +6,7 @@ type: "index"
 description: "Top-level architecture index that links to per-directory indices for quick navigation by CodingAgent and developers."
 primary_owner: "frontend-team"
 tags: ["index","architecture","navigation"]
-last_updated: "2025-12-27"
+last_updated: "2025-12-30"
 ---
 
 # F0: Architecture Index — All

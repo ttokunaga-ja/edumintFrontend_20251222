@@ -10,9 +10,9 @@ entry_points:
   - "src/features/auth"
   - "src/features/content"
 status: "mixed"
-file_count: 19
+file_count: 38
 size_hint: "small"
-last_updated: "2025-12-27"
+last_updated: "2025-12-30"
 ---
 
 ## 概要

@@ -17,73 +17,152 @@ import {
   AccordionDetails,
   ToggleButton,
   ToggleButtonGroup,
+  Alert,
+  LinearProgress,
+  Chip,
 } from '@mui/material';
 import { useState } from 'react';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { useDropzone } from 'react-dropzone';
 import { useGenerationStore, GenerationMode, UploadedFile } from '@/features/generation/stores/generationStore';
 
 /**
  * 生成開始フェーズ (Generation Start)
  * - モード選択（演習問題から生成 / 資料から生成）
- * - ファイルアップロード/テキスト入力
+ * - ファイルアップロード/テキスト入力（複数ファイル対応）
  * - 生成元別のオプション設定
+ * - クライアント側バリデーション（ファイルサイズ、拡張子、テキスト長）
  */
 export function StartPhase() {
-  const { mode, setMode, file, setFile, inputText, setInputText, options, setOptions, setPhase } =
+  const { mode, setMode, files, setFiles, addFiles, removeFile, inputText, setInputText, options, setOptions, setPhase } =
     useGenerationStore();
 
-  const [dragActive, setDragActive] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
 
-  // ファイルドラッグ・ドロップハンドラ
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
+  // バリデーション定数
+  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB total
+  const MAX_TEXT_LENGTH = 5000;
+  const ALLOWED_EXTENSIONS = ['.pdf', '.txt', '.docx', '.doc'];
+
+  // ファイル合計サイズ計算
+  const totalFileSize = files.reduce((sum, f) => sum + f.size, 0);
+  const totalFileSizeInMB = (totalFileSize / (1024 * 1024)).toFixed(2);
+
+  // react-dropzone hook
+  const onDrop = (acceptedFiles: File[]) => {
+    setError('');
+    setFileErrors([]);
+    const newErrors: string[] = [];
+    const validFiles: UploadedFile[] = [];
+
+    // 個別ファイルのバリデーション
+    for (const file of acceptedFiles) {
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        newErrors.push(`${file.name}: 無効なファイル形式です (PDF, TXT, DOCX のみ)`);
+        continue;
+      }
+
+      if (file.size > 10 * 1024 * 1024) { // 個別ファイルは10MB以下
+        newErrors.push(`${file.name}: ファイルサイズが大きすぎます (最大 10MB)`);
+        continue;
+      }
+
+      validFiles.push({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        file,
+      });
+    }
+
+    // 合計サイズチェック
+    const newTotalSize = totalFileSize + validFiles.reduce((sum, f) => sum + f.size, 0);
+    if (newTotalSize > MAX_FILE_SIZE) {
+      newErrors.push(`ファイル合計サイズが大きすぎます (最大 20MB、現在: ${(newTotalSize / (1024 * 1024)).toFixed(2)}MB)`);
+    }
+
+    if (newErrors.length > 0) {
+      setFileErrors(newErrors);
+    }
+
+    if (validFiles.length > 0) {
+      addFiles(validFiles);
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/msword': ['.doc'],
+    },
+  });
 
-    const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile) {
-      setFile({
-        name: droppedFile.name,
-        size: droppedFile.size,
-        type: droppedFile.type,
-        file: droppedFile,
-      });
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile({
-        name: selectedFile.name,
-        size: selectedFile.size,
-        type: selectedFile.type,
-        file: selectedFile,
-      });
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    if (text.length <= MAX_TEXT_LENGTH) {
+      setInputText(text);
+      setError('');
+    } else {
+      setError(`テキストは${MAX_TEXT_LENGTH}字以内である必要があります`);
     }
   };
 
   const handleStart = () => {
-    if (!file && !inputText) {
-      alert('ファイルまたはテキストを入力してください');
+    setError('');
+
+    // どちらも空の場合のみエラー
+    if (files.length === 0 && !inputText.trim()) {
+      setError('ファイルまたはテキストを入力してください');
       return;
     }
+
+    if (totalFileSize > MAX_FILE_SIZE) {
+      setError(`ファイル合計サイズが大きすぎます (最大 20MB)`);
+      return;
+    }
+
+    if (inputText && inputText.length > MAX_TEXT_LENGTH) {
+      setError(`テキストは${MAX_TEXT_LENGTH}字以内である必要があります`);
+      return;
+    }
+
+    // バリデーション成功時は次フェーズへ（実際にはここでAPI呼び出しが必要だが、フェーズ遷移をトリガーとする）
     setPhase('analyzing');
+
+    // Mock: Simulate generation process
+    // In a real implementation, this would be handled by a saga or effect reacting to the phase change
+    setTimeout(() => {
+      setPhase('structure_confirmed');
+    }, 2000);
   };
 
   return (
     <Stack spacing={3}>
+      {/* エラー表示 */}
+      {error && (
+        <Alert severity="error" onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
+      {fileErrors.length > 0 && (
+        <Alert severity="warning" onClose={() => setFileErrors([])}>
+          <Box>
+            {fileErrors.map((err, idx) => (
+              <div key={idx}>{err}</div>
+            ))}
+          </Box>
+        </Alert>
+      )}
+
       {/* モード選択 */}
       <Card>
         <CardContent>
@@ -104,79 +183,119 @@ export function StartPhase() {
         </CardContent>
       </Card>
 
-      {/* ファイルアップロード */}
+      {/* ファイルアップロード & テキスト入力 */}
       <Card>
         <CardContent>
           <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-            ファイルをアップロード
+            生成元を入力
           </Typography>
 
+          {/* ドラッグ＆ドロップエリア */}
           <Box
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
+            {...getRootProps()}
             sx={{
               border: '2px dashed',
-              borderColor: dragActive ? 'primary.main' : 'divider',
+              borderColor: isDragActive ? 'primary.main' : 'divider',
               borderRadius: 2,
               padding: 3,
               textAlign: 'center',
-              backgroundColor: dragActive ? 'action.hover' : 'background.paper',
+              backgroundColor: isDragActive ? 'action.hover' : 'background.paper',
               cursor: 'pointer',
               transition: 'all 0.3s',
               mb: 2,
             }}
           >
+            <input {...getInputProps()} />
             <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
             <Typography variant="body1" sx={{ mb: 1 }}>
-              ファイルをドラッグ＆ドロップ、またはクリックして選択
+              {isDragActive ? 'ここにドロップしてください' : 'ファイルをドラッグ＆ドロップ、またはクリックして選択'}
             </Typography>
-            <input
-              type="file"
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-              id="file-input"
-              accept=".pdf,.txt,.docx"
-            />
-            <Button
-              component="label"
-              htmlFor="file-input"
-              variant="outlined"
-              size="small"
-            >
+            <Typography variant="caption" color="textSecondary" sx={{ mb: 2, display: 'block' }}>
+              対応形式: PDF, TXT, DOCX | 個別ファイル最大 10MB | 合計最大 20MB
+            </Typography>
+            <Button variant="outlined" size="small">
               ファイルを選択
             </Button>
           </Box>
 
-          {file && (
-            <Box sx={{ p: 2, backgroundColor: 'success.light', borderRadius: 1, mb: 2 }}>
-              <Typography variant="body2">
-                ✓ アップロード済み: <strong>{file.name}</strong> ({(file.size / 1024).toFixed(2)} KB)
+          {/* アップロード済みファイル一覧 */}
+          {files.length > 0 && (
+            <Box sx={{ mb: 3, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                アップロード済みファイル ({files.length}個 / 合計 {totalFileSizeInMB}MB)
               </Typography>
-              <Button
-                size="small"
-                variant="text"
-                color="error"
-                onClick={() => setFile(null)}
-                sx={{ mt: 1 }}
-              >
-                削除
-              </Button>
+              <Stack spacing={1}>
+                {files.map((file) => (
+                  <Box
+                    key={file.name}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      p: 1,
+                      backgroundColor: 'background.paper',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="body2">{file.name}</Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        {(file.size / 1024).toFixed(2)} KB
+                      </Typography>
+                    </Box>
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => removeFile(file.name)}
+                    >
+                      削除
+                    </Button>
+                  </Box>
+                ))}
+              </Stack>
+
+              {totalFileSize > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="caption">ファイルサイズ容量</Typography>
+                    <Typography variant="caption">
+                      {totalFileSizeInMB}MB / 20MB
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={(totalFileSize / MAX_FILE_SIZE) * 100}
+                    sx={{
+                      height: 6,
+                      borderRadius: 1,
+                      backgroundColor: 'action.hover',
+                    }}
+                  />
+                </Box>
+              )}
             </Box>
           )}
 
           {/* テキスト直接入力 */}
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="またはテキストで直接入力"
-            placeholder="講義資料のテキストを貼り付けてください"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            disabled={!!file}
-          />
+          <Box>
+            <TextField
+              fullWidth
+              multiline
+              rows={5}
+              label="またはテキストで直接入力"
+              placeholder="講義資料のテキストを貼り付けてください"
+              value={inputText}
+              onChange={handleTextChange}
+              // ファイルが存在しても入力可能に変更
+              helperText={`${inputText.length} / ${MAX_TEXT_LENGTH}字`}
+              sx={{
+                '& .MuiOutlinedInput-root.Mui-disabled': {
+                  backgroundColor: 'action.disabledBackground',
+                },
+              }}
+            />
+          </Box>
         </CardContent>
       </Card>
 
@@ -212,11 +331,11 @@ export function StartPhase() {
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={options.isPublic ?? false}
+                  checked={options.isPublic ?? true}
                   onChange={(e) => setOptions({ isPublic: e.target.checked })}
                 />
               }
-              label="生成問題を公開する"
+              label="生成問題を自動公開"
             />
 
             {/* 難易度選択（共通） */}

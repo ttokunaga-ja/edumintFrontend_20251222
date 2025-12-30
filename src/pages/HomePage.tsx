@@ -15,7 +15,7 @@ import {
   IconButton,
 } from '@mui/material';
 import { useState } from 'react';
-import SearchIcon from '@mui/icons-material/Search';
+import { useNavigate } from 'react-router-dom';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useSearch } from '@/features/content/hooks/useContent';
@@ -26,18 +26,24 @@ export function HomePage() {
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'recommended' | 'views'>('recommended');
   const [filters, setFilters] = useState<SearchFilters>({});
   const [page, setPage] = useState(1);
-  
+  const navigate = useNavigate();
+
   // useSearch フックで検索を実行
   const { data, isLoading, error } = useSearch({
     keyword,
     page,
     sortBy,
     limit: 12,
+    ...filters,
   });
 
   const handleFiltersChange = (newFilters: SearchFilters) => {
     setFilters(newFilters);
     setPage(1);
+  };
+
+  const handleCardClick = (problemId: string) => {
+    navigate(`/problem/${problemId}`);
   };
 
   return (
@@ -56,26 +62,26 @@ export function HomePage() {
           {/* ソート選択 */}
           <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
             {(['recommended', 'newest', 'popular', 'views'] as const).map((sort) => (
-                <Chip
-                  key={sort}
-                  label={
-                    sort === 'newest'
-                      ? '最新'
-                      : sort === 'popular'
-                        ? '人気'
-                        : sort === 'views'
-                          ? '閲覧数'
-                          : 'おすすめ'
-                  }
-                  onClick={() => {
-                    setSortBy(sort);
-                    setPage(1);
-                  }}
-                  variant={sortBy === sort ? 'filled' : 'outlined'}
-                  color={sortBy === sort ? 'primary' : 'default'}
-                />
-              ))}
-            </Stack>
+              <Chip
+                key={sort}
+                label={
+                  sort === 'newest'
+                    ? '最新'
+                    : sort === 'popular'
+                      ? '人気'
+                      : sort === 'views'
+                        ? '閲覧数'
+                        : 'おすすめ'
+                }
+                onClick={() => {
+                  setSortBy(sort);
+                  setPage(1);
+                }}
+                variant={sortBy === sort ? 'filled' : 'outlined'}
+                color={sortBy === sort ? 'primary' : 'default'}
+              />
+            ))}
+          </Stack>
 
           {/* エラー表示 */}
           {error && (
@@ -107,6 +113,7 @@ export function HomePage() {
                   {data.data.map((problem) => (
                     <Grid item xs={12} sm={6} md={4} key={problem.id}>
                       <Card
+                        onClick={() => handleCardClick(problem.id)}
                         sx={{
                           height: '100%',
                           display: 'flex',
