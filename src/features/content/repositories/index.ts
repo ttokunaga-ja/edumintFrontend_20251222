@@ -31,7 +31,6 @@ export {
 // SubQuestion Repository exports
 export {
   SubQuestionRepository,
-  getSubQuestionRepository,
   type ISubQuestionRepository,
   type SubQuestionFilter,
   type CreateSubQuestionRequest,

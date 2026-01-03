@@ -37,7 +37,7 @@ MUI コンポーネントを使用し、旧 `primitives` 依存を排除して�
 - [ ] **HomePage**: 検索Hooksと `SearchSection` の結合。
 - [ ] **MyPage**: `useUser` フックと表示コンポーネントの結合。
 - [ ] **ProblemCreatePage**: `Controller` パターンの適用と Generating フローの統合。
-- [ ] **ProblemViewEditPage**: URLパラメータによるデータ取得と `ProblemTypes` 表示の統合。
+- [x] **ProblemViewEditPage**: 統合作業は終了し、関連ファイルは移動・削除済み（参照はアーカイブに記録）。
 
 ## Phase 5: Final Cleanup & Verification
 - [ ] 未使用ファイル、空ディレクトリの削除。

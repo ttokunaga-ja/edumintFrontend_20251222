@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw';
+import { nanoid } from 'nanoid';
 import { mockUser as defaultMockUser } from '../mockData/user';
 
 const apiBase = (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:3000/api';
@@ -50,7 +51,7 @@ export const authHandlers = [
     return HttpResponse.json({
       token: 'mock-jwt-token-' + Date.now(),
       user: {
-        id: `user-${Date.now()}`,
+        id: nanoid(16),
         email,
         username,
         displayName: username,

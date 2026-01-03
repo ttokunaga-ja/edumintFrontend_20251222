@@ -1,20 +1,62 @@
 import {
   Container,
   Box,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import SearchIcon from '@mui/icons-material/Search';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSearch } from '@/features/content/hooks/useContent';
 import { AdvancedSearchPanel, SearchFilters } from '@/components/page/HomePage/AdvancedSearchPanel';
 import { SortChipGroup } from '@/components/page/HomePage/SortChipGroup';
 import { SearchResultsGrid } from '@/components/page/HomePage/SearchResultsGrid';
 
-export function HomePage() {
-  const [keyword, setKeyword] = useState('');
-  const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'recommended' | 'views'>('recommended');
-  const [filters, setFilters] = useState<SearchFilters>({});
-  const [page, setPage] = useState(1);
+export default function HomePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // Slug generation function
+  const generateSlug = useCallback((examName: string) => {
+    return examName
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single
+      .trim();
+  }, []);
+
+  const [keyword, setKeyword] = useState(searchParams.get('q') || '');
+  const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'recommended' | 'views'>(
+    (searchParams.get('sort') as any) || 'recommended'
+  );
+  const [filters, setFilters] = useState<SearchFilters>(() => {
+    const f: SearchFilters = {};
+    for (const [key, value] of searchParams.entries()) {
+      if (key !== 'q' && key !== 'sort' && key !== 'page') {
+        f[key] = value;
+      }
+    }
+    return f;
+  });
+  const [page, setPage] = useState(parseInt(searchParams.get('page') || '1'));
+
+  // Update URL when state changes
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (keyword) params.set('q', keyword);
+    if (sortBy !== 'recommended') params.set('sort', sortBy);
+    if (page > 1) params.set('page', page.toString());
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && key !== 'keyword') params.set(key, value);
+    });
+    setSearchParams(params, { replace: true });
+  }, [keyword, sortBy, page, filters, setSearchParams]);
+
+  // Sync keyword with filters
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, keyword }));
+  }, [keyword]);
 
   // useSearch フックで検索を実行
   const { data, isLoading, error } = useSearch({
@@ -30,8 +72,9 @@ export function HomePage() {
     setPage(1);
   };
 
-  const handleCardClick = (problemId: string) => {
-    navigate(`/problem/${problemId}`);
+  const handleCardClick = (problemId: string, examName: string) => {
+    const slug = generateSlug(examName);
+    navigate(`/exam/${problemId}/${slug}`);
   };
 
   const handleSortChange = (newSort: 'newest' | 'popular' | 'recommended' | 'views') => {
@@ -47,6 +90,24 @@ export function HomePage() {
     <Box sx={{ width: '100%' }}>
       <Container maxWidth="lg">
         <Box sx={{ py: 4 }}>
+          {/* キーワード検索 */}
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              placeholder="キーワードで検索..."
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              variant="outlined"
+            />
+          </Box>
+
           {/* 詳細検索パネル */}
           <Box sx={{ mb: 3 }}>
             <AdvancedSearchPanel
@@ -76,4 +137,3 @@ export function HomePage() {
     </Box>
   );
 }
-export default HomePage;

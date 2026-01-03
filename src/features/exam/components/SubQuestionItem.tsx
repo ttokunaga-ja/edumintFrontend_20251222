@@ -93,6 +93,7 @@ export const SubQuestionItem: React.FC<SubQuestionItemProps> = ({
         borderRadius: 1,
         backgroundColor: 'background.paper',
       }}
+      data-testid={`subquestion-item-${subQuestionIndex}`}
     >
       <Stack spacing={2}>
         {/* Header + Meta Info (BlockMeta) */}

@@ -28,7 +28,7 @@ export interface ProblemCardItem {
 
 export interface ProblemCardProps {
   problem: ProblemCardItem;
-  onCardClick?: (problemId: string) => void;
+  onCardClick?: (problemId: string, examName: string) => void;
   variant?: 'compact' | 'full';
 }
 
@@ -47,7 +47,7 @@ export const ProblemCard: React.FC<ProblemCardProps> = ({
 }) => {
   const handleCardClick = () => {
     if (onCardClick) {
-      onCardClick(problem.id);
+      onCardClick(problem.id, problem.examName || '');
     }
   };
 

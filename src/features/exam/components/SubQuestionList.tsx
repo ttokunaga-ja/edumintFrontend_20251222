@@ -43,7 +43,7 @@ export const SubQuestionList: React.FC<SubQuestionListProps> = ({
   };
 
   return (
-    <Box>
+    <Box data-testid="subquestion-list">
       <Stack spacing={2} sx={{ pl: 2 }}>
         {fields.length === 0 ? (
           <Box

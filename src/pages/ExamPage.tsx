@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Container, Box, LinearProgress, Alert, Stack, Skeleton } from '@mui/material';
@@ -18,26 +18,42 @@ import { QuestionList } from '@/features/exam/components/QuestionList';
  * 試験編集ページ
  */
 export default function ExamPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id, slug } = useParams<{ id: string; slug?: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
-  // isDirty の前回の値を記録（無限ループ防止）
-  const prevIsDirtyRef = useRef<boolean | null>(null);
-
-  // ===== AppBarAction 統合 =====
   const {
     setEnableAppBarActions,
-    isEditMode,
-    setIsEditMode,
-    setHasUnsavedChanges: setGlobalUnsavedChanges,
-    isSaving,
-    setIsSaving,
+    setHasUnsavedChanges,
     setOnSave,
+    setIsSaving,
+    setIsEditMode,
+    isSaving,
+    isEditMode,
+    hasUnsavedChanges,
   } = useAppBarAction();
+
+  // Slug correction
+  const generateSlug = useCallback((examName: string) => {
+    return examName
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single
+      .trim();
+  }, []);
 
   // ===== データ取得 =====
   const { data: initialData, isLoading, error } = useExamQuery(id || '');
+
+  // Check and correct slug
+  useEffect(() => {
+    if (initialData && slug !== undefined) {
+      const expectedSlug = generateSlug((initialData as any).examName || '');
+      if (slug !== expectedSlug) {
+        navigate(`/exam/${id}/${expectedSlug}`, { replace: true });
+      }
+    }
+  }, [initialData, slug, id, generateSlug, navigate]);
 
   // ===== 保存 Mutation =====
   const { mutateAsync: saveExam, error: saveError } = useExamMutation(id || '');
@@ -103,7 +119,6 @@ export default function ExamPage() {
     if (prev.hasUnsavedChanges !== isDirty) {
       console.log('[ExamPage] Updating HasUnsavedChanges:', isDirty);
       setHasUnsavedChanges(isDirty);
-      setGlobalUnsavedChanges(isDirty);
       prev.hasUnsavedChanges = isDirty;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

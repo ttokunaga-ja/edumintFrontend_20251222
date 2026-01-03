@@ -33,7 +33,8 @@ export const contentHandlers = [
       return HttpResponse.json({ message: 'Exam not found' }, { status: 404 });
     }
 
-    const questions = mockQuestions
+    // exam.questions が存在する場合はそれを使用、そうでない場合はmockQuestionsから構築
+    const questions = exam.questions ? exam.questions : mockQuestions
       .filter((q) => q.problemId === exam.id)
       .map((q) => ({
         ...q,

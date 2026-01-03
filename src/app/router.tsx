@@ -8,7 +8,6 @@ const LoginRegisterPage = lazy(() => import('../pages/LoginRegisterPage'));
 const MyPage = lazy(() => import('../pages/MyPage'));
 const AdminModerationPage = lazy(() => import('../pages/AdminModerationPage'));
 const ProblemCreatePage = lazy(() => import('../pages/ProblemCreatePage'));
-const ProblemViewEditPage = lazy(() => import('../pages/ProblemViewEditPage'));
 const ExamPage = lazy(() => import('../pages/ExamPage'));
 
 // Fallback component
@@ -24,15 +23,14 @@ export function Router() {
 
         {/* Protected Routes */}
         <Route
-          path="/problem/create"
+          path="/create"
           element={
             <ProtectedRoute>
               <ProblemCreatePage />
             </ProtectedRoute>
           }
         />
-        <Route path="/problem/:id" element={<ProblemViewEditPage />} />
-        <Route path="/exam/:id" element={<ExamPage />} />
+        <Route path="/exam/:id/:slug?" element={<ExamPage />} />
         <Route
           path="/mypage"
           element={

@@ -1,128 +1,49 @@
 import { http, HttpResponse } from 'msw';
+import { mockExams } from '../mockData/content';
 
 const apiBase = (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:3000/api';
 const withBase = (path: string) => `${apiBase}${path}`;
 
-// Mock database for problems
-const problems = [
-  {
-    id: 'exam-1',
-    title: '微分積分学 - 第3章 演習問題',
-    subject: '数学',
-    university: '東京大学',
-    faculty: '理学部',
-    type: 'exercise',
-    difficulty: 'standard',
-    rating: 4.5,
-    likes: 120,
-    comments: 15,
-    views: 450,
-    author: { id: 'u1', name: '佐藤花子', avatar: '/avatars/u1.jpg' },
-    createdAt: '2025-11-20T10:00:00Z',
-    updatedAt: '2025-11-20T10:00:00Z',
-    content: '関数の極限と連続性についての問題セットです。',
-    description: '微分積分学の基礎となる極限と連続性について学習します。',
-    tags: ['微分積分', '極限', '連続性', '証明'],
-    isPublic: true,
-    questions: [
-      {
-        id: 'q1',
-        text: 'f(x) = x^2 の x=2 における連続性を証明せよ。',
-        type: 'proof',
-        points: 10,
-      },
-    ],
-  },
-  {
-    id: 'exam-2',
-    title: '線形代数 - 固有値と固有ベクトル',
-    subject: '数学',
-    university: '京都大学',
-    faculty: '工学部',
-    type: 'past_exam',
-    difficulty: 'difficult',
-    rating: 4.8,
-    likes: 85,
-    comments: 8,
-    views: 320,
-    author: { id: 'u2', name: '鈴木一郎', avatar: '/avatars/u2.jpg' },
-    createdAt: '2025-11-21T14:30:00Z',
-    updatedAt: '2025-11-21T14:30:00Z',
-    content: '行列の対角化とジョルダン標準形に関する演習。',
-    description: '固有値問題の理論と応用を学びます。',
-    tags: ['線形代数', '固有値', '固有ベクトル', '対角化'],
-    isPublic: true,
-    questions: [
-      {
-        id: 'q1',
-        text: '次の行列の固有値を求めよ。A = [[2,1],[1,2]]',
-        type: 'calculation',
-        points: 20,
-      },
-    ],
-  },
-  {
-    id: 'exam-3',
-    title: '力学 - 剛体の運動',
-    subject: '物理学',
-    university: '東京理科大学',
-    faculty: '理学部',
-    type: 'exercise',
-    difficulty: 'standard',
-    rating: 4.2,
-    likes: 45,
-    comments: 3,
-    views: 180,
-    author: { id: 'u3', name: '田中次郎', avatar: undefined },
-    createdAt: '2025-11-22T09:00:00Z',
-    updatedAt: '2025-11-22T09:00:00Z',
-    content: '慣性モーメントの計算と回転運動の方程式。',
-    description: '剛体の力学について学習します。',
-    tags: ['力学', '剛体', '慣性モーメント', '回転運動'],
-    isPublic: true,
-    questions: [
-      {
-        id: 'q1',
-        text: '半径Rの円盤の慣性モーメントを求めよ。',
-        type: 'calculation',
-        points: 15,
-      },
-    ],
-  },
-  {
-    id: 'exam-4',
-    title: '有機化学 - 反応機構',
-    subject: '化学',
-    university: '早稲田大学',
-    faculty: '理工学部',
-    type: 'exercise',
-    difficulty: 'applied',
-    rating: 4.6,
-    likes: 92,
-    comments: 12,
-    views: 280,
-    author: { id: 'u1', name: '佐藤花子', avatar: '/avatars/u1.jpg' },
-    createdAt: '2025-11-23T11:00:00Z',
-    updatedAt: '2025-11-23T11:00:00Z',
-    content: 'SN1、SN2反応の反応機構と立体化学について学びます。',
-    description: '求核置換反応の詳細な機構を理解します。',
-    tags: ['有機化学', '反応機構', 'SN1', 'SN2', '立体化学'],
-    isPublic: true,
-    questions: [
-      {
-        id: 'q1',
-        text: 'SN1反応とSN2反応の違いを説明せよ。',
-        type: 'descriptive',
-        points: 10,
-      },
-    ],
-  },
+// Convert mockExams to problems format lazily
+let _createdProblems: any[] = [];
+const mapExamToProblem = (exam: any) => ({
+  id: exam.id,
+  title: exam.examName,
+  subject: exam.subjectName,
+  university: exam.universityName,
+  faculty: exam.facultyName,
+  type: exam.examType === 0 ? 'past_exam' : 'exercise',
+  difficulty: exam.questions?.[0]?.difficulty === '1' ? 'standard' : 'difficult',
+  rating: 4.5,
+  likes: Math.floor(Math.random() * 200) + 50,
+  comments: Math.floor(Math.random() * 20) + 5,
+  views: Math.floor(Math.random() * 500) + 200,
+  author: { id: exam.author_id, name: exam.teacherName, avatar: `/avatars/${exam.author_id}.jpg` },
+  createdAt: '2025-11-20T10:00:00Z',
+  updatedAt: '2025-11-20T10:00:00Z',
+  content: `${exam.subjectName}の${exam.examName}です。`,
+  description: `${exam.universityName} ${exam.facultyName}の${exam.examName}。`,
+  tags: exam.questions?.flatMap(q => q.keywords?.map(k => k.keyword) || []) || [],
+  isPublic: true,
+  questions: exam.questions?.map(q => ({
+    id: `q${q.id}`,
+    text: (q.questionContent || q.content || q.text || ''),
+    type: 'proof',
+    points: 10,
+  })) || [],
+});
+
+const getAllProblems = () => [
+  ...mockExams.map(mapExamToProblem),
+  ..._createdProblems,
 ];
+
+export const __test_problems = getAllProblems();
 
 export const problemHandlers = [
   // Get all problems (simplified search/list)
   http.get(withBase('/problems'), () => {
-    return HttpResponse.json(problems);
+    return HttpResponse.json(getAllProblems());
   }),
 
   // Search problems (useContent フックで使用)
@@ -151,7 +72,7 @@ export const problemHandlers = [
     const language = url.searchParams.get('language');
 
     // キーワードでフィルター
-    let filtered = problems;
+    let filtered = getAllProblems();
     if (keyword.trim()) {
       filtered = filtered.filter(
         (p) =>
@@ -280,6 +201,12 @@ export const problemHandlers = [
       authorName: p.author.name // Flatten for frontend
     }));
 
+    // Debug logging to help verify updated mock data in browser console
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[MSW] /search/problems ->', { total, returnedIds: items.map(i => i.id) });
+    } catch (e) {}
+
     return HttpResponse.json({
       data: items,
       total,
@@ -292,7 +219,7 @@ export const problemHandlers = [
   // Get single problem by ID
   http.get(withBase('/problems/:id'), ({ params }) => {
     const { id } = params;
-    const problem = problems.find((p) => p.id === id);
+    const problem = getAllProblems().find((p) => p.id === id);
     if (!problem) {
       return new HttpResponse(null, { status: 404 });
     }
@@ -302,9 +229,9 @@ export const problemHandlers = [
   // Create new problem (mock)
   http.post(withBase('/problems'), async ({ request }) => {
     const newProblem = (await request.json()) as any;
-    newProblem.id = `exam-${problems.length + 1}`;
+    newProblem.id = `exam-${getAllProblems().length + 1}`;
     newProblem.createdAt = new Date().toISOString();
-    problems.push(newProblem);
+    _createdProblems.push(newProblem);
     return HttpResponse.json(newProblem, { status: 201 });
   }),
 
@@ -312,11 +239,19 @@ export const problemHandlers = [
   http.put(withBase('/problems/:id'), async ({ params, request }) => {
     const { id } = params;
     const updateData = (await request.json()) as any;
-    const index = problems.findIndex((p) => p.id === id);
+    const all = getAllProblems();
+    const index = all.findIndex((p) => p.id === id);
     if (index === -1) {
       return new HttpResponse(null, { status: 404 });
     }
-    problems[index] = { ...problems[index], ...updateData };
-    return HttpResponse.json(problems[index]);
+    // If it's in createdProblems, update there, otherwise we shallow copy to createdProblems
+    if (index >= mockExams.length) {
+      _createdProblems[index - mockExams.length] = { ..._createdProblems[index - mockExams.length], ...updateData };
+      return HttpResponse.json(_createdProblems[index - mockExams.length]);
+    } else {
+      const updated = { ...mapExamToProblem(mockExams[index]), ...updateData };
+      _createdProblems.push(updated);
+      return HttpResponse.json(updated);
+    }
   }),
 ];

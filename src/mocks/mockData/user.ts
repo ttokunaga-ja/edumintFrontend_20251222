@@ -3,7 +3,7 @@ import type { WalletBalance, UserStats } from "@/services/api/gateway/user";
 
 export const mockUsers: User[] = [
   {
-    id: "user-1",
+    id: "u_k8P3n9L2mR5qW4xZ",
     username: "alice_science",
     displayName: "Alice Smith",
     email: "alice@tsukuba.ac.jp",
@@ -27,7 +27,7 @@ export const mockUsers: User[] = [
     updatedAt: "2024-12-01T15:00:00Z",
   },
   {
-    id: "user-2",
+    id: "v_l9Q4o8N3pS6rX5yA",
     username: "bob_arts",
     displayName: "Bob Jones",
     email: "bob@keio.jp",
@@ -51,7 +51,7 @@ export const mockUsers: User[] = [
     updatedAt: "2024-12-10T11:20:00Z",
   },
   {
-    id: "user-3",
+    id: "w_m0R7p5K4qT8sY9bC",
     username: "charlie_math",
     displayName: "Charlie Math",
     email: "charlie@u-tokyo.ac.jp",
@@ -75,7 +75,7 @@ export const mockUsers: User[] = [
     updatedAt: "2024-12-20T09:00:00Z",
   },
   {
-    id: "user-4",
+    id: "x_n1S8q6L5rU9tZ0dD",
     username: "dana_econ",
     displayName: "Dana White",
     email: "dana@waseda.jp",

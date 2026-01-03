@@ -20,7 +20,7 @@ export interface SearchResultsGridProps {
   isLoading: boolean;
   error?: Error | null;
   page: number;
-  onCardClick: (problemId: string) => void;
+  onCardClick: (problemId: string, examName: string) => void;
   onPageChange: (page: number) => void;
 }
 

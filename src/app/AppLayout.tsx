@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom';
+import { Box } from '@mui/material';
 import { TopMenuBar } from '@/components/common/TopMenuBar';
 
 interface AppLayoutProps {
@@ -15,14 +16,35 @@ export function AppLayout({ children }: AppLayoutProps) {
   const shouldShowTopMenuBar = !['/login', '/register'].includes(location.pathname);
 
   return (
-    <div className="app-layout">
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+      }}
+    >
       {shouldShowTopMenuBar && (
-        <div className="app-topbar">
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 1100, // MUI AppBar のデフォルト zIndex
+          }}
+        >
           <TopMenuBar />
-        </div>
+        </Box>
       )}
-      <main className="app-main">{children}</main>
-    </div>
+      <Box
+        component="main"
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
   );
 }
 

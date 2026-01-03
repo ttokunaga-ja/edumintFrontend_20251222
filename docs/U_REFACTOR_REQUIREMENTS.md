@@ -11,6 +11,15 @@
 - **Tailwind 関連**: `tailwind.config.js`, `postcss.config.js` および `.css` ファイル内の `@tailwind` ディレクティブ。
 - **Legacy Components**: ファイル名に `Legacy` が付くもの、または古い `src/components/*.tsx` 直下のファイル。
 
+## Anti-Patterns (廃止パターン)
+
+- **Repository Pattern (Client-side) の廃止**: クライアント側で `fetch` ラッパーや Map/TTL ベースの独自キャッシュを持つ Repository クラスは廃止する。
+  - 理由: キャッシュ・再取得の責務は TanStack Query に一元化し、複数のキャッシュ実装が混在することによる不整合を防止するため。
+  - 実装方針: ドメイン別の API 呼び出しは `src/features/<domain>/hooks` 内で `useQuery` / `useMutation` を用いて実装し、HTTP クライアントは `src/lib/axios` を使用すること。
+
+- **インペリティブ保存メソッド**: コンポーネントに `save()` 等のインペリティブ API を公開して保存処理を分散させるパターンは禁止する。保存は全体単位で行う。
+
+
 ## 2. 基盤構造の再構築 (Infrastructure)
 以下のディレクトリ構造を確立する。
 

@@ -144,6 +144,7 @@ export const ExamQuestionMeta: React.FC<ExamQuestionMetaProps> = ({
                                     disabled={!canDelete}
                                     color="error"
                                     title="削除"
+                                    data-testid="delete-button"
                                 >
                                     <DeleteIcon fontSize="small" />
                                 </IconButton>

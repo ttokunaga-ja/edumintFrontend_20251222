@@ -36,7 +36,7 @@ export function SearchSection() {
               color="warning"
               size="large"
               startIcon={<AddIcon />}
-              onClick={() => navigate('/problem/create')}
+              onClick={() => navigate('/create')}
               sx={{
                 fontWeight: 600,
                 fontSize: '1rem',

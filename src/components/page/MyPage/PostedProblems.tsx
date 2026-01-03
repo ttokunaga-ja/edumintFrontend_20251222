@@ -35,7 +35,7 @@ export const PostedProblems: React.FC<PostedProblemsProps> = () => {
       renderItem={(problem) => (
         <ProblemCard
           problem={problem}
-          onCardClick={() => navigate(`/problem/${problem.id}`)}
+          onCardClick={() => navigate(`/exam/${problem.id}`)}
           variant="compact"
         />
       )}

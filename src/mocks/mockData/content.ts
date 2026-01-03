@@ -24,777 +24,837 @@ export const mockFaculties = [
   { id: 5, university_id: 1, name: '工学部' },
 ];
 
-export const mockExams: Exam[] = [
+export const mockExams: any[] = [
   {
-    id: 'exam-1',
+    id: '8fA9xKQ2ZP7mR4LJ',
     examName: '微分積分学 期末試験',
-    examType: 0,
-    school: '筑波大学',
-    universityName: '筑波大学',
-    universityId: 1,
-    facultyId: 1,
-    facultyName: '数学科',
-    teacherId: 't1',
-    teacherName: '山田太郎',
-    subjectId: 'math-1',
-    subjectName: '微分積分学',
     examYear: 2024,
-    userId: 'user-1',
-    userName: 'alice_science',
-    isPublic: true,
-    status: 'active',
-    commentCount: 12,
-    goodCount: 124,
-    badCount: 3,
-    viewCount: 5400,
-    adCount: 21,
-    bookmarkCount: 45,
-    shareCount: 10,
-    pdfDownloadCount: 5,
-    academicFieldId: 3,
-    academicFieldName: '機械系',
-    fieldType: 'science',
-    level: 'standard',
-    questionCount: 9,
+    examType: 0,
+    universityName: '筑波大学',
+    facultyName: '数学科',
+    teacherName: '山田太郎',
+    subjectName: '微分積分学',
     durationMinutes: 90,
     majorType: 0,
-    ...baseTimestamps,
+    academicFieldName: '機械系',
+    author_id: 'u_k8P3n9L2mR5qW4xZ',
+    questions: [
+      {
+        id: 1,
+        questionNumber: 1,
+        questionContent: '次の積分を計算せよ：∫x²dx',
+        difficulty: '1',
+        keywords: [{ id: 'kw_abcdefghijklmn', keyword: '積分' }],
+        subQuestions: [
+          {
+            id: 1,
+            subQuestionNumber: 1,
+            questionTypeId: '10',
+            questionContent: '∫x²dx = ?',
+            answerContent: 'x³/3 + C',
+            explanation: '',
+            keywords: [],
+            options: [],
+            pairs: [],
+            items: [],
+            answers: [{
+              id: 'ansabcdefghijklmn',
+              sampleAnswer: 'x³/3 + C',
+              gradingCriteria: '計算過程が正しいか',
+              pointValue: 10,
+            }],
+          },
+        ],
+      },
+    ],
   },
   {
-    id: 'exam-2',
+    id: '9gB0yLR3AQ8nS5MK',
     examName: '線形代数 中間試験',
-    examType: 1,
-    school: '慶應義塾大学',
-    universityName: '慶應義塾大学',
-    universityId: 2,
-    facultyId: 2,
-    facultyName: '理工学部',
-    teacherId: 't2',
-    teacherName: '佐藤花子',
-    subjectId: 'math-2',
-    subjectName: '線形代数',
     examYear: 2023,
-    userId: 'user-2',
-    userName: 'bob_arts',
-    isPublic: true,
-    status: 'active',
-    commentCount: 5,
-    goodCount: 87,
-    badCount: 1,
-    viewCount: 3200,
-    adCount: 15,
-    bookmarkCount: 20,
-    shareCount: 8,
-    pdfDownloadCount: 3,
-    academicFieldId: 5,
-    academicFieldName: '人文系',
-    fieldType: 'humanities',
-    level: 'basic',
-    questionCount: 1,
+    examType: 1,
+    universityName: '慶應義塾大学',
+    facultyName: '理工学部',
+    teacherName: '佐藤花子',
+    subjectName: '線形代数',
     durationMinutes: 60,
     majorType: 1,
-    ...baseTimestamps,
-  },
-  {
-    id: 'exam-3',
-    examName: '力学 - 剛体の運動',
-    examType: 2,
-    school: '東京理科大学',
-    universityName: '東京理科大学',
-    universityId: 3,
-    facultyId: 3,
-    facultyName: '理学部',
-    teacherId: 't3',
-    teacherName: '田中次郎',
-    subjectId: 'physics-1',
-    subjectName: '力学',
-    examYear: 2025,
-    userId: 'user-3',
-    userName: 'tanaka_physics',
-    isPublic: true,
-    status: 'active',
-    commentCount: 3,
-    goodCount: 45,
-    badCount: 0,
-    viewCount: 180,
-    adCount: 5,
-    bookmarkCount: 10,
-    shareCount: 2,
-    pdfDownloadCount: 1,
-    academicFieldId: 2,
-    academicFieldName: '電気電子系',
-    fieldType: 'science',
-    level: 'standard',
-    questionCount: 1,
-    durationMinutes: 90,
-    majorType: 0,
-    ...baseTimestamps,
-  },
-  {
-    id: 'exam-4',
-    examName: '有機化学 - 反応機構',
-    examType: 0,
-    school: '早稲田大学',
-    universityName: '早稲田大学',
-    universityId: 4,
-    facultyId: 4,
-    facultyName: '先進理工学部',
-    teacherId: 't1',
-    teacherName: '佐藤花子',
-    subjectId: 'chemistry-1',
-    subjectName: '有機化学',
-    examYear: 2025,
-    userId: 'user-1',
-    userName: 'alice_science',
-    isPublic: true,
-    status: 'active',
-    commentCount: 12,
-    goodCount: 92,
-    badCount: 1,
-    viewCount: 280,
-    adCount: 8,
-    bookmarkCount: 15,
-    shareCount: 5,
-    pdfDownloadCount: 2,
-    academicFieldId: 4,
-    academicFieldName: '化学系',
-    fieldType: 'science',
-    level: 'applied',
-    questionCount: 1,
-    durationMinutes: 60,
-    majorType: 0,
-    ...baseTimestamps,
+    academicFieldName: '人文系',
+    author_id: 'v_l9Q4o8N3pS6rX5yA',
+    questions: [
+      {
+        id: 2,
+        questionNumber: 1,
+        questionContent: '次の行列の固有値を求めよ',
+        difficulty: '2',
+        keywords: [{ id: 'lx_bcdefghijklmnop', keyword: '固有値' }],
+        subQuestions: [
+          {
+            id: 2,
+            subQuestionNumber: 1,
+            questionTypeId: '1',
+            questionContent: '行列 A = [[1, 2], [3, 4]] の固有値は？',
+            answerContent: '',
+            explanation: '',
+            keywords: [],
+            options: [
+              { id: 'optabcdefghijklmn', content: '5.372, -0.372', isCorrect: true },
+              { id: 'optbcdefghijklmno', content: '2, 3', isCorrect: false },
+              { id: 'optcdefghijklmnop', content: '1, 4', isCorrect: false },
+            ],
+            pairs: [],
+            items: [],
+            answers: [],
+          },
+        ],
+      },
+    ],
   },
 ];
 
+const newMockExams = [
+  {
+    "id": "v7N2jK8mP4wL9XRz",
+    "examName": "量子力学基礎 中間試験",
+    "examYear": 2024,
+    "examType": 1,
+    "universityName": "帝都理工大学",
+    "facultyName": "理学部物理学科",
+    "teacherName": "佐藤 憲一 教授",
+    "subjectName": "量子力学I",
+    "durationMinutes": 90,
+    "majorType": 1,
+    "academicFieldName": "物理学",
+    "author_id": "usr_A123bcD456",
+    "questions": [
+      {
+        "id": "q1_v7N2jK8m",
+        "questionNumber": 1,
+        "content": "シュレディンガー方程式と演算子の基本的性質について述べよ。",
+        "difficulty": { "id": 1, "label": "標準", "level": 2 },
+        "keywords": [
+          { "id": "kw_p1", "keyword": "演算子" },
+          { "id": "kw_p2", "keyword": "シュレディンガー方程式" }
+        ],
+        "subQuestions": [
+          {
+            "id": "sq1_1_v7N2",
+            "subQuestionNumber": 1,
+            "questionTypeId": 1,
+            "content": "位置演算子 $\\hat{x}$ と運動量演算子 $\\hat{p} = -i\\hbar \\frac{\\partial}{\\partial x}$ の交換関係 $[\\hat{x}, \\hat{p}]$ として正しいものを選択せよ。",
+            "answer": "opt_p1_1",
+            "explanation": "基本演算子の交換関係は $[\\hat{x}, \\hat{p}] = \\hat{x}\\hat{p} - \\hat{p}\\hat{x} = i\\hbar$ です。",
+            "keywords": [{ "id": "kw_p3", "keyword": "交換関係" }],
+            "options": [
+              { "id": "opt_p1_1", "content": "$i\\hbar$", "isCorrect": true },
+              { "id": "opt_p1_2", "content": "$-i\\hbar$", "isCorrect": false },
+              { "id": "opt_p1_3", "content": "$\\hbar$", "isCorrect": false },
+              { "id": "opt_p1_4", "content": "0", "isCorrect": false }
+            ]
+          },
+          {
+            "id": "sq1_2_v7N2",
+            "subQuestionNumber": 2,
+            "questionTypeId": 11,
+            "content": "無限に深い1次元の箱（幅 $L$）に閉じ込められた質量 $m$ の粒子の、エネルギー固有値 $E_n$ を求めよ。",
+            "answer": "$E_n = \\frac{n^2 \\pi^2 \\hbar^2}{2mL^2}$",
+            "explanation": "境界条件 $\\psi(0) = \\psi(L) = 0$ を解くことで得られます。",
+            "keywords": [{ "id": "kw_p4", "keyword": "無限井戸型ポテンシャル" }],
+            "answers": [
+              {
+                "id": "ans_p1_2",
+                "sampleAnswer": "$E_n = \\frac{n^2 \\pi^2 \\hbar^2}{2mL^2}$ ($n=1,2,3...$)",
+                "gradingCriteria": "定数の正しさ、およびnの二乗に比例している点を確認。",
+                "pointValue": 15
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q2_v7N2jK8m",
+        "questionNumber": 2,
+        "content": "エルミート演算子と測定値に関する次の問いに答えよ。",
+        "difficulty": { "id": 2, "label": "やや難", "level": 3 },
+        "keywords": [{ "id": "kw_p5", "keyword": "エルミート演算子" }],
+        "subQuestions": [
+          {
+            "id": "sq2_1_v7N2",
+            "subQuestionNumber": 1,
+            "questionTypeId": 3,
+            "content": "「任意の物理量に対応する演算子は、必ずしもエルミート演算子である必要はない」という言説は正しいか。",
+            "answer": "opt_p2_1_2",
+            "explanation": "物理量は実測値である必要があり、その期待値が常に実数になるためには演算子がエルミートである必要があります。",
+            "keywords": [],
+            "options": [
+              { "id": "opt_p2_1_1", "content": "正", "isCorrect": false },
+              { "id": "opt_p2_1_2", "content": "誤", "isCorrect": true }
+            ]
+          },
+          {
+            "id": "sq2_2_v7N2",
+            "subQuestionNumber": 2,
+            "questionTypeId": 2,
+            "content": "エルミート演算子の性質として正しいものをすべて選べ。",
+            "answer": "opt_p2_2_1, opt_p2_2_3",
+            "explanation": "異なる固有値に属する固有関数は直交し、固有値は常に実数です。",
+            "keywords": [{ "id": "kw_p6", "keyword": "固有関数" }],
+            "options": [
+              { "id": "opt_p2_2_1", "content": "固有値は常に実数である", "isCorrect": true },
+              { "id": "opt_p2_2_2", "content": "固有値は常に正の数である", "isCorrect": false },
+              { "id": "opt_p2_2_3", "content": "異なる固有値に属する固有ベクトルは直交する", "isCorrect": true },
+              { "id": "opt_p2_2_4", "content": "逆演算子が必ず存在する", "isCorrect": false }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "G9b5HqR1sT3cV6mN",
+    "examName": "ミクロ経済学 基礎解析",
+    "examYear": 2024,
+    "examType": 2,
+    "universityName": "西京大学",
+    "facultyName": "経済学部",
+    "teacherName": "Robert Smith",
+    "subjectName": "ミクロ経済学基礎",
+    "durationMinutes": 60,
+    "majorType": 2,
+    "academicFieldName": "経済学",
+    "author_id": "usr_E999xyz",
+    "questions": [
+      {
+        "id": "q1_G9b5HqR1",
+        "questionNumber": 1,
+        "content": "消費者の効用最大化問題について、以下のステップと用語を確認せよ。",
+        "difficulty": { "id": 1, "label": "標準", "level": 2 },
+        "keywords": [{ "id": "kw_e1", "keyword": "効用最大化" }],
+        "subQuestions": [
+          {
+            "id": "sq1_1_G9b5",
+            "subQuestionNumber": 1,
+            "questionTypeId": 5,
+            "content": "消費者が最適な消費束を決定するまでの論理的な順序として適切なものに並べ替えよ。",
+            "answer": "item_e1_2, item_e1_1, item_e1_3",
+            "explanation": "まず選好（効用関数）が定義され、次に予算制約が考慮され、最終的にその接点で最大化されます。",
+            "keywords": [],
+            "items": [
+              { "id": "item_e1_1", "text": "予算制約線 $p_1 x_1 + p_2 x_2 = I$ の定義", "correctOrder": 2 },
+              { "id": "item_e1_2", "text": "効用関数 $U(x_1, x_2)$ の特定", "correctOrder": 1 },
+              { "id": "item_e1_3", "text": "無差別曲線と予算制約線の接点の導出", "correctOrder": 3 }
+            ]
+          },
+          {
+            "id": "sq1_2_G9b5",
+            "subQuestionNumber": 2,
+            "questionTypeId": 12,
+            "content": "需要の価格弾力性 $e_d$ の定義式を記述せよ。価格を $P$、需要量を $Q$ とする。",
+            "answer": "$e_d = -\\frac{dQ}{dP} \\cdot \\frac{P}{Q}$",
+            "explanation": "価格の変化率に対する需要の変化率の比率です。",
+            "keywords": [{ "id": "kw_e2", "keyword": "価格弾力性" }],
+            "answers": [
+              {
+                "id": "ans_e1_2",
+                "sampleAnswer": "$e_d = -\\frac{\\Delta Q / Q}{\\Delta P / P}$ もしくは $-\\frac{dQ}{dP} \\frac{P}{Q}$",
+                "gradingCriteria": "変化率の比であること、マイナス記号の考慮（慣習的）ができているか。",
+                "pointValue": 10
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q2_G9b5HqR1",
+        "questionNumber": 2,
+        "content": "市場の形態と利潤最大化条件に関する理解を問う。",
+        "difficulty": { "id": 2, "label": "やや難", "level": 3 },
+        "keywords": [{ "id": "kw_e3", "keyword": "市場構造" }],
+        "subQuestions": [
+          {
+            "id": "sq2_1_G9b5",
+            "subQuestionNumber": 1,
+            "questionTypeId": 4,
+            "content": "次の経済学用語と、その特徴として最も適切な説明を組み合わせよ。",
+            "answer": "pair_e1:1, pair_e2:2, pair_e3:3",
+            "explanation": "それぞれの市場構造の基本定義です。",
+            "keywords": [],
+            "pairs": [
+              { "id": "pair_e1", "question": "完全競争市場", "answer": "プライステイカーとして行動し、P=MCとなる。" },
+              { "id": "pair_e2", "question": "独占市場", "answer": "限界収入(MR)と限界費用(MC)が一致する点で生産量を決める。" },
+              { "id": "pair_e3", "question": "ナッシュ均衡", "answer": "他のプレイヤーの戦略に対し、自己の利得を最大化する戦略の組み合わせ。" }
+            ]
+          },
+          {
+            "id": "sq2_2_G9b5",
+            "subQuestionNumber": 2,
+            "questionTypeId": 1,
+            "content": "限界費用 $MC$ が一定値 $c$ である独占企業の価格設定 $P$ と、需要の価格弾力性 $\\epsilon$ の関係式（ラーナーの独占度）として正しいものはどれか。",
+            "answer": "opt_e2_2_1",
+            "explanation": "$\\frac{P-MC}{P} = \\frac{1}{\\epsilon}$ より導かれます。",
+            "keywords": [{ "id": "kw_e4", "keyword": "ラーナーの独占度" }],
+            "options": [
+              { "id": "opt_e2_2_1", "content": "$P = \\frac{c}{1 - 1/\\epsilon}$", "isCorrect": true },
+              { "id": "opt_e2_2_2", "content": "$P = c(1 + \\epsilon)$", "isCorrect": false },
+              { "id": "opt_e2_2_3", "content": "$P = c \\epsilon$", "isCorrect": false }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "X4yZ7kM2pA8wL1qE",
+    "examName": "線形代数学 最終試験",
+    "examYear": 2024,
+    "examType": 3,
+    "universityName": "北海総合大学",
+    "facultyName": "工学部",
+    "teacherName": "中野 昌三 教授",
+    "subjectName": "線形代数II",
+    "durationMinutes": 100,
+    "majorType": 1,
+    "academicFieldName": "数学",
+    "author_id": "usr_Math999",
+    "questions": [
+      {
+        "id": "q1_X4yZ7kM2",
+        "questionNumber": 1,
+        "content": "行列の固有値と対角化について。",
+        "difficulty": { "id": 2, "label": "やや難", "level": 3 },
+        "keywords": [{ "id": "kw_m1", "keyword": "固有値" }, { "id": "kw_m2", "keyword": "対角化" }],
+        "subQuestions": [
+          {
+            "id": "sq1_1_X4yZ",
+            "subQuestionNumber": 1,
+            "questionTypeId": 1,
+            "content": "行列 $A = \\begin{pmatrix} 2 & 1 \\\\ 1 & 2 \\end{pmatrix}$ の固有値を求めよ。",
+            "answer": "opt_m1_1_3",
+            "explanation": "$|A - \\lambda I| = (2-\\lambda)^2 - 1 = 0$ を解くと $\\lambda = 1, 3$ です。",
+            "keywords": [],
+            "options": [
+              { "id": "opt_m1_1_1", "content": "1, 2", "isCorrect": false },
+              { "id": "opt_m1_1_2", "content": "0, 3", "isCorrect": false },
+              { "id": "opt_m1_1_3", "content": "1, 3", "isCorrect": true },
+              { "id": "opt_m1_1_4", "content": "2, 2", "isCorrect": false }
+            ]
+          },
+          {
+            "id": "sq1_2_X4yZ",
+            "subQuestionNumber": 2,
+            "questionTypeId": 4,
+            "content": "次の行列の種類とその性質を正しく組み合わせよ。",
+            "answer": "pair_m1:1, pair_m2:2, pair_m3:3",
+            "explanation": "行列の定義に基づく基本的な性質です。",
+            "keywords": [],
+            "pairs": [
+              { "id": "pair_m1", "question": "正則行列", "answer": "逆行列が存在し、行列式が $0$ ではない。" },
+              { "id": "pair_m2", "question": "直交行列", "answer": "$A^T A = I$ を満たす。" },
+              { "id": "pair_m3", "question": "対称行列", "answer": "$A^T = A$ を満たし、固有値は常に実数である。" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q2_X4yZ7kM2",
+        "questionNumber": 2,
+        "content": "線形写像とベクトルの空間に関する問題。",
+        "difficulty": { "id": 3, "label": "難", "level": 4 },
+        "keywords": [{ "id": "kw_m3", "keyword": "線形写像" }],
+        "subQuestions": [
+          {
+            "id": "sq2_1_X4yZ",
+            "subQuestionNumber": 1,
+            "questionTypeId": 2,
+            "content": "線形写像 $f: V \\to W$ について、常に成り立つ性質を選べ。",
+            "answer": "opt_m2_1_1, opt_m2_1_4",
+            "explanation": "線形性の定義および次元定理の性質です。",
+            "keywords": [{ "id": "kw_m4", "keyword": "次元定理" }],
+            "options": [
+              { "id": "opt_m2_1_1", "content": "$f(\\mathbf{0}) = \\mathbf{0}$", "isCorrect": true },
+              { "id": "opt_m2_1_2", "content": "$f$ は必ず全単射である", "isCorrect": false },
+              { "id": "opt_m2_1_3", "content": "$\\dim(\\text{Ker } f) = \\dim V$", "isCorrect": false },
+              { "id": "opt_m2_1_4", "content": "$f(a\mathbf{v} + b\mathbf{u}) = af(\mathbf{v}) + bf(\mathbf{u})$", "isCorrect": true }
+            ]
+          },
+          {
+            "id": "sq2_2_X4yZ",
+            "subQuestionNumber": 2,
+            "questionTypeId": 10,
+            "content": "$n$ 次正方行列 $A$ が対角化可能であるための必要十分条件を、固有ベクトルを用いて記述せよ。",
+            "answer": "$A$ が $n$ 個の線形独立な固有ベクトルを持つこと。",
+            "explanation": "対角化行列 $P$ を構成するためには、基底となる $n$ 本の独立な固有ベクトルが必要です。",
+            "keywords": [{ "id": "kw_m5", "keyword": "線形独立" }],
+            "answers": [
+              {
+                "id": "ans_m2_2",
+                "sampleAnswer": "$n$ 次正方行列 $A$ が $n$ 個の線形独立な固有ベクトルを持つこと。",
+                "gradingCriteria": "「n個」「線形独立」「固有ベクトル」の3つのキーワードが含まれているか。",
+                "pointValue": 20
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "v7N2jK8mP4wL9XRz",
+    "examName": "量子力学基礎 中間試験",
+    "examYear": 2024,
+    "examType": 1,
+    "universityName": "帝都理工大学",
+    "facultyName": "理学部物理学科",
+    "teacherName": "佐藤 憲一 教授",
+    "subjectName": "量子力学I",
+    "durationMinutes": 90,
+    "majorType": 1,
+    "academicFieldName": "物理学",
+    "author_id": "usr_A123bcD456",
+    "questions": [
+      {
+        "id": "q1_v7N2jK8m",
+        "questionNumber": 1,
+        "content": "シュレディンガー方程式と演算子の基本的性質について述べよ。",
+        "difficulty": { "id": 1, "label": "標準", "level": 2 },
+        "keywords": [
+          { "id": "kw_p1", "keyword": "演算子" },
+          { "id": "kw_p2", "keyword": "シュレディンガー方程式" }
+        ],
+        "subQuestions": [
+          {
+            "id": "sq1_1_v7N2",
+            "subQuestionNumber": 1,
+            "questionTypeId": 1,
+            "content": "位置演算子 $\\hat{x}$ と運動量演算子 $\\hat{p} = -i\\hbar \\frac{\\partial}{\\partial x}$ の交換関係 $[\\hat{x}, \\hat{p}]$ として正しいものを選択せよ。",
+            "answer": "opt_p1_1",
+            "explanation": "基本演算子の交換関係は $[\\hat{x}, \\hat{p}] = \\hat{x}\\hat{p} - \\hat{p}\\hat{x} = i\\hbar$ です。",
+            "keywords": [{ "id": "kw_p3", "keyword": "交換関係" }],
+            "options": [
+              { "id": "opt_p1_1", "content": "$i\\hbar$", "isCorrect": true },
+              { "id": "opt_p1_2", "content": "$-i\\hbar$", "isCorrect": false },
+              { "id": "opt_p1_3", "content": "$\\hbar$", "isCorrect": false },
+              { "id": "opt_p1_4", "content": "0", "isCorrect": false }
+            ]
+          },
+          {
+            "id": "sq1_2_v7N2",
+            "subQuestionNumber": 2,
+            "questionTypeId": 11,
+            "content": "無限に深い1次元の箱（幅 $L$）に閉じ込められた質量 $m$ の粒子の、エネルギー固有値 $E_n$ を求めよ。",
+            "answer": "$E_n = \\frac{n^2 \\pi^2 \\hbar^2}{2mL^2}$",
+            "explanation": "境界条件 $\\psi(0) = \\psi(L) = 0$ を解くことで得られます。",
+            "keywords": [{ "id": "kw_p4", "keyword": "無限井戸型ポテンシャル" }],
+            "answers": [
+              {
+                "id": "ans_p1_2",
+                "sampleAnswer": "$E_n = \\frac{n^2 \\pi^2 \\hbar^2}{2mL^2}$ ($n=1,2,3...$)",
+                "gradingCriteria": "定数の正しさ、およびnの二乗に比例している点を確認。",
+                "pointValue": 15
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q2_v7N2jK8m",
+        "questionNumber": 2,
+        "content": "エルミート演算子と測定値に関する次の問いに答えよ。",
+        "difficulty": { "id": 2, "label": "やや難", "level": 3 },
+        "keywords": [{ "id": "kw_p5", "keyword": "エルミート演算子" }],
+        "subQuestions": [
+          {
+            "id": "sq2_1_v7N2",
+            "subQuestionNumber": 1,
+            "questionTypeId": 3,
+            "content": "「任意の物理量に対応する演算子は、必ずしもエルミート演算子である必要はない」という言説は正しいか。",
+            "answer": "opt_p2_1_2",
+            "explanation": "物理量は実測値である必要があり、その期待値が常に実数になるためには演算子がエルミートである必要があります。",
+            "keywords": [],
+            "options": [
+              { "id": "opt_p2_1_1", "content": "正", "isCorrect": false },
+              { "id": "opt_p2_1_2", "content": "誤", "isCorrect": true }
+            ]
+          },
+          {
+            "id": "sq2_2_v7N2",
+            "subQuestionNumber": 2,
+            "questionTypeId": 2,
+            "content": "エルミート演算子の性質として正しいものをすべて選べ。",
+            "answer": "opt_p2_2_1, opt_p2_2_3",
+            "explanation": "異なる固有値に属する固有関数は直交し、固有値は常に実数です。",
+            "keywords": [{ "id": "kw_p6", "keyword": "固有関数" }],
+            "options": [
+              { "id": "opt_p2_2_1", "content": "固有値は常に実数である", "isCorrect": true },
+              { "id": "opt_p2_2_2", "content": "固有値は常に正の数である", "isCorrect": false },
+              { "id": "opt_p2_2_3", "content": "異なる固有値に属する固有ベクトルは直交する", "isCorrect": true },
+              { "id": "opt_p2_2_4", "content": "逆演算子が必ず存在する", "isCorrect": false }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "G9b5HqR1sT3cV6mN",
+    "examName": "ミクロ経済学 基礎解析",
+    "examYear": 2024,
+    "examType": 2,
+    "universityName": "西京大学",
+    "facultyName": "経済学部",
+    "teacherName": "Robert Smith",
+    "subjectName": "ミクロ経済学基礎",
+    "durationMinutes": 60,
+    "majorType": 2,
+    "academicFieldName": "経済学",
+    "author_id": "usr_E999xyz",
+    "questions": [
+      {
+        "id": "q1_G9b5HqR1",
+        "questionNumber": 1,
+        "content": "消費者の効用最大化問題について、以下のステップと用語を確認せよ。",
+        "difficulty": { "id": 1, "label": "標準", "level": 2 },
+        "keywords": [{ "id": "kw_e1", "keyword": "効用最大化" }],
+        "subQuestions": [
+          {
+            "id": "sq1_1_G9b5",
+            "subQuestionNumber": 1,
+            "questionTypeId": 5,
+            "content": "消費者が最適な消費束を決定するまでの論理的な順序として適切なものに並べ替えよ。",
+            "answer": "item_e1_2, item_e1_1, item_e1_3",
+            "explanation": "まず選好（効用関数）が定義され、次に予算制約が考慮され、最終的にその接点で最大化されます。",
+            "keywords": [],
+            "items": [
+              { "id": "item_e1_1", "text": "予算制約線 $p_1 x_1 + p_2 x_2 = I$ の定義", "correctOrder": 2 },
+              { "id": "item_e1_2", "text": "効用関数 $U(x_1, x_2)$ の特定", "correctOrder": 1 },
+              { "id": "item_e1_3", "text": "無差別曲線と予算制約線の接点の導出", "correctOrder": 3 }
+            ]
+          },
+          {
+            "id": "sq1_2_G9b5",
+            "subQuestionNumber": 2,
+            "questionTypeId": 12,
+            "content": "需要の価格弾力性 $e_d$ の定義式を記述せよ。価格を $P$、需要量を $Q$ とする。",
+            "answer": "$e_d = -\\frac{dQ}{dP} \\cdot \\frac{P}{Q}$",
+            "explanation": "価格の変化率に対する需要の変化率の比率です。",
+            "keywords": [{ "id": "kw_e2", "keyword": "価格弾力性" }],
+            "answers": [
+              {
+                "id": "ans_e1_2",
+                "sampleAnswer": "$e_d = -\\frac{\\Delta Q / Q}{\\Delta P / P}$ もしくは $-\\frac{dQ}{dP} \\frac{P}{Q}$",
+                "gradingCriteria": "変化率の比であること、マイナス記号の考慮（慣習的）ができているか。",
+                "pointValue": 10
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q2_G9b5HqR1",
+        "questionNumber": 2,
+        "content": "市場の形態と利潤最大化条件に関する理解を問う。",
+        "difficulty": { "id": 2, "label": "やや難", "level": 3 },
+        "keywords": [{ "id": "kw_e3", "keyword": "市場構造" }],
+        "subQuestions": [
+          {
+            "id": "sq2_1_G9b5",
+            "subQuestionNumber": 1,
+            "questionTypeId": 4,
+            "content": "次の経済学用語と、その特徴として最も適切な説明を組み合わせよ。",
+            "answer": "pair_e1:1, pair_e2:2, pair_e3:3",
+            "explanation": "それぞれの市場構造の基本定義です。",
+            "keywords": [],
+            "pairs": [
+              { "id": "pair_e1", "question": "完全競争市場", "answer": "プライステイカーとして行動し、P=MCとなる。" },
+              { "id": "pair_e2", "question": "独占市場", "answer": "限界収入(MR)と限界費用(MC)が一致する点で生産量を決める。" },
+              { "id": "pair_e3", "question": "ナッシュ均衡", "answer": "他のプレイヤーの戦略に対し、自己の利得を最大化する戦略の組み合わせ。" }
+            ]
+          },
+          {
+            "id": "sq2_2_G9b5",
+            "subQuestionNumber": 2,
+            "questionTypeId": 1,
+            "content": "限界費用 $MC$ が一定値 $c$ である独占企業の価格設定 $P$ と、需要の価格弾力性 $\\epsilon$ の関係式（ラーナーの独占度）として正しいものはどれか。",
+            "answer": "opt_e2_2_1",
+            "explanation": "$\\frac{P-MC}{P} = \\frac{1}{\\epsilon}$ より導かれます。",
+            "keywords": [{ "id": "kw_e4", "keyword": "ラーナーの独占度" }],
+            "options": [
+              { "id": "opt_e2_2_1", "content": "$P = \\frac{c}{1 - 1/\\epsilon}$", "isCorrect": true },
+              { "id": "opt_e2_2_2", "content": "$P = c(1 + \\epsilon)$", "isCorrect": false },
+              { "id": "opt_e2_2_3", "content": "$P = c \\epsilon$", "isCorrect": false }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "X4yZ7kM2pA8wL1qE",
+    "examName": "線形代数学 最終試験",
+    "examYear": 2024,
+    "examType": 3,
+    "universityName": "北海総合大学",
+    "facultyName": "工学部",
+    "teacherName": "中野 昌三 教授",
+    "subjectName": "線形代数II",
+    "durationMinutes": 100,
+    "majorType": 1,
+    "academicFieldName": "数学",
+    "author_id": "usr_Math999",
+    "questions": [
+      {
+        "id": "q1_X4yZ7kM2",
+        "questionNumber": 1,
+        "content": "行列の固有値と対角化について。",
+        "difficulty": { "id": 2, "label": "やや難", "level": 3 },
+        "keywords": [{ "id": "kw_m1", "keyword": "固有値" }, { "id": "kw_m2", "keyword": "対角化" }],
+        "subQuestions": [
+          {
+            "id": "sq1_1_X4yZ",
+            "subQuestionNumber": 1,
+            "questionTypeId": 1,
+            "content": "行列 $A = \\begin{pmatrix} 2 & 1 \\\\ 1 & 2 \\end{pmatrix}$ の固有値を求めよ。",
+            "answer": "opt_m1_1_3",
+            "explanation": "$|A - \\lambda I| = (2-\\lambda)^2 - 1 = 0$ を解くと $\\lambda = 1, 3$ です。",
+            "keywords": [],
+            "options": [
+              { "id": "opt_m1_1_1", "content": "1, 2", "isCorrect": false },
+              { "id": "opt_m1_1_2", "content": "0, 3", "isCorrect": false },
+              { "id": "opt_m1_1_3", "content": "1, 3", "isCorrect": true },
+              { "id": "opt_m1_1_4", "content": "2, 2", "isCorrect": false }
+            ]
+          },
+          {
+            "id": "sq1_2_X4yZ",
+            "subQuestionNumber": 2,
+            "questionTypeId": 4,
+            "content": "次の行列の種類とその性質を正しく組み合わせよ。",
+            "answer": "pair_m1:1, pair_m2:2, pair_m3:3",
+            "explanation": "行列の定義に基づく基本的な性質です。",
+            "keywords": [],
+            "pairs": [
+              { "id": "pair_m1", "question": "正則行列", "answer": "逆行列が存在し、行列式が $0$ ではない。" },
+              { "id": "pair_m2", "question": "直交行列", "answer": "$A^T A = I$ を満たす。" },
+              { "id": "pair_m3", "question": "対称行列", "answer": "$A^T = A$ を満たし、固有値は常に実数である。" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q2_X4yZ7kM2",
+        "questionNumber": 2,
+        "content": "線形写像とベクトルの空間に関する問題。",
+        "difficulty": { "id": 3, "label": "難", "level": 4 },
+        "keywords": [{ "id": "kw_m3", "keyword": "線形写像" }],
+        "subQuestions": [
+          {
+            "id": "sq2_1_X4yZ",
+            "subQuestionNumber": 1,
+            "questionTypeId": 2,
+            "content": "線形写像 $f: V \\to W$ について、常に成り立つ性質を選べ。",
+            "answer": "opt_m2_1_1, opt_m2_1_4",
+            "explanation": "線形性の定義および次元定理の性質です。",
+            "keywords": [{ "id": "kw_m4", "keyword": "次元定理" }],
+            "options": [
+              { "id": "opt_m2_1_1", "content": "$f(\\mathbf{0}) = \\mathbf{0}$", "isCorrect": true },
+              { "id": "opt_m2_1_2", "content": "$f$ は必ず全単射である", "isCorrect": false },
+              { "id": "opt_m2_1_3", "content": "$\\dim(\\text{Ker } f) = \\dim V$", "isCorrect": false },
+              { "id": "opt_m2_1_4", "content": "$f(a\\mathbf{v} + b\\mathbf{u}) = af(\\mathbf{v}) + bf(\\mathbf{u})$", "isCorrect": true }
+            ]
+          },
+          {
+            "id": "sq2_2_X4yZ",
+            "subQuestionNumber": 2,
+            "questionTypeId": 10,
+            "content": "$n$ 次正方行列 $A$ が対角化可能であるための必要十分条件を、固有ベクトルを用いて記述せよ。",
+            "answer": "$A$ が $n$ 個の線形独立な固有ベクトルを持つこと。",
+            "explanation": "対角化行列 $P$ を構成するためには、基底となる $n$ 本の独立な固有ベクトルが必要です。",
+            "keywords": [{ "id": "kw_m5", "keyword": "線形独立" }],
+            "answers": [
+              {
+                "id": "ans_m2_2",
+                "sampleAnswer": "$n$ 次正方行列 $A$ が $n$ 個の線形独立な固有ベクトルを持つこと。",
+                "gradingCriteria": "「n個」「線形独立」「固有ベクトル」の3つのキーワードが含まれているか。",
+                "pointValue": 20
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
+
+mockExams.push(...newMockExams);
+
 export const mockQuestions: Question[] = [
   {
-    id: 'exam-1-q1',
-    problemId: 'exam-1',
+    id: 1,
+    problemId: '8fA9xKQ2ZP7mR4LJ',
     questionNumber: 1,
     content: '次の関数の導関数を求めよ。',
     format: 0,
     difficulty: { id: 1, label: '標準', level: 2 },
     keywords: [
-      { id: 'q-kw-1', keyword: '微分' },
-      { id: 'q-kw-2', keyword: '導関数' },
-      { id: 'q-kw-3', keyword: '積の導関数' },
+      { id: 'kw1', keyword: '導関数' },
+      { id: 'kw2', keyword: '微分' },
     ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
+    subQuestions: [
+      {
+        id: 1,
+        questionId: 1,
+        subQuestionNumber: 1,
+        questionTypeId: 10,
+        content: 'f(x) = x² の導関数を求めよ。',
+        format: 0,
+        answer: '2x',
+        explanation: 'べき関数の微分公式より、x^n の導関数は n x^(n-1) である。',
+        keywords: [],
+      },
+    ],
+    ...baseTimestamps,
   },
   {
-    id: 'exam-1-q2',
-    problemId: 'exam-1',
+    id: 2,
+    problemId: '9gB0yLR3AQ8nS5MK',
+    questionNumber: 1,
+    content: '次の行列の固有値を求めよ。',
+    format: 0,
+    difficulty: { id: 2, label: 'やや難', level: 3 },
+    keywords: [
+      { id: 'kw3', keyword: '固有値' },
+      { id: 'kw4', keyword: '線形代数' },
+    ],
+    subQuestions: [
+      {
+        id: 2,
+        questionId: 2,
+        subQuestionNumber: 1,
+        questionTypeId: 1,
+        content: '行列 A = [[1, 2], [3, 4]] の固有値は？',
+        format: 0,
+        answer: '5.372, -0.372',
+        explanation: '特性方程式を解くことで固有値を求める。',
+        keywords: [],
+      },
+    ],
+    ...baseTimestamps,
+  },
+  {
+    id: 3,
+    problemId: '9gB0yLR3AQ8nS5MK',
     questionNumber: 2,
-    content: '次の極限値を計算せよ。',
+    content: '次の行列の逆行列を求めよ。',
     format: 0,
-    difficulty: { id: 2, label: '難', level: 3 },
+    difficulty: { id: 2, label: 'やや難', level: 3 },
     keywords: [
-      { id: 'q-kw-4', keyword: '極限' },
-      { id: 'q-kw-5', keyword: '三角関数' },
-      { id: 'q-kw-6', keyword: 'ロピタルの定理' },
+      { id: 'kw5', keyword: '逆行列' },
+      { id: 'kw6', keyword: '線形代数' },
     ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-2-q1',
-    problemId: 'exam-2',
-    questionNumber: 1,
-    content: '次の行列 A, B の積 AB を求めよ。',
-    format: 0,
-    difficulty: { id: 0, label: '簡単', level: 1 },
-    keywords: [
-      { id: 'q-kw-7', keyword: '行列' },
-      { id: 'q-kw-8', keyword: '線形代数' },
-      { id: 'q-kw-9', keyword: '行列の積' },
+    subQuestions: [
+      {
+        id: 3,
+        questionId: 3,
+        subQuestionNumber: 1,
+        questionTypeId: 10,
+        content: '行列 B = [[2, 1], [1, 1]] の逆行列を求めよ。',
+        format: 0,
+        answer: '[[1, -1], [-1, 2]]',
+        explanation: '逆行列の公式を用いて計算する。',
+        keywords: [],
+      },
     ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-1-q3',
-    problemId: 'exam-1',
-    questionNumber: 3,
-    content: '三角関数の基本公式を用いた選択問題。',
-    format: 0,
-    difficulty: { id: 1, label: '標準', level: 2 },
-    keywords: [
-      { id: 'q-kw-10', keyword: '三角関数' },
-      { id: 'q-kw-11', keyword: '恒等式' },
-      { id: 'q-kw-12', keyword: '基本公式' },
-    ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-1-q4',
-    problemId: 'exam-1',
-    questionNumber: 4,
-    content: '線形代数の性質に関する複数選択問題。',
-    format: 0,
-    difficulty: { id: 2, label: '難', level: 3 },
-    keywords: [
-      { id: 'q-kw-13', keyword: 'ベクトル' },
-      { id: 'q-kw-14', keyword: '内積' },
-      { id: 'q-kw-15', keyword: '直交性' },
-    ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-1-q5',
-    problemId: 'exam-1',
-    questionNumber: 5,
-    content: '微分の穴埋め問題。',
-    format: 0,
-    difficulty: { id: 1, label: '標準', level: 2 },
-    keywords: [
-      { id: 'q-kw-16', keyword: '微分' },
-      { id: 'q-kw-17', keyword: 'マッチング' },
-      { id: 'q-kw-18', keyword: '導関数' },
-    ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-1-q6',
-    problemId: 'exam-1',
-    questionNumber: 6,
-    content: '正誤判定問題。',
-    format: 0,
-    difficulty: { id: 0, label: '簡単', level: 1 },
-    keywords: [
-      { id: 'q-kw-19', keyword: '指数関数' },
-      { id: 'q-kw-20', keyword: '真偽判定' },
-      { id: 'q-kw-21', keyword: '数学論理' },
-    ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-1-q7',
-    problemId: 'exam-1',
-    questionNumber: 7,
-    content: '証明問題。',
-    format: 0,
-    difficulty: { id: 2, label: '難', level: 3 },
-    keywords: [
-      { id: 'q-kw-22', keyword: '等差数列' },
-      { id: 'q-kw-23', keyword: '証明' },
-      { id: 'q-kw-24', keyword: '数学的帰納法' },
-    ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-1-q8',
-    problemId: 'exam-1',
-    questionNumber: 8,
-    content: 'プログラミング問題。',
-    format: 0,
-    difficulty: { id: 2, label: '難', level: 3 },
-    keywords: [
-      { id: 'q-kw-25', keyword: 'フィボナッチ数列' },
-      { id: 'q-kw-26', keyword: 'プログラミング' },
-      { id: 'q-kw-27', keyword: '再帰' },
-    ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-1-q9',
-    problemId: 'exam-1',
-    questionNumber: 9,
-    content: 'コード読解問題。',
-    format: 0,
-    difficulty: { id: 2, label: '難', level: 3 },
-    keywords: [
-      { id: 'q-kw-28', keyword: '英語翻訳' },
-      { id: 'q-kw-29', keyword: '言語理解' },
-      { id: 'q-kw-30', keyword: 'リーディング' },
-    ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-3-q1',
-    problemId: 'exam-3',
-    questionNumber: 1,
-    content: '半径Rの円盤の慣性モーメントを求めよ。',
-    format: 0,
-    difficulty: { id: 1, label: '標準', level: 2 },
-    keywords: [
-      { id: 'q-kw-31', keyword: '慣性モーメント' },
-      { id: 'q-kw-32', keyword: '力学' },
-      { id: 'q-kw-33', keyword: '剛体' },
-    ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: 'exam-4-q1',
-    problemId: 'exam-4',
-    questionNumber: 1,
-    content: 'SN1反応とSN2反応の違いを説明せよ。',
-    format: 0,
-    difficulty: { id: 2, label: '難', level: 3 },
-    keywords: [
-      { id: 'q-kw-34', keyword: '有機化学' },
-      { id: 'q-kw-35', keyword: '反応機構' },
-      { id: 'q-kw-36', keyword: 'SN反応' },
-    ],
-    subQuestions: [],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
+    ...baseTimestamps,
   },
 ];
 
 export const mockSubQuestions: SubQuestion[] = [
-  // ID 10: 記述式
   {
-    id: 'exam-1-sq1',
-    questionId: 'exam-1-q1',
+    id: 1,
+    questionId: 1,
     subQuestionNumber: 1,
     questionTypeId: 10,
-    content: 'f(x) = x^2 \\sin(x) の導関数を求めよ。\n\n【ヒント】積の導関数公式を用いること。\\\\frac{d}{dx}[uv] = u\'v + uv\'',
+    content: 'f(x) = x² の導関数を求めよ。',
     format: 0,
-    keywords: [
-      { id: 'kw-1', keyword: '微分' },
-      { id: 'kw-2', keyword: '導関数' },
-      { id: 'kw-3', keyword: '積の導関数' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
+    answer: '2x',
+    explanation: 'べき関数の微分公式より、x^n の導関数は n x^(n-1) である。',
+    keywords: [],
+    ...baseTimestamps,
   },
   {
-    id: 'exam-1-sq2',
-    questionId: 'exam-1-q2',
-    subQuestionNumber: 1,
-    questionTypeId: 10,
-    content: '\\\\lim_{x \\\\to 0} \\\\frac{\\\\sin x}{x} の値を求めよ。\n\n【注】直接代入では不定形 0/0 となるため、工夫が必要。',
-    format: 0,
-    keywords: [
-      { id: 'kw-4', keyword: '極限' },
-      { id: 'kw-5', keyword: '三角関数' },
-      { id: 'kw-6', keyword: 'ロピタルの定理' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // ID 1: 単一選択
-  {
-    id: 'exam-1-sq3',
-    questionId: 'exam-1-q3',
+    id: 2,
+    questionId: 2,
     subQuestionNumber: 1,
     questionTypeId: 1,
-    content: '次の中から恒等的に成り立つ式を1つ選べ。\n\n選択肢:\nA) \\\\sin^2\\\\theta + \\\\cos^2\\\\theta = 1\nB) \\\\sin\\\\theta = \\\\cos\\\\theta\nC) \\\\sin(2\\\\theta) = 2\\\\sin\\\\theta\nD) \\\\tan\\\\theta = \\\\sin\\\\theta \\\\cos\\\\theta',
+    content: '行列 A = [[1, 2], [3, 4]] の固有値は？',
     format: 0,
-    keywords: [
-      { id: 'kw-7', keyword: '三角関数' },
-      { id: 'kw-8', keyword: '恒等式' },
-      { id: 'kw-9', keyword: '基本公式' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
+    answer: '5.372, -0.372',
+    explanation: '特性方程式を解くことで固有値を求める。',
+    keywords: [],
+    ...baseTimestamps,
   },
-  // ID 2: 複数選択
   {
-    id: 'exam-1-sq4',
-    questionId: 'exam-1-q4',
-    subQuestionNumber: 1,
-    questionTypeId: 2,
-    content: '次のベクトルに関する記述のうち、正しいものをすべて選べ。\n\nA) \\\\vec{a} \\\\cdot \\\\vec{b} = 0 \\\\Leftrightarrow \\\\vec{a} \\\\perp \\\\vec{b}\nB) \\\\|\\\\vec{a}\\\\| は常に非負である\nC) \\\\|\\\\vec{a} + \\\\vec{b}\\\\| = \\\\|\\\\vec{a}\\\\| + \\\\|\\\\vec{b}\\\\|\nD) (\\\\vec{a} + \\\\vec{b}) \\\\cdot \\\\vec{c} = \\\\vec{a}\\\\cdot\\\\vec{c} + \\\\vec{b}\\\\cdot\\\\vec{c}',
-    format: 0,
-    keywords: [
-      { id: 'kw-10', keyword: 'ベクトル' },
-      { id: 'kw-11', keyword: '内積' },
-      { id: 'kw-12', keyword: '直交性' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // ID 4: 組み合わせ（マッチング）
-  {
-    id: 'exam-1-sq5',
-    questionId: 'exam-1-q5',
-    subQuestionNumber: 1,
-    questionTypeId: 4,
-    content: '関数とその導関数を正しく組み合わせよ。\n\n左側（関数）と右側（導関数）を対応させよ。',
-    format: 0,
-    keywords: [
-      { id: 'kw-13', keyword: '微分' },
-      { id: 'kw-14', keyword: 'マッチング' },
-      { id: 'kw-15', keyword: '導関数' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // ID 3: 正誤判定
-  {
-    id: 'exam-1-sq6',
-    questionId: 'exam-1-q6',
-    subQuestionNumber: 1,
-    questionTypeId: 3,
-    content: '次の命題は真か偽か:\n\nすべての実数 x に対して e^x > 0 である。',
-    format: 0,
-    keywords: [
-      { id: 'kw-16', keyword: '指数関数' },
-      { id: 'kw-17', keyword: '真偽判定' },
-      { id: 'kw-18', keyword: '数学論理' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // ID 5: 順序並べ替え
-  {
-    id: 'exam-1-sq7',
-    questionId: 'exam-1-q7',
-    subQuestionNumber: 1,
-    questionTypeId: 5,
-    content: '微分の計算ステップを正しい順序に並べ替えよ。',
-    format: 0,
-    keywords: [
-      { id: 'kw-19', keyword: '微分' },
-      { id: 'kw-20', keyword: '順序並べ替え' },
-      { id: 'kw-21', keyword: '導関数' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // ID 11: 証明問題
-  {
-    id: 'exam-1-sq8',
-    questionId: 'exam-1-q8',
-    subQuestionNumber: 1,
-    questionTypeId: 11,
-    content: '次の命題を証明せよ。\n\n「a、b、c が等差数列 \\\\Rightarrow a + c = 2b」',
-    format: 0,
-    keywords: [
-      { id: 'kw-22', keyword: '等差数列' },
-      { id: 'kw-23', keyword: '証明' },
-      { id: 'kw-24', keyword: '数学的帰納法' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // ID 12: コード記述
-  {
-    id: 'exam-1-sq9',
-    questionId: 'exam-1-q8',
-    subQuestionNumber: 2,
-    questionTypeId: 12,
-    content: 'フィボナッチ数列の n 番目の項を返す再帰関数を Python で実装せよ。\n\nfibonacci(5) = 5 となること。',
-    format: 0,
-    keywords: [
-      { id: 'kw-25', keyword: 'フィボナッチ数列' },
-      { id: 'kw-26', keyword: 'プログラミング' },
-      { id: 'kw-27', keyword: '再帰' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // ID 13: 翻訳
-  {
-    id: 'exam-1-sq10',
-    questionId: 'exam-1-q9',
-    subQuestionNumber: 1,
-    questionTypeId: 13,
-    content: '次の英文を日本語に翻訳しなさい。\n\n"The beauty of the landscape moves the hearts of many people."',
-    format: 0,
-    keywords: [
-      { id: 'kw-28', keyword: '英語翻訳' },
-      { id: 'kw-29', keyword: '言語理解' },
-      { id: 'kw-30', keyword: 'リーディング' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // ID 14: 数値計算
-  {
-    id: 'exam-1-sq11',
-    questionId: 'exam-1-q9',
-    subQuestionNumber: 2,
-    questionTypeId: 14,
-    content: 'a = 3, b = 4 のとき、\\\\sqrt{a^2 + b^2} の値を計算しなさい。',
-    format: 0,
-    keywords: [
-      { id: 'kw-31', keyword: '数値計算' },
-      { id: 'kw-32', keyword: 'ピタゴラス' },
-      { id: 'kw-33', keyword: '平方根' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // exam-2-sq1 (生物)
-  {
-    id: 'exam-2-sq1',
-    questionId: 'exam-2-q1',
+    id: 3,
+    questionId: 3,
     subQuestionNumber: 1,
     questionTypeId: 10,
-    content: 'リンパ球が関与する免疫応答について説明しなさい。\n\n特に B 細胞と T 細胞の役割を述べよ。',
+    content: '行列 B = [[2, 1], [1, 1]] の逆行列を求めよ。',
     format: 0,
-    keywords: [
-      { id: 'kw-34', keyword: '免疫' },
-      { id: 'kw-35', keyword: 'リンパ球' },
-      { id: 'kw-36', keyword: 'B細胞・T細胞' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // exam-3-sq1 (物理)
-  {
-    id: 'exam-3-sq1',
-    questionId: 'exam-3-q1',
-    subQuestionNumber: 1,
-    questionTypeId: 10,
-    content: '半径 R 、質量 M の円盤の慣性モーメント I を求めよ。\n\n【条件】円盤は中心を通る軸の周りに回転する。',
-    format: 0,
-    keywords: [
-      { id: 'kw-37', keyword: '慣性モーメント' },
-      { id: 'kw-38', keyword: '力学' },
-      { id: 'kw-39', keyword: '剛体回転' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // exam-4-sq1 (化学)
-  {
-    id: 'exam-4-sq1',
-    questionId: 'exam-4-q1',
-    subQuestionNumber: 1,
-    questionTypeId: 10,
-    content: 'SN1反応と SN2 反応の違いを説明しなさい。\n\n反応次数、機構、立体化学を含めて述べよ。',
-    format: 0,
-    keywords: [
-      { id: 'kw-40', keyword: '有機化学' },
-      { id: 'kw-41', keyword: '反応機構' },
-      { id: 'kw-42', keyword: 'SN反応' },
-    ],
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
+    answer: '[[1, -1], [-1, 2]]',
+    explanation: '逆行列の公式を用いて計算する。',
+    keywords: [],
+    ...baseTimestamps,
   },
 ];
 
-// ===== sub_question_selection テーブル（ID 1-3: 選択系） =====
 export const mockSubQuestionSelection = [
-  // exam-1-sq3 (ID 1: 単一選択)
   {
-    id: 'sel-1',
-    subQuestionId: 'exam-1-sq3',
-    content: '\\\\sin^2\\\\theta + \\\\cos^2\\\\theta = 1',
+    id: 'sel1',
+    subQuestionId: 1,
+    content: '2x',
     isCorrect: true,
-    sortOrder: 1,
+    order: 1,
   },
   {
-    id: 'sel-2',
-    subQuestionId: 'exam-1-sq3',
-    content: '\\\\sin\\\\theta + \\\\cos\\\\theta = 0',
+    id: 'sel2',
+    subQuestionId: 1,
+    content: 'x²',
     isCorrect: false,
-    sortOrder: 2,
-  },
-  {
-    id: 'sel-3',
-    subQuestionId: 'exam-1-sq3',
-    content: '\\\\tan\\\\theta = \\\\sin\\\\theta',
-    isCorrect: false,
-    sortOrder: 3,
-  },
-  {
-    id: 'sel-4',
-    subQuestionId: 'exam-1-sq3',
-    content: '\\\\cos 2\\\\theta = 2 \\\\cos\\\\theta',
-    isCorrect: false,
-    sortOrder: 4,
-  },
-  // exam-1-sq4 (ID 2: 複数選択)
-  {
-    id: 'sel-5',
-    subQuestionId: 'exam-1-sq4',
-    content: '(\\\\vec{a} + \\\\vec{b}) \\\\cdot \\\\vec{c} = \\\\vec{a}\\\\cdot\\\\vec{c} + \\\\vec{b}\\\\cdot\\\\vec{c}',
-    isCorrect: true,
-    sortOrder: 1,
-  },
-  {
-    id: 'sel-6',
-    subQuestionId: 'exam-1-sq4',
-    content: '\\\\vec{a} \\\\cdot \\\\vec{b} = 0 \\\\Rightarrow \\\\vec{a} \\\\perp \\\\vec{b}',
-    isCorrect: true,
-    sortOrder: 2,
-  },
-  {
-    id: 'sel-7',
-    subQuestionId: 'exam-1-sq4',
-    content: '\\\\|\\\\vec{a}\\\\| < 0',
-    isCorrect: false,
-    sortOrder: 3,
-  },
-  {
-    id: 'sel-8',
-    subQuestionId: 'exam-1-sq4',
-    content: 'ベクトルの長さ \\\\|\\\\vec{a}\\\\| は内積とは無関係',
-    isCorrect: false,
-    sortOrder: 4,
-  },
-  // exam-1-sq6 (ID 3: 正誤判定)
-  {
-    id: 'sel-9',
-    subQuestionId: 'exam-1-sq6',
-    content: '真',
-    isCorrect: true,
-    sortOrder: 1,
-  },
-  {
-    id: 'sel-10',
-    subQuestionId: 'exam-1-sq6',
-    content: '偽',
-    isCorrect: false,
-    sortOrder: 2,
+    order: 2,
   },
 ];
 
-// ===== sub_question_matching テーブル（ID 4: 組み合わせ） =====
 export const mockSubQuestionMatching = [
   {
-    id: 'match-1',
-    subQuestionId: 'exam-1-sq5',
-    leftContent: 'f(x) = x^2',
-    rightContent: "f'(x) = 2x",
-    sortOrder: 1,
-  },
-  {
-    id: 'match-2',
-    subQuestionId: 'exam-1-sq5',
-    leftContent: 'f(x) = \\\\sin(x)',
-    rightContent: "f'(x) = \\\\cos(x)",
-    sortOrder: 2,
-  },
-  {
-    id: 'match-3',
-    subQuestionId: 'exam-1-sq5',
-    leftContent: 'f(x) = e^x',
-    rightContent: "f'(x) = e^x",
-    sortOrder: 3,
-  },
-  {
-    id: 'match-4',
-    subQuestionId: 'exam-1-sq5',
-    leftContent: 'f(x) = \\\\cos(x)',
-    rightContent: "f'(x) = -\\\\sin(x)",
-    sortOrder: 4,
+    id: 'match1',
+    subQuestionId: 1,
+    leftContent: 'f(x)',
+    rightContent: '2x',
   },
 ];
 
-// ===== sub_question_ordering テーブル（ID 5: 順序並べ替え） =====
 export const mockSubQuestionOrdering = [
   {
-    id: 'ord-1',
-    subQuestionId: 'exam-1-sq7',
-    content: '関数 f(x) を定義する',
+    id: 'ord1',
+    subQuestionId: 1,
+    content: 'ステップ1',
     correctOrder: 1,
-  },
-  {
-    id: 'ord-2',
-    subQuestionId: 'exam-1-sq7',
-    content: '微小変化 Δx を加える',
-    correctOrder: 2,
-  },
-  {
-    id: 'ord-3',
-    subQuestionId: 'exam-1-sq7',
-    content: '差分 f(x+Δx) - f(x) を計算',
-    correctOrder: 3,
-  },
-  {
-    id: 'ord-4',
-    subQuestionId: 'exam-1-sq7',
-    content: '極限をとる lim(Δx→0) ... = f\'(x)',
-    correctOrder: 4,
   },
 ];
 
-// ===== sub_question_essay テーブル（ID 10-14: 記述系） =====
 export const mockSubQuestionEssay = [
-  // exam-1-sq1 (ID 10: 記述式)
   {
-    id: 'essay-1',
-    subQuestionId: 'exam-1-sq1',
-    sampleAnswer: 'f\'(x) = 2x \\sin(x) + x^2 \\cos(x)',
-    gradingCriteria: '導関数の計算が正確であること。積の導関数公式の適用が正しいこと。',
+    id: 'essay1',
+    subQuestionId: 1,
+    sampleAnswer: '2x',
+    gradingCriteria: '計算過程が正しいか',
     pointValue: 10,
   },
-  // exam-1-sq2 (ID 10: 記述式)
   {
-    id: 'essay-2',
-    subQuestionId: 'exam-1-sq2',
-    sampleAnswer: '1',
-    gradingCriteria: '答えが1であることのみで、方法は問わない。',
-    pointValue: 10,
-  },
-  // exam-1-sq8 (ID 11: 証明問題)
-  {
-    id: 'essay-3',
-    subQuestionId: 'exam-1-sq8',
-    sampleAnswer: 'a、b、c が等差数列 ⟹ b - a = c - b ⟹ 2b = a + c ⟹ a + c = 2b（証明完了）',
-    gradingCriteria: '各ステップの論理が正確であること。仮定から結論への導出過程が明確であること。',
-    pointValue: 15,
-  },
-  // exam-1-sq9 (ID 12: コード記述)
-  {
-    id: 'essay-4',
-    subQuestionId: 'exam-1-sq9',
-    sampleAnswer: 'def fibonacci(n):\\n    if n <= 1:\\n        return n\\n    return fibonacci(n-1) + fibonacci(n-2)',
-    gradingCriteria: 'コードの構文が正確であること。フィボナッチ数列の定義に従っていること。',
-    pointValue: 20,
-  },
-  // exam-1-sq10 (ID 13: 翻訳)
-  {
-    id: 'essay-5',
-    subQuestionId: 'exam-1-sq10',
-    sampleAnswer: '「美しい景色は多くの人々の心に感動を与える」',
-    gradingCriteria: '意味の正確性が最優先。自然な日本語表現であること。固有名詞の翻訳が適切であること。',
-    pointValue: 10,
-  },
-  // exam-1-sq11 (ID 14: 数値計算)
-  {
-    id: 'essay-6',
-    subQuestionId: 'exam-1-sq11',
-    sampleAnswer: '12',
-    gradingCriteria: '答えが12であること（許容誤差: ±0.1）',
-    pointValue: 10,
-  },
-  // exam-2-sq1 以降も同様に定義
-  {
-    id: 'essay-7',
-    subQuestionId: 'exam-2-sq1',
-    sampleAnswer: 'リンパ球が関与する免疫応答は、特異的免疫応答を担当する。B細胞が抗体を産生し、T細胞が感染細胞を攻撃する。',
-    gradingCriteria: 'リンパ球の役割、B細胞の機能、T細胞の機能がすべて記述されていること。',
-    pointValue: 15,
-  },
-  {
-    id: 'essay-8',
-    subQuestionId: 'exam-3-sq1',
-    sampleAnswer: 'I = 1/2 MR^2',
-    gradingCriteria: '公式が正確であること。単位が正しいこと。',
-    pointValue: 15,
-  },
-  {
-    id: 'essay-9',
-    subQuestionId: 'exam-4-sq1',
-    sampleAnswer: 'SN1は1次反応（速度 = k[RX]）、SN2は2次反応（速度 = k[RX][Nu^-]）。SN1はカルボカチオン中間体を形成し、SN2は直接置換反応である。',
-    gradingCriteria: '反応次数の違いが明確に説明されていること。機構の違いが理解されていること。',
+    id: 'essay3',
+    subQuestionId: 3,
+    sampleAnswer: '[[1, -1], [-1, 2]]',
+    gradingCriteria: '逆行列の計算が正しいか',
     pointValue: 15,
   },
 ];

@@ -250,39 +250,17 @@ The AdvancedSearchPanel component is **already properly implemented** with:
 
 ### 4B. ProblemViewEditPage Status
 
-#### Current Implementation
-The ProblemViewEditPage component is **correctly structured** with:
+#### Current Implementation (ARCHIVE NOTE)
+The ProblemViewEditPage component has been **decommissioned and removed** from the active codebase as part of the refactor. Implementation details are preserved here for historical traceability.
 
-```typescript
-// API Integration
-useProblemDetail(problemId)  // Fetches problem by ID
-useUpdateProblem(problemId)  // Updates problem data
-
-// UI Modes
-isEditMode: boolean         // Toggle between view/edit
-isFavorite: boolean         // Bookmark management
-rating: number              // User rating display
+**Archived Details (for reference only)**
+```text
+- API hooks: useProblemDetail, useUpdateProblem, useSearch
+- UI Modes: view/edit toggle, rating/bookmark display, delete confirmation
+- Validation: form-level validation using React Hook Form + Zod
 ```
 
-#### Features in Place
-✅ URL parameter parsing: `useParams<{ id: string }>()`  
-✅ Problem detail fetching via API hook  
-✅ Edit/View mode toggle  
-✅ Form state management  
-✅ Save/Cancel functionality  
-✅ Rating display  
-✅ Delete dialog  
-✅ Error handling with alerts  
-
-#### useContent Hooks
-```typescript
-// Available hooks
-useProblemDetail(problemId)     // GET /problems/{id}
-useUpdateProblem(problemId)     // PUT /problems/{id}
-useSearch(params)               // GET /search/problems
-```
-
-**No changes needed** - component meets requirements.
+**Status:** Removed from source; archived for traceability.
 
 ### Validation
 ```

@@ -183,7 +183,7 @@ export function TopMenuBar() {
   // ナビゲーション項目
   const navItems = [
     { label: t('common.home'), path: '/' },
-    user && { label: t('search.search_problems'), path: '/problem/create' },
+    user && { label: t('search.search_problems'), path: '/create' },
     user && { label: t('common.my_page'), path: '/mypage' },
     user?.role === 'admin' && { label: t('common.admin'), path: '/admin' },
   ].filter(Boolean);
@@ -407,7 +407,7 @@ export function TopMenuBar() {
             {user && (
               <Tooltip title="問題を作成">
                 <IconButton
-                  onClick={() => handleNavigation('/problem/create')}
+                  onClick={() => handleNavigation('/create')}
                   sx={{
                     display: 'none',
                     ...(hasEditActions

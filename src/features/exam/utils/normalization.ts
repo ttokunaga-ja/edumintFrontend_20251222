@@ -67,7 +67,7 @@ export function transformToForm(apiData: any): ExamFormValues {
     questions: (apiData.questions || []).map((q: any, qIdx: number): Question => ({
       id: q.id?.toString() || `temp-q-${qIdx}`,
       questionNumber: q.question_number || q.questionNumber || qIdx + 1,
-      questionContent: q.question_content || q.questionContent || '',
+      questionContent: q.content || q.question_content || q.questionContent || '',
       difficulty: extractDifficulty(q.difficulty),
       keywords: (q.keywords || []).map((kw: any, kwIdx: number) => ({
         id: kw.id?.toString() || `temp-kw-q${qIdx}-${kwIdx}`,
@@ -78,8 +78,8 @@ export function transformToForm(apiData: any): ExamFormValues {
         id: sq.id?.toString() || `temp-sq-q${qIdx}-${sqIdx}`,
         subQuestionNumber: sq.sub_question_number || sq.subQuestionNumber || sqIdx + 1,
         questionTypeId: (sq.question_type_id?.toString() || sq.questionTypeId?.toString()) || '1',
-        questionContent: sq.question_content || sq.questionContent || '',
-        answerContent: sq.answer_content || sq.answerContent || '',
+        questionContent: sq.content || sq.question_content || sq.questionContent || '',
+        answerContent: sq.answer_content || sq.answerContent || sq.answer || '',
         explanation: sq.explanation || sq.answer_explanation || sq.answerExplanation || '',
         keywords: (sq.keywords || []).map((kw: any, kwIdx: number) => ({
           id: kw.id?.toString() || `temp-kw-q${qIdx}-sq${sqIdx}-${kwIdx}`,
