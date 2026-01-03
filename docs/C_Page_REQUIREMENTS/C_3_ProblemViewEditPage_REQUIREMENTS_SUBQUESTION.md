@@ -31,12 +31,6 @@
 | 13 | 翻訳 | `NormalSubQuestionView` | 対照テキスト表示対応 |
 | 14 | 数値計算 | `NormalSubQuestionView` | 完全一致判定対応 |
 
-### レガシーマッピング（後方互換性）
-
-| typeId | 形式 | コンポーネント | 備考 |
-| :---: | :--- | :--- | :--- |
-| 4-9 | 旧形式 | `NormalSubQuestionView` | 既存データ互換性維持 |
-
 **注記（2025-12-31 更新）:**
 - ✅ パターンA（選択系）の共通コンポーネント実装完了：`SelectionViewer`, `MatchViewer`, `OrderViewer`
 - ✅ MultipleChoiceView に SelectionViewer を統合完了

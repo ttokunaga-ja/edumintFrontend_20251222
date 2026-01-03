@@ -240,23 +240,3 @@ const { register, handleSubmit, formState: { errors } } = useForm({
 
 <TextField {...register('email')} error={!!errors.email} helperText={errors.email?.message} />
 ```
-
----
-
-## 5. 移行・削除アクション（Refactoring Checklist）
-
-現状のコードベースから以下のディレクトリ・ファイルを削除または移行する。
-
-1.  **`src/components/primitives/` の全削除**:
-    *   shadcn/ui や独自実装の Button, Card, Input 等を削除。
-    *   利用箇所を MUI コンポーネント (`@mui/material/*`) に置換。
-2.  **`src/shared/utils/` の縮小**:
-    *   日付フォーマット関数 → `dayjs` へ置換。
-    *   API用関数 → `src/lib/axios.ts` へ統合。
-    *   i18nヘルパー → `i18next` へ移行。
-3.  **`src/services/api/gateway` の廃止**:
-    *   手書きの Fetch 関数群を削除。
-    *   各 Features の `hooks` 内にクエリ定義を移設。
-4.  **Tailwind 関連ファイルの削除**:
-    *   `tailwind.config.js`, `postcss.config.js` を削除。
-    *   `className` 属性を `sx` prop または `styled` component に書き換え。

@@ -51,38 +51,54 @@ export interface ServiceHealthState {
 export function useServiceHealth() {
   const queryClient = useQueryClient();
 
-  // Individual service health queries
+  // Individual service health queries with error boundary
+  // Per error handling guideline:
+  // - Network errors result in error state (not fallback)
+  // - Component shows Snackbar with retry button
+  // - Retries use exponential backoff
   const contentQuery = useQuery({
     queryKey: ['health', 'content'],
     queryFn: getHealthContent,
     refetchInterval: 60000, // 60 seconds
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   const communityQuery = useQuery({
     queryKey: ['health', 'community'],
     queryFn: getHealthCommunity,
     refetchInterval: 60000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   const notificationsQuery = useQuery({
     queryKey: ['health', 'notifications'],
     queryFn: getHealthNotifications,
     refetchInterval: 60000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   const searchQuery = useQuery({
     queryKey: ['health', 'search'],
     queryFn: getHealthSearch,
     refetchInterval: 60000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   const walletQuery = useQuery({
     queryKey: ['health', 'wallet'],
     queryFn: getHealthWallet,
     refetchInterval: 60000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   // Aggregate health state
+  // Per error handling guideline: Network errors result in error state, not fallback
+  // Component-level (via ContextHealthAlert) will show Snackbar with retry
   const health: ServiceHealthState = {
     content: contentQuery.data?.status || 'operational',
     community: communityQuery.data?.status || 'operational',
@@ -92,7 +108,9 @@ export function useServiceHealth() {
     aiGenerator: contentQuery.data?.status || 'operational', // Derived from content
     lastUpdated: new Date(), // Simplified
     isLoading: contentQuery.isLoading || communityQuery.isLoading || notificationsQuery.isLoading || searchQuery.isLoading || walletQuery.isLoading,
-    error: contentQuery.error?.message || communityQuery.error?.message || notificationsQuery.error?.message || searchQuery.error?.message || walletQuery.error?.message || null,
+    // Report any error that occurs - component layer will handle display
+    error: (contentQuery.error?.message || communityQuery.error?.message || notificationsQuery.error?.message || searchQuery.error?.message || walletQuery.error?.message) 
+      || null,
   };
 
   /**

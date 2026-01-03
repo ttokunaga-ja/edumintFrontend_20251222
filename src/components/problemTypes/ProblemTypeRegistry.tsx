@@ -20,19 +20,19 @@ const registry = new Map<number, ProblemTypeRegistration>();
  * ID 5 | 順序並べ替え     | OrderViewer (シーケンス)
  * 
  * 【パターンB：自由記述・テキスト系】
- * ID 10 | 記述式          | NormalSubQuestionView (汎用エッセイ)
- * ID 11 | 証明問題        | NormalSubQuestionView (LaTeX強制)
- * ID 12 | コード記述      | NormalSubQuestionView (コードシンタックス)
- * ID 13 | 翻訳            | NormalSubQuestionView (対照テキスト)
- * ID 14 | 数値計算        | NormalSubQuestionView (完全一致判定)
+ * ID 10 | 記述式          | 親コンポーネントで表示（SubQuestionBlockContent）
+ * ID 11 | 証明問題        | 親コンポーネントで表示（SubQuestionBlockContent）
+ * ID 12 | コード記述      | 親コンポーネントで表示（SubQuestionBlockContent）
+ * ID 13 | 翻訳            | 親コンポーネントで表示（SubQuestionBlockContent）
+ * ID 14 | 数値計算        | 親コンポーネントで表示（SubQuestionBlockContent）
  * 
  * ========================================
- * 現在の実装状況（2025-12-31）
+ * 現在の実装状況（2026-01-02）
  * ========================================
  * 
  * ✅ レガシーマッピング（後方互換性）
- *    ID 1,4,5,6,7,8,9 → NormalSubQuestionView
- *    ID 2 → MultipleChoiceView + MultipleChoiceEdit
+ *    ID 1-5 → 各専用Viewer（SelectionViewer, MultipleChoiceViewer等）
+ *    ID 10-14 → 親コンポーネント（SubQuestionBlockContent）で問題文表示
  * 
  * ⚠️  移行中: SelectionViewer, MatchViewer, OrderViewer 統合予定
  *    新規問題の場合は ID 1-5 を使用
@@ -55,6 +55,20 @@ export function getProblemTypeEdit(typeId: number): React.ComponentType<ProblemT
 }
 
 /**
+ * getProblemTypeList
+ * 
+ * 登録済みの問題タイプをリストで取得
+ * BlockMeta の metaOptions 生成時に使用可能
+ */
+export function getProblemTypeList(): Array<{ id: number; label: string }> {
+  const list: Array<{ id: number; label: string }> = [];
+  registry.forEach((entry) => {
+    list.push({ id: entry.id, label: entry.id.toString() }); // label はレジストリに記録されていないため、ID をデフォルト値として使用
+  });
+  return list.sort((a, b) => a.id - b.id);
+}
+
+/**
  * registerDefaults
  * 
  * デフォルト問題タイプを登録する
@@ -66,45 +80,49 @@ export function getProblemTypeEdit(typeId: number): React.ComponentType<ProblemT
  * - OrderViewer: ID 5（順序並べ替え）
  * 
  * パターンB（記述系）：ID 10-14
- * - NormalSubQuestionView: ID 10,11,12,13,14（汎用）
+ * - 親コンポーネント（SubQuestionBlockContent）で問題文を表示
+ * - ViewComponentは不要（ID1-5のみ使用）
  * 
  * レガシーマッピング（後方互換性）：ID 1,4,5,6,7,8,9
- * - NormalSubQuestionView（旧形式コンテンツ対応）
+ * - 親コンポーネントで問題文表示（旧形式コンテンツ対応）
  */
 export function registerDefaults() {
   // lazy require to avoid load-order issues
   try {
-    const NormalSubQuestionView = React.lazy(() =>
-      import('./NormalSubQuestionView').then(m => ({ default: m.NormalSubQuestionView }))
-    );
 
     // ========================================
     // パターンA：選択・構造化データ系（ID 1-5）
     // ========================================
 
     // ID 1: 単一選択（RadioButton）
-    // 新形式：SelectionViewerを使用（isSingleSelect=true）
-    // 後方互換性：旧形式データはNormalSubQuestionViewで処理
-    registerProblemType({ id: 1, view: NormalSubQuestionView, edit: NormalSubQuestionView });
+    const SQ1_SingleChoice = React.lazy(() =>
+      import('./viewers/SQ1_SingleChoice').then(m => ({ default: m.SQ1_SingleChoice }))
+    );
+    registerProblemType({ id: 1, view: SQ1_SingleChoice, edit: SQ1_SingleChoice });
 
     // ID 2: 複数選択（Checkbox）
-    // 実装：MultipleChoiceViewに SelectionViewerを統合済み
-    const MultipleChoice = require('./MultipleChoiceView').default;
-    const MultipleChoiceEdit = React.lazy(() => import('./MultipleChoiceEdit'));
-    registerProblemType({ id: 2, view: MultipleChoice, edit: MultipleChoiceEdit });
+    const SQ2_MultipleChoice = React.lazy(() =>
+      import('./viewers/SQ2_MultipleChoice').then(m => ({ default: m.SQ2_MultipleChoice }))
+    );
+    registerProblemType({ id: 2, view: SQ2_MultipleChoice, edit: SQ2_MultipleChoice });
 
     // ID 3: 正誤判定（True/False）
-    // 実装：SelectionViewerで二者択一として処理（Yes/No選択肢）
-    // 後方互換性：旧形式（Numeric相当）はNormalSubQuestionViewで処理
-    // TODO: 新規ID3問題は SelectionViewer(isSingleSelect=true) で処理するよう更新
+    const SQ3_TrueFalse = React.lazy(() =>
+      import('./viewers/SQ3_TrueFalse').then(m => ({ default: m.SQ3_TrueFalse }))
+    );
+    registerProblemType({ id: 3, view: SQ3_TrueFalse, edit: SQ3_TrueFalse });
 
     // ID 4: 組み合わせ（Matching）
-    // 実装：MatchViewerで左（問題）→ 右（答え）をペアリング表示
-    // TODO: MatchViewerをProblemTypeRegistry に統合
+    const SQ4_Matching = React.lazy(() =>
+      import('./viewers/SQ4_Matching').then(m => ({ default: m.SQ4_Matching }))
+    );
+    registerProblemType({ id: 4, view: SQ4_Matching, edit: SQ4_Matching });
 
     // ID 5: 順序並べ替え（Ordering）
-    // 実装：OrderViewerでバッジ付き順序表示（valueでソート）
-    // TODO: OrderViewerをProblemTypeRegistry に統合
+    const SQ5_Ordering = React.lazy(() =>
+      import('./viewers/SQ5_Ordering').then(m => ({ default: m.SQ5_Ordering }))
+    );
+    registerProblemType({ id: 5, view: SQ5_Ordering, edit: SQ5_Ordering });
 
     // ========================================
     // パターンB：自由記述・テキスト系（ID 10-14）
@@ -115,21 +133,13 @@ export function registerDefaults() {
     // ID 12: コード記述（Programming）
     // ID 13: 翻訳（Translation）
     // ID 14: 数値計算（Numeric with tolerance）
-    // 全て汎用エッセイロジック（NormalSubQuestionView）で処理
+    // 注：これらの問題形式は親コンポーネント（SubQuestionBlockContent）で
+    //     問題文を表示するため、ここでは登録不要
     // 差異は type_id のみで、UI/採点プロンプトで区別
-    registerProblemType({ id: 10, view: NormalSubQuestionView, edit: NormalSubQuestionView });
-    registerProblemType({ id: 11, view: NormalSubQuestionView, edit: NormalSubQuestionView });
-    registerProblemType({ id: 12, view: NormalSubQuestionView, edit: NormalSubQuestionView });
-    registerProblemType({ id: 13, view: NormalSubQuestionView, edit: NormalSubQuestionView });
-    registerProblemType({ id: 14, view: NormalSubQuestionView, edit: NormalSubQuestionView });
 
     // ========================================
     // 新規形式での ID 1-5 (上記で完全登録)
     // 新規形式での ID 10-14 (上記で完全登録)
-    // レガシーマッピングは廃止 (2025-12-31)
-    // ========================================
-    // NOTE: 既存コンテンツで ID 4-9 を使用している場合は、
-    // データマイグレーションまたはレジストリに再度追加する必要があります
   } catch (e) {
     // ignore in environments where require isn't resolved at module load
     // registry can be populated later

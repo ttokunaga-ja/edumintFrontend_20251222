@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Box, Card, CardContent, Stack, Divider } from '@mui/material';
-import { QuestionBlockHeader } from './QuestionBlock/QuestionBlockHeader';
+import { BlockHeader } from './common/BlockHeader';
+import { BlockMeta } from './common/BlockMeta';
 import { QuestionBlockContent } from './QuestionBlock/QuestionBlockContent';
-import { QuestionBlockMeta } from './QuestionBlock/QuestionBlockMeta';
-import { QuestionMetaView } from './common/QuestionMetaView';
+import { getDifficultyOptions, getDifficultyLabel } from './utils/difficultyUtils';
 
 export type QuestionBlockProps = {
   questionNumber?: number;
@@ -19,7 +19,6 @@ export type QuestionBlockProps = {
   onKeywordAdd?: (keyword: string) => void;
   onKeywordRemove?: (keywordId: string) => void;
   onDelete?: () => void;
-  difficultyOptions?: Array<{ value: number; label: string }>;
   onDifficultyChange?: (value: number) => void;
   question?: any; // optional shorthand input
   viewMode?: 'full' | 'structure';
@@ -29,11 +28,16 @@ export type QuestionBlockProps = {
 };
 
 const difficultyLabels = {
-  0: { label: '未設定', color: 'default' },
   1: { label: '基礎', color: 'success' },
   2: { label: '応用', color: 'warning' },
   3: { label: '発展', color: 'error' },
 };
+
+const difficultyOptions = [
+  { value: 1, label: '基礎' },
+  { value: 2, label: '応用' },
+  { value: 3, label: '発展' },
+];
 
 export function QuestionBlock({
   questionNumber,
@@ -49,12 +53,6 @@ export function QuestionBlock({
   onKeywordAdd,
   onKeywordRemove,
   onDelete,
-  difficultyOptions = [
-    { value: 0, label: '未設定' },
-    { value: 1, label: '基礎' },
-    { value: 2, label: '応用' },
-    { value: 3, label: '発展' },
-  ],
   onDifficultyChange,
   viewMode = 'full',
   mode = 'preview',
@@ -65,7 +63,7 @@ export function QuestionBlock({
   const derivedContent = content ?? question?.question_content ?? question?.questionContent ?? '';
   const derivedNumber = questionNumber ?? question?.question_number ?? question?.questionNumber ?? 1;
   const derivedFormat = (format ?? question?.question_format ?? question?.questionFormat ?? 0) as 0 | 1;
-  const derivedDifficulty = difficulty ?? question?.difficulty ?? 0;
+  const derivedDifficulty = difficulty || question?.difficulty || 1; // Default to 1 (基礎) if 0, null, or undefined
   const derivedKeywords = keywords.length ? keywords : question?.keywords ?? [];
 
   const [currentFormat, setCurrentFormat] = useState<0 | 1>(derivedFormat);
@@ -76,34 +74,48 @@ export function QuestionBlock({
     <Card variant="outlined" sx={{ mb: 4 }}>
       <CardContent>
         <Stack spacing={2}>
-          {/* Header */}
-          <QuestionBlockHeader
-            questionNumber={derivedNumber}
-            onDelete={canEdit ? onDelete : undefined}
-          />
+          {/* Header + Meta Info Row (同じ行に配置 - delete button now part of BlockMeta) */}
+          <Box sx={{ display: 'flex', gap: 3, width: '100%', alignItems: 'flex-start' }}>
+            {/* Header (大問番号) - Fixed width column */}
+            <Box sx={{ minWidth: '80px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <BlockHeader
+                level="major"
+                number={derivedNumber}
+              />
+            </Box>
+
+            {/* Meta Info (難易度 + キーワード + Delete Button) */}
+            <Box sx={{ flex: 1 }}>
+              <BlockMeta
+                level="major"
+                metaType="difficulty"
+                metaValue={derivedDifficulty}
+                metaLabel={derivedDifficulty ? (difficultyLabels as any)[derivedDifficulty]?.label : undefined}
+                metaOptions={difficultyOptions}
+                keywords={derivedKeywords}
+                mode={canEdit ? 'edit' : 'preview'}
+                canEdit={canEdit}
+                metaLabels={difficultyLabels as any}
+                onMetaChange={(event) => {
+                  // BlockMeta passes SelectChangeEvent, extract the value
+                  const value = (event.target as any).value;
+                  if (typeof value === 'number') {
+                    onDifficultyChange?.(value);
+                  }
+                }}
+                onKeywordAdd={(keyword) => {
+                  onKeywordAdd?.(keyword);
+                }}
+                onKeywordRemove={(keywordId) => {
+                  onKeywordRemove?.(keywordId);
+                }}
+                onDelete={onDelete}
+                id={`${actualId}-meta`}
+              />
+            </Box>
+          </Box>
 
           <Divider />
-
-          {/* Meta Info (View or Edit) */}
-          {canEdit ? (
-            <QuestionBlockMeta
-              difficulty={derivedDifficulty}
-              keywords={derivedKeywords}
-              isEditMode={true}
-              onDifficultyChange={onDifficultyChange}
-              onKeywordsChange={(newKeywords) => {
-                // Handle keyword changes
-                // This will be connected to the parent component
-              }}
-              id={`${actualId}-meta`}
-            />
-          ) : (
-            <QuestionMetaView
-              difficulty={derivedDifficulty}
-              difficultyLabels={difficultyLabels as any}
-              keywords={derivedKeywords}
-            />
-          )}
 
           {/* Content */}
           {viewMode === 'full' && (

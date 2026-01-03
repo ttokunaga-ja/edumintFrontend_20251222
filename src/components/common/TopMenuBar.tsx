@@ -117,6 +117,7 @@ export function TopMenuBar() {
 
   const handleNavigation = (path: string) => {
     // Phase 7: 未保存変更がある場合、トースト警告を表示
+    console.log('[TopMenuBar] handleNavigation:', { path, hasUnsavedChanges, isEditMode });
     if (hasUnsavedChanges && isEditMode) {
       setPendingNavigationPath(path);
       setShowWarningSnackbar(true);
@@ -133,10 +134,13 @@ export function TopMenuBar() {
   // Phase 7: トースト警告 - 保存して移動
   const handleSaveAndNavigate = async () => {
     if (!pendingNavigationPath) return;
+    console.log('[TopMenuBar] handleSaveAndNavigate:', pendingNavigationPath);
     setIsProcessingSave(true);
     try {
       if (onSave) {
+        console.log('[TopMenuBar] Executing onSave...');
         await onSave();
+        console.log('[TopMenuBar] onSave completed');
       }
       setShowWarningSnackbar(false);
       setPendingNavigationPath(null);
@@ -152,6 +156,7 @@ export function TopMenuBar() {
   // Phase 7: トースト警告 - 保存せずに移動
   const handleNavigateWithoutSave = () => {
     if (!pendingNavigationPath) return;
+    console.log('[TopMenuBar] handleNavigateWithoutSave:', pendingNavigationPath);
     setShowWarningSnackbar(false);
     setPendingNavigationPath(null);
     navigate(pendingNavigationPath);
@@ -159,6 +164,7 @@ export function TopMenuBar() {
 
   // Phase 7: トースト警告 - キャンセル
   const handleCancelNavigation = () => {
+    console.log('[TopMenuBar] handleCancelNavigation');
     setShowWarningSnackbar(false);
     setPendingNavigationPath(null);
   };

@@ -53,7 +53,28 @@
 | `name` | VARCHAR(255) | NOT NULL | 教授名 |
 | `university_id` | INT | FOREIGN KEY → `universities(id)` | 所属大学ID |
 
-### 1.5. `subjects` テーブル 【新規追加】
+### 1.5. `academic_fields` テーブル 【新規追加】
+学問分野（情報系、電気電子系等）のマスタテーブル。
+
+| カラム名 | データ型 | 制約 | 説明 |
+| :--- | :--- | :--- | :--- |
+| `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | 学問分野ID |
+| `field_name` | VARCHAR(100) | NOT NULL, UNIQUE | 分野名（例: 情報系、電気電子系、人文系、教養系） |
+| `field_type` | VARCHAR(50) | NOT NULL | 分類（science: 理系、humanities: 文系） |
+| `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 登録日時 |
+| `updated_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 更新日時 |
+
+**サンプルデータ**
+| field_name | field_type |
+| :--- | :--- |
+| 情報系 | science |
+| 電気電子系 | science |
+| 機械系 | science |
+| 化学系 | science |
+| 人文系 | humanities |
+| 教養系 | humanities |
+
+### 1.6. `subjects` テーブル 【新規追加】
 科目名のマスタテーブル。
 
 | カラム名 | データ型 | 制約 | 説明 |
@@ -141,10 +162,10 @@
   - exam_name / school / subject_id / teacher_id / exam_year / stats(cache)
   - ソーシャル系: good_count / bad_count / comment_count / view_count / ad_count
   └─<1:N> [questions] 大問
-        - question_number / difficulty / question_content / question_format
+        - question_number / difficulty / question_content
         └─<1:N> [sub_questions] 小問
-              - sub_question_number / sub_question_type_id / sub_question_content / sub_question_format
-              - answer_content / answer_format
+              - sub_question_number / sub_question_type_id / sub_question_content
+              - answer_content
               └─<N:1> [question_types] 問題形式マスタ
 
 [keywords] ←→ [question_keywords] (大問キーワード)
@@ -158,16 +179,21 @@
 | :--- | :--- | :--- | :--- |
 | `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | 試験ID |
 | `exam_name` | VARCHAR(255) | **NOT NULL** | **[追加]** 試験名称・タイトル |
+| `exam_type` | INT | DEFAULT 0 | **[追加]** 試験形式（0: 定期試験、1: 授業内試験、2: 小テスト） |
 | `school` | INT | NOT NULL | 学校ID（`universities.id`想定） |
+| `faculty_id` | BIGINT | FOREIGN KEY → `faculties(id)` | **[追加]** 学部ID |
 | `teacher_id` | BIGINT | FOREIGN KEY → `teachers(id)` | 教授ID |
 | `subject_id` | BIGINT | FOREIGN KEY → `subjects(id)` | 科目ID |
 | `exam_year` | INT | NOT NULL | 試験年度 |
+| `academic_field_id` | BIGINT | FOREIGN KEY → `academic_fields(id)` | **[追加]** 学問分野ID |
+| `academic_system` | INT | DEFAULT 0 | **[追加]** 学位系統（0: 理系、1: 文系） |
+| `duration_minutes` | INT | NULL | **[追加]** 所要時間（分） |
 | `user_id` | BIGINT | FOREIGN KEY → `users(id)` | 作成者ID |
 | `is_public` | BOOLEAN | DEFAULT TRUE | 公開フラグ |
 | `status` | VARCHAR(20) | DEFAULT 'active' | コンテンツ状態 |
 | `comment_count` | INT | **DEFAULT 0** | **[追加]** コメント数（キャッシュ） |
-| `good_count` | INT | DEFAULT 0 | いいね数 |
-| `bad_count` | INT | DEFAULT 0 | bad数 |
+| `good_count` | INT | DEFAULT 0 | 高評価数 |
+| `bad_count` | INT | DEFAULT 0 | 低評価数 |
 | `view_count` | INT | DEFAULT 0 | 閲覧数 |
 | `ad_count` | INT | DEFAULT 0 | 広告表示完了回数 |
 | `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |
@@ -183,7 +209,6 @@
 | `difficulty` | INT | DEFAULT 0 | 難易度（AI推定など） |
 | `question_number` | INT | NOT NULL | 大問番号 |
 | `question_content` | TEXT | NOT NULL | 問題文 |
-| `question_format` | INT | DEFAULT 0 | 形式（0:text, 1:latex） |
 | `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |
 | `updated_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 更新日時 |
 
@@ -196,69 +221,76 @@
 | `question_id` | BIGINT | FOREIGN KEY → `questions(id)` | 所属大問ID |
 | `sub_question_number` | INT | NOT NULL | 小問番号 |
 | `sub_question_type_id` | INT | FOREIGN KEY → `question_types(id)` | 問題タイプID |
-| `sub_question_format` | INT | DEFAULT 0 | 形式（0:text, 1:latex） |
-| `sub_question_content` | TEXT | NOT NULL | 小問の問題文 |
-| `answer_content` | TEXT | NOT NULL | 解答解説文 |
-| `answer_format` | INT | DEFAULT 0 | 解答形式 |
-| `selection_mode` | ENUM('single','multiple') | DEFAULT 'single' | 選択式/複数選択のモード |
-| `execution_meta` | JSONB | NULL | プログラミング系の実行設定（言語/タイムアウト/メモリ等） |
+| `sub_question_content` | TEXT | NOT NULL | **[共通]** 問題文（Markdown/LaTeX対応） |
+| `answer_explanation` | TEXT | NOT NULL | **[変更]** 模範解答および解説（記述系はここに統合） |
+| `execution_options` | JSONB | NULL | **[ID 12用]** 実行環境設定（言語/制限時間など） |
 | `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |
 | `updated_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 更新日時 |
 
 ### 3.4. `question_types` テーブル
 問題形式の定義マスタ。
 
+**パターンA: 選択系（ID 1-5）**
+
 | ID | type_name | description |
 | :--- | :--- | :--- |
-| 1 | 記述式 | 自由記述 |
-| 2 | 選択式（単一） | 単一選択（ラジオ） |
-| 3 | 選択式（複数） | 複数選択（チェックボックス） |
-| 4 | 穴埋め式 | 空欄補充（複数空所対応） |
-| 5 | 正誤判定 | True/False |
-| 6 | 数値計算式 | 計算問題 |
-| 7 | 証明問題 | 論理証明 |
-| 8 | プログラミング | コード記述 |
-| 9 | コード読解 | コード読み取り |
+| 1 | 単一選択 | 選択肢から1つを選択（ラジオボタン） |
+| 2 | 複数選択 | 複数の正解を選択（チェックボックス） |
+| 3 | 正誤判定 | 真偽値判定（True/False） |
+| 4 | 組み合わせ | ペアリング/マッチング問題 |
+| 5 | 順序並べ替え | シーケンス/順序付け問題 |
+
+**パターンB: 記述系（ID 10-14）**
+
+| ID | type_name | description |
+| :--- | :--- | :--- |
+| 10 | 記述式 | 自由記述テキスト |
+| 11 | 証明問題 | 論理証明・数学証明 |
+| 12 | コード記述 | プログラミング記述（実行環境対応） |
+| 13 | 翻訳 | 言語翻訳問題 |
+| 14 | 数値計算 | 計算問題（許容誤差対応） |
 
 **補足**  
-- 2/3 の選択式は必ず選択肢データ（`sub_question_options`）を持つ。`selection_mode` と合わせて保存・採点ロジックを分岐する。  
-- 4 の穴埋め式は複数空所を前提とし、`cloze_blanks` に分割して保持する。  
-- 6 の数値計算式は許容誤差/単位等を `numeric_answer_settings` で保持する。  
-- 8/9 のプログラミング/コード読解は実行環境メタ（言語/制限）を `execution_meta` に保持し、サンドボックス実行を必須とする。  
+- **ID 1-3（選択系）**: `sub_question_selection` テーブルで選択肢リストを管理。各選択肢に `is_correct` フラグで正解を定義。  
+- **ID 4（組み合わせ）**: `sub_question_matching` テーブルで左右項目のペアを管理。正解はペア構成そのもので定義。  
+- **ID 5（順序並べ替え）**: `sub_question_ordering` テーブルで要素と正解順序を管理。`correct_order` カラムで序列を定義。  
+- **ID 10-14（記述系）**: `sub_questions` の `answer_explanation` カラムに模範解答と解説を統合。選択肢等の補助テーブル不要。  
+- **ID 12（コード記述）**: `execution_options` (JSON) に実行環境設定（言語/タイムアウト等）を保持。  
 
-### 3.5. `sub_question_options` テーブル 【新規】
-選択肢データの正規化テーブル（単一/複数選択・正誤判定が利用）。
-
-| カラム名 | データ型 | 制約 | 説明 |
-| :--- | :--- | :--- | :--- |
-| `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | 選択肢ID |
-| `sub_question_id` | BIGINT | FOREIGN KEY → `sub_questions(id)` | 紐づく小問 |
-| `content` | TEXT | NOT NULL | 選択肢文 |
-| `is_correct` | BOOLEAN | DEFAULT FALSE | 正解フラグ |
-| `order_index` | INT | DEFAULT 0 | 表示順 |
-| `score_weight` | DECIMAL(5,2) | DEFAULT 1.0 | 部分点配分（複数選択用） |
-
-### 3.6. `numeric_answer_settings` テーブル 【新規】
-数値計算式の採点条件。
+### 3.5. `sub_question_selection` テーブル 【新規】
+**対象ID: 1 (単一選択), 2 (複数選択), 3 (正誤判定)**  
+選択肢リストを管理するテーブル。
 
 | カラム名 | データ型 | 制約 | 説明 |
 | :--- | :--- | :--- | :--- |
-| `sub_question_id` | BIGINT | PRIMARY KEY, FOREIGN KEY → `sub_questions(id)` | 対象小問 |
-| `tolerance` | DECIMAL(10,4) | DEFAULT 0 | 許容誤差（絶対値） |
-| `unit` | VARCHAR(50) | NULL | 単位（例: m, s） |
-| `scoring_type` | VARCHAR(20) | DEFAULT 'exact' | exact / range 等 |
-
-### 3.7. `cloze_blanks` テーブル 【新規】
-穴埋め式の空所定義。複数空所と部分点に対応。
-
-| カラム名 | データ型 | 制約 | 説明 |
-| :--- | :--- | :--- | :--- |
-| `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | 空所ID |
+| `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | ID |
 | `sub_question_id` | BIGINT | FOREIGN KEY → `sub_questions(id)` | 対象小問 |
-| `blank_index` | INT | NOT NULL | 空所番号（0起点でも1起点でも可、UIと合わせる） |
-| `answer` | TEXT | NOT NULL | 正答 |
-| `tolerance` | DECIMAL(10,4) | NULL | 許容誤差（数値穴埋め用） |
-| `score_weight` | DECIMAL(5,2) | DEFAULT 1.0 | 部分点配分 |
+| `content` | TEXT | NOT NULL | 選択肢の文言（Markdown/LaTeX対応） |
+| `is_correct` | BOOLEAN | DEFAULT FALSE | 正解フラグ |
+| `sort_order` | INT | DEFAULT 0 | 表示順 |
+
+### 3.6. `sub_question_matching` テーブル 【新規】
+**対象ID: 4 (組み合わせ)**  
+左側の項目と右側の項目のペアを管理するテーブル。
+
+| カラム名 | データ型 | 制約 | 説明 |
+| :--- | :--- | :--- | :--- |
+| `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | ID |
+| `sub_question_id` | BIGINT | FOREIGN KEY → `sub_questions(id)` | 対象小問 |
+| `left_content` | TEXT | NOT NULL | 左側の項目（問題側） |
+| `right_content` | TEXT | NOT NULL | 右側の項目（解答側） |
+| `sort_order` | INT | DEFAULT 0 | 表示順（左側項目の順序） |
+
+### 3.7. `sub_question_ordering` テーブル 【新規】
+**対象ID: 5 (順序並べ替え)**  
+並べ替え対象の要素と正解順序を管理するテーブル。
+
+| カラム名 | データ型 | 制約 | 説明 |
+| :--- | :--- | :--- | :--- |
+| `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | ID |
+| `sub_question_id` | BIGINT | FOREIGN KEY → `sub_questions(id)` | 対象小問 |
+| `content` | TEXT | NOT NULL | 要素の文言 |
+| `correct_order` | INT | NOT NULL | 正解となる順序（1, 2, 3...） |
 
 ### 3.8. `file_inputs` テーブル
 元データ（PDF/テキスト）管理。

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Box, CircularProgress, Alert, Button, Typography } from '@mui/material';
-import Grid from '@mui/material/Grid2';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 import { useExamDetail } from '@/features/content/hooks/useExamDetail';
@@ -13,7 +12,6 @@ import { ProblemEditor } from '@/components/page/ProblemViewEditPage/ProblemEdit
 import { QuestionBlock } from '@/components/page/ProblemViewEditPage/QuestionBlock';
 import { SubQuestionBlock } from '@/components/page/ProblemViewEditPage/SubQuestionBlock';
 import { SubQuestionSectionHandle } from '@/components/page/ProblemViewEditPage/SubQuestionSection/SubQuestionSection';
-import { ContextHealthAlert } from '@/components/common/ContextHealthAlert';
 
 export default function ProblemViewEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -57,8 +55,22 @@ export default function ProblemViewEditPage() {
   // TopMenuBar で Edit/View ボタンが押されたときに isEditMode が更新される
   // これを isEditModeLocal に同期することで UI が更新される
   useEffect(() => {
-    setIsEditModeLocal(isEditMode);
-  }, [isEditMode]);
+    // isEditMode が false に変わった場合、必ず同期する（無限ループを避けるため prev をチェック）
+    const prev = prevValuesRef.current;
+    
+    // 値が変わった場合のみ処理
+    if (prev.isEditMode !== isEditMode) {
+      setIsEditModeLocal(isEditMode);
+      prev.isEditMode = isEditMode;
+      
+      // Edit モードに入る場合、editedExam を確保する
+      if (isEditMode && exam && (!editedExam || editedExam.id !== exam.id)) {
+        setEditedExam(exam);
+      }
+      
+      console.log('[ProblemViewEditPage] isEditMode changed:', isEditMode);
+    }
+  }, [isEditMode, exam, editedExam]);
 
   // 変更があるかどうかを判定
   // NOTE: MyPage では詳細フィールドの比較を行っていますが、
@@ -70,7 +82,9 @@ export default function ProblemViewEditPage() {
     
     // JSON.stringify で全体を比較（最も確実）
     // ただしフォーム表示時のみ（isEditModeLocal === true）
-    return JSON.stringify(editedExam) !== JSON.stringify(exam);
+    const changed = JSON.stringify(editedExam) !== JSON.stringify(exam);
+    console.log('[ProblemViewEditPage] hasChanges:', changed, 'isEditModeLocal:', isEditModeLocal);
+    return changed;
   }, [exam, editedExam, isEditModeLocal]);
 
   // Phase 6: Save handler stored in ref for stability
@@ -143,17 +157,16 @@ export default function ProblemViewEditPage() {
       prev.hasChanges = hasChanges;
     }
     
-    if (prev.isEditMode !== isEditModeLocal) {
-      setIsEditMode(isEditModeLocal);
-      prev.isEditMode = isEditModeLocal;
-    }
+    // NOTE: isEditMode は TopMenuBar から外部で更新されるため、
+    // ここから setIsEditMode を呼び出さない（双方向バインディングを避ける）
+    // 代わりに useEffect: isEditMode の変更を検知するエフェクトで isEditModeLocal のみ更新
     
     if (prev.isSaving !== mutationSaving) {
       setIsSaving(mutationSaving);
       prev.isSaving = mutationSaving;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthor, hasChanges, isEditModeLocal, mutationSaving]);
+  }, [isAuthor, hasChanges, mutationSaving]);
 
   // Set save callback only once on mount
   useEffect(() => {
@@ -179,76 +192,77 @@ export default function ProblemViewEditPage() {
     return (
       <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', pb: 10 }}>
         <Container maxWidth='xl' sx={{ py: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
+          {/* 戻るボタン + ローディング */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4, alignItems: 'center' }}>
             <Button startIcon={<ArrowBackIcon />} onClick={() => stableNavigateWithCheck('/')}>
               戻る
             </Button>
             {isFetching && <CircularProgress size={20} />}
           </Box>
 
-          <Grid container spacing={4}>
-            <Grid size={{ xs: 12, lg: 8 }}>
-              {isEditModeLocal ? (
-                <ProblemEditor
-                  exam={editedExam || exam}
-                  onChange={setEditedExam}
-                />
-              ) : (
-                <Box>
-                  {exam.questions?.map((question: any) => (
-                    <QuestionBlock
-                      key={question.id}
-                      id={question.id}
-                      questionNumber={question.questionNumber}
-                      content={question.questionContent}
-                      format={question.questionFormat}
-                      difficulty={question.difficulty}
-                      keywords={question.keywords}
-                      viewMode='full'
-                      mode={isEditModeLocal ? 'edit' : 'preview'}
-                    >
-                      <Box sx={{ mt: 2 }}>
-                        {question.subQuestions?.map((subQ: any) => (
-                          <SubQuestionBlock
-                            ref={(ref) => {
-                              // Phase 6: SubQuestionSection の ref を Map に登録
-                              if (ref) {
-                                subQuestionRefsMapRef.current.set(subQ.id, ref);
-                              } else {
-                                subQuestionRefsMapRef.current.delete(subQ.id);
-                              }
-                            }}
-                            key={subQ.id}
-                            id={subQ.id}
-                            subQuestionNumber={subQ.subQuestionNumber}
-                            questionTypeId={subQ.questionTypeId}
-                            questionContent={subQ.questionContent || ''}
-                            answerContent={subQ.answerContent || ''}
-                            keywords={subQ.keywords || []}
-                            options={subQ.options || []}
-                            pairs={subQ.pairs || []}
-                            items={subQ.items || []}
-                            answers={subQ.answers || []}
-                            showAnswer={false}
-                            mode="preview"
-                          />
-                        ))}
-                      </Box>
-                    </QuestionBlock>
-                  ))}
-                </Box>
-              )}
-            </Grid>
+          {/* メタデータセクション - 最上部に配置（フルウィド） */}
+          <Box sx={{ mb: 4 }}>
+            <ProblemMetaBlock exam={exam} />
+          </Box>
 
-            <Grid size={{ xs: 12, lg: 4 }}>
-              <Box sx={{ position: 'sticky', top: 24 }}>
-                <Box sx={{ mb: 2 }}>
-                  <ContextHealthAlert />
-                </Box>
-                <ProblemMetaBlock exam={exam} />
+          {/* 問題内容（フルウィド） */}
+          <Box>
+            {isEditModeLocal && isFetching ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
               </Box>
-            </Grid>
-          </Grid>
+            ) : isEditModeLocal ? (
+              <ProblemEditor
+                exam={editedExam || exam}
+                onChange={setEditedExam}
+              />
+            ) : (
+              <Box>
+                {exam.questions?.map((question: any) => (
+                  <QuestionBlock
+                    key={question.id}
+                    id={question.id}
+                    questionNumber={question.questionNumber}
+                    content={question.questionContent}
+                    format={question.questionFormat}
+                    difficulty={question.difficulty ?? 1}
+                    keywords={question.keywords}
+                    viewMode='full'
+                    mode={isEditModeLocal ? 'edit' : 'preview'}
+                  >
+                    <Box sx={{ mt: 2 }}>
+                      {question.subQuestions?.map((subQ: any) => (
+                        <SubQuestionBlock
+                          ref={(ref) => {
+                            // Phase 6: SubQuestionSection の ref を Map に登録
+                            if (ref) {
+                              subQuestionRefsMapRef.current.set(subQ.id, ref);
+                            } else {
+                              subQuestionRefsMapRef.current.delete(subQ.id);
+                            }
+                          }}
+                          key={subQ.id}
+                          id={subQ.id}
+                          subQuestionNumber={subQ.subQuestionNumber}
+                          questionTypeId={subQ.questionTypeId}
+                          questionContent={subQ.questionContent || ''}
+                          answerContent={subQ.answerContent || ''}
+                          explanation={subQ.answer_explanation || subQ.answerExplanation || ''}
+                          keywords={subQ.keywords || []}
+                          options={subQ.options || []}
+                          pairs={subQ.pairs || []}
+                          items={subQ.items || []}
+                          answers={subQ.answers || []}
+                          showAnswer={false}
+                          mode={isEditModeLocal ? 'edit' : 'preview'}
+                        />
+                      ))}
+                    </Box>
+                  </QuestionBlock>
+                ))}
+              </Box>
+            )}
+          </Box>
         </Container>
       </Box>
     );

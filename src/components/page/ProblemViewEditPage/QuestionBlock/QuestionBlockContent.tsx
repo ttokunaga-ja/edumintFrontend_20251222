@@ -34,8 +34,6 @@ export const QuestionBlockContent: React.FC<QuestionBlockContentProps> = ({
         onChange={(v) => onContentChange?.(v)}
         onUnsavedChange={onUnsavedChange}
         mode={mode}
-        minEditorHeight={150}
-        minPreviewHeight={100}
         inputId={id}
         name={id}
       />

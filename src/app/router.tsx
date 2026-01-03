@@ -8,7 +8,8 @@ const LoginRegisterPage = lazy(() => import('../pages/LoginRegisterPage'));
 const MyPage = lazy(() => import('../pages/MyPage'));
 const AdminModerationPage = lazy(() => import('../pages/AdminModerationPage'));
 const ProblemCreatePage = lazy(() => import('../pages/ProblemCreatePage'));
-import ProblemViewEditPage from '../pages/ProblemViewEditPage';
+const ProblemViewEditPage = lazy(() => import('../pages/ProblemViewEditPage'));
+const ExamPage = lazy(() => import('../pages/ExamPage'));
 
 // Fallback component
 const PageLoader = () => <div>Loading...</div>;
@@ -31,6 +32,7 @@ export function Router() {
           }
         />
         <Route path="/problem/:id" element={<ProblemViewEditPage />} />
+        <Route path="/exam/:id" element={<ExamPage />} />
         <Route
           path="/mypage"
           element={

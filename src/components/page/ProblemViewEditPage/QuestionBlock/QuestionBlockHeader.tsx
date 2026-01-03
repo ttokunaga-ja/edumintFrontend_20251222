@@ -24,7 +24,7 @@ export const QuestionBlockHeader: React.FC<QuestionBlockHeaderProps> = ({
         sx={{
           width: 32,
           height: 32,
-          borderRadius: '50%',
+          borderRadius: '4px',
           bgcolor: 'primary.main',
           color: 'primary.contrastText',
           display: 'flex',

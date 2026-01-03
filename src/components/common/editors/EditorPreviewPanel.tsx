@@ -167,6 +167,7 @@ export const EditorPreviewPanel: React.FC<EditorPreviewPanelProps> = ({
           value={value}
           onChange={onChange}
           hasLatex={hasLatex}
+          readOnly={false}
           id={id}
           name={name}
         />

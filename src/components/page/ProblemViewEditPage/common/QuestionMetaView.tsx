@@ -10,6 +10,13 @@ type QuestionMetaViewProps = {
   keywords?: Keyword[];
 };
 
+/**
+ * QuestionMetaView
+ * 
+ * Viewモードで難易度とキーワードを表示
+ * レイアウト：
+ * 1行目: [難易度チップ] [キーワード一覧]
+ */
 export const QuestionMetaView: React.FC<QuestionMetaViewProps> = ({
   difficulty,
   difficultyLabels,
@@ -19,16 +26,22 @@ export const QuestionMetaView: React.FC<QuestionMetaViewProps> = ({
   const meta = difficultyLabels[effectiveDifficulty] ?? difficultyLabels[0];
 
   return (
-    <Stack direction="row" spacing={2} alignItems="center">
-      {meta && (
-        <Chip
-          label={meta.label}
-          color={(meta.color as any) || 'default'}
-          size="small"
-          variant="outlined"
-        />
-      )}
-      <KeywordEditor keywords={keywords} canEdit={false} />
+    <Stack spacing={2}>
+      {/* Row 1: Difficulty Chip + Keywords */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%', flexWrap: 'wrap' }}>
+        {meta && (
+          <Chip
+            label={meta.label}
+            color={(meta.color as any) || 'default'}
+            size="small"
+            variant="outlined"
+          />
+        )}
+        {keywords.length > 0 && (
+          <KeywordEditor keywords={keywords} canEdit={false} />
+        )}
+      </Box>
     </Stack>
   );
 };
+

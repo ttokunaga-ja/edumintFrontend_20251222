@@ -25,9 +25,23 @@ export const SubQuestionBlockHeader: React.FC<SubQuestionBlockHeaderProps> = ({
 }) => {
   return (
     <Stack direction='row' alignItems='flex-start' spacing={2}>
-      <Typography variant='subtitle1' sx={{ fontWeight: 'bold', minWidth: 24 }}>
-        ({subQuestionNumber})
-      </Typography>
+      {/* Sub Question Number Circle */}
+      <Box
+        sx={{
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          bgcolor: 'secondary.main',
+          color: 'secondary.contrastText',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 'bold',
+          fontSize: '0.875rem',
+        }}
+      >
+        {subQuestionNumber}
+      </Box>
 
       <Box sx={{ flexGrow: 1 }}>
         <Stack direction='row' alignItems='center' spacing={1}>

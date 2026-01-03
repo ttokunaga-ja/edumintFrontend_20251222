@@ -1,14 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Paper, Stack, Alert, CircularProgress, Box } from '@mui/material';
 import { SubQuestionBlockContent } from '../SubQuestionBlock/SubQuestionBlockContent';
-import { SubQuestionBlockAnswer } from '../SubQuestionBlock/SubQuestionBlockAnswer';
-import { SubQuestionBlockHeader } from '../SubQuestionBlock/SubQuestionBlockHeader';
-import { SubQuestionBlockMeta } from '../SubQuestionBlock/SubQuestionBlockMeta';
+import { BlockHeader } from '../common/BlockHeader';
+import { BlockMeta } from '../common/BlockMeta';
 import { useSubQuestionState, SubQuestionStateType } from '@/features/content/hooks/useSubQuestionState';
 import { useUnsavedChanges } from '@/features/content/hooks/useUnsavedChanges';
 import { getSubQuestionRepository } from '@/features/content/repositories';
 import { validateSubQuestion } from '@/features/content/utils/validateSubQuestion';
 import { normalizeSubQuestion } from '@/features/content/utils/normalizeSubQuestion';
+import { getQuestionTypeOptions, getQuestionTypeLabel } from '../utils/questionTypeUtils';
 
 export type SubQuestionSectionProps = {
   id: string;
@@ -16,6 +16,7 @@ export type SubQuestionSectionProps = {
   questionTypeId: number;
   questionContent: string;
   answerContent?: string;
+  explanation?: string;
   keywords?: Array<{ id: string; keyword: string }>;
   options?: Array<{ id: string; content: string; isCorrect: boolean }>;
   pairs?: Array<{ id: string; question: string; answer: string }>;
@@ -46,6 +47,7 @@ export interface SubQuestionSectionHandle {
 }
 
 // 新規問題形式のラベル定義（ID 1-5, 10-14）
+// 外部管理可能な構造：ProblemTypeRegistry から取得することも可能
 const questionTypeLabels: Record<number, string> = {
   1: '単一選択',
   2: '複数選択',
@@ -58,6 +60,16 @@ const questionTypeLabels: Record<number, string> = {
   13: '翻訳',
   14: '数値計算',
 };
+
+/**
+ * 問題形式オプションを生成するユーティリティ
+ * 将来的には ProblemTypeRegistry から取得することも可能
+ */
+const getLocalQuestionTypeOptions = () =>
+  Object.entries(questionTypeLabels).map(([id, label]) => ({
+    value: Number(id),
+    label,
+  }));
 
 /**
  * SubQuestionSection
@@ -83,6 +95,7 @@ export const SubQuestionSection = React.forwardRef<
     questionTypeId,
     questionContent,
     answerContent,
+    explanation,
     keywords = [],
     options = [],
     pairs = [],
@@ -131,6 +144,14 @@ export const SubQuestionSection = React.forwardRef<
     markClean,
   } = useSubQuestionState(initialSubQuestion);
 
+  // クライアント側での状態管理
+  const [clientKeywords, setClientKeywords] = useState<Array<{ id: string; keyword: string }>>(keywords);
+  const [clientQuestionTypeId, setClientQuestionTypeId] = useState(questionTypeId);
+  const [clientOptions, setClientOptions] = useState(options);
+  const [clientPairs, setClientPairs] = useState(pairs);
+  const [clientItems, setClientItems] = useState(items);
+  const [clientAnswers, setClientAnswers] = useState(answers);
+
   // 未保存変更追跡
   const questionChanges = useUnsavedChanges('questionContent');
   const answerChanges = useUnsavedChanges('answerContent');
@@ -170,38 +191,44 @@ export const SubQuestionSection = React.forwardRef<
     [updateAnswerDescription, onAnswerChange, answerChanges]
   );
 
-  // キーワードの追加ハンドラ
+  // キーワードの追加ハンドラ - クライアント側で状態管理、API呼び出しなし
   const handleKeywordAdd = useCallback(
-    async (keyword: string) => {
+    (keyword: string) => {
       setSaveError(null);
-      try {
-        const repo = getSubQuestionRepository();
-        await repo.addKeyword(id, keyword);
-        onKeywordAdd?.(keyword);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error('キーワード追加に失敗しました');
-        setSaveError(err);
-        onSaveError?.(err);
-      }
+      // クライアント側で新しいキーワードを追加（IDはサーバ側で生成される想定）
+      const newKeyword = { id: `temp-${Date.now()}`, keyword };
+      setClientKeywords(prev => [...prev, newKeyword]);
+      onKeywordAdd?.(keyword);
+      markDirty();
     },
-    [id, onKeywordAdd, onSaveError]
+    [onKeywordAdd, markDirty]
   );
 
-  // キーワードの削除ハンドラ
+  // キーワードの削除ハンドラ - クライアント側で状態管理、API呼び出しなし
   const handleKeywordRemove = useCallback(
-    async (keywordId: string) => {
+    (keywordId: string) => {
       setSaveError(null);
-      try {
-        const repo = getSubQuestionRepository();
-        await repo.removeKeyword(id, keywordId);
-        onKeywordRemove?.(keywordId);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error('キーワード削除に失敗しました');
-        setSaveError(err);
-        onSaveError?.(err);
+      // クライアント側でキーワードを削除
+      setClientKeywords(prev => prev.filter(kw => kw.id !== keywordId));
+      onKeywordRemove?.(keywordId);
+      markDirty();
+    },
+    [onKeywordRemove, markDirty]
+  );
+
+  // 問題形式の変更ハンドラ - クライアント側で状態管理、API呼び出しなし
+  const handleQuestionTypeChange = useCallback(
+    (event: any) => {
+      setSaveError(null);
+      // event.target.value から値を正確に取得
+      const newTypeId = event.target?.value;
+      if (typeof newTypeId === 'number') {
+        setClientQuestionTypeId(newTypeId);
+        onTypeChange?.(newTypeId);
+        markDirty();
       }
     },
-    [id, onKeywordRemove, onSaveError]
+    [onTypeChange, markDirty]
   );
 
   /**
@@ -217,17 +244,17 @@ export const SubQuestionSection = React.forwardRef<
     setIsSaving(true);
 
     try {
-      // 1️⃣ データの統合
+      // 1️⃣ データの統合 - クライアント側で管理している状態を使用
       const subQuestionData = {
         id,
-        questionTypeId,
+        questionTypeId: clientQuestionTypeId,
         questionContent: subQuestionState.subQuestion.content,
         answerContent: answerContent || '',
-        keywords,
-        options,
-        pairs,
-        items,
-        answers,
+        keywords: clientKeywords,
+        options: clientOptions,
+        pairs: clientPairs,
+        items: clientItems,
+        answers: clientAnswers,
       };
 
       // 2️⃣ バリデーション (validateSubQuestion)
@@ -250,32 +277,32 @@ export const SubQuestionSection = React.forwardRef<
       const repo = getSubQuestionRepository();
       await repo.update(id, {
         content: (normalized as any).questionContent || subQuestionData.questionContent,
-        keywords: (normalized as any).keywords?.map((k: any) => typeof k === 'string' ? k : k.keyword) || [],
+        keywords: clientKeywords.map((k: any) => typeof k === 'string' ? k : k.keyword),
       });
 
       // 5️⃣ 形式別のデータを保存 (updateSelection/Matching/Ordering/Essay)
       const normalizedData = normalized as any;
-      switch (normalizedData.questionTypeId || questionTypeId) {
+      switch (clientQuestionTypeId) {
         case 1:
         case 2:
         case 3:
           // Selection 形式
-          if (options && options.length > 0) {
-            await repo.updateSelection(id, options);
+          if (clientOptions && clientOptions.length > 0) {
+            await repo.updateSelection(id, clientOptions);
           }
           break;
 
         case 4:
           // Matching 形式
-          if (pairs && pairs.length > 0) {
-            await repo.updateMatching(id, pairs);
+          if (clientPairs && clientPairs.length > 0) {
+            await repo.updateMatching(id, clientPairs);
           }
           break;
 
         case 5:
           // Ordering 形式
-          if (items && items.length > 0) {
-            await repo.updateOrdering(id, items);
+          if (clientItems && clientItems.length > 0) {
+            await repo.updateOrdering(id, clientItems);
           }
           break;
 
@@ -285,8 +312,8 @@ export const SubQuestionSection = React.forwardRef<
         case 13:
         case 14:
           // Essay 形式
-          if (answers && answers.length > 0) {
-            await repo.updateEssay(id, answers);
+          if (clientAnswers && clientAnswers.length > 0) {
+            await repo.updateEssay(id, clientAnswers);
           }
           break;
       }
@@ -310,14 +337,14 @@ export const SubQuestionSection = React.forwardRef<
     }
   }, [
     id,
-    questionTypeId,
+    clientQuestionTypeId,
     subQuestionState.subQuestion.content,
     answerContent,
-    keywords,
-    options,
-    pairs,
-    items,
-    answers,
+    clientKeywords,
+    clientOptions,
+    clientPairs,
+    clientItems,
+    clientAnswers,
     questionChanges,
     answerChanges,
     markClean,
@@ -353,36 +380,43 @@ export const SubQuestionSection = React.forwardRef<
           </Stack>
         )}
 
-        {/* Header */}
-        <SubQuestionBlockHeader
-          subQuestionNumber={subQuestionNumber}
-          questionTypeLabel={questionTypeLabels[questionTypeId] || '記述式'}
-          canEdit={canEdit}
-          onEdit={() => setIsEditingQuestion(true)}
-          onDelete={onDelete}
-        />
+        {/* Header + Meta Info Row (同じ行に配置) */}
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, width: '100%' }}>
+          {/* Header (小問番号) */}
+          <Box sx={{ minWidth: 'fit-content' }}>
+            <BlockHeader
+              level="minor"
+              number={subQuestionNumber}
+            />
+          </Box>
 
-        {/* Meta */}
-        <SubQuestionBlockMeta
-          questionTypeId={questionTypeId}
-          questionTypeLabel={questionTypeLabels[questionTypeId] || '記述式'}
-          questionTypeOptions={Object.entries(questionTypeLabels).map(([id, label]) => ({
-            value: Number(id),
-            label,
-          }))}
-          keywords={keywords}
-          canEdit={canEdit}
-          onTypeChange={onTypeChange}
-          onKeywordAdd={handleKeywordAdd}
-          onKeywordRemove={handleKeywordRemove}
-        />
+          {/* Meta Info (問題形式 + キーワード) - mode プロップで view/edit を切り替え */}
+          <Box sx={{ flex: 1 }}>
+            <BlockMeta
+              level="minor"
+              metaType="questionType"
+              metaValue={clientQuestionTypeId}
+              metaLabel={questionTypeLabels[clientQuestionTypeId] || '記述式'}
+              metaOptions={getLocalQuestionTypeOptions()}
+              keywords={clientKeywords}
+              mode={canEdit ? 'edit' : 'preview'}
+              canEdit={canEdit}
+              onMetaChange={handleQuestionTypeChange}
+              onKeywordAdd={handleKeywordAdd}
+              onKeywordRemove={handleKeywordRemove}
+              onDelete={onDelete}
+              id={`${id}-meta`}
+            />
+          </Box>
+        </Box>
 
         {/* Content */}
         <SubQuestionBlockContent
           subQuestionNumber={subQuestionNumber}
-          questionTypeId={questionTypeId}
+          questionTypeId={clientQuestionTypeId}
           questionContent={subQuestionState.subQuestion.content}
           answerContent={answerContent}
+          answerExplanation={explanation}
           options={options}
           pairs={pairs}
           items={items}
@@ -392,19 +426,11 @@ export const SubQuestionSection = React.forwardRef<
           showAnswer={showAnswer}
           onQuestionChange={handleQuestionChange}
           onAnswerChange={handleAnswerChange}
+          onExplanationChange={() => {}}
           onQuestionsUnsavedChange={questionChanges.hasUnsaved ? () => {} : undefined}
           onAnswersUnsavedChange={answerChanges.hasUnsaved ? () => {} : undefined}
           mode={mode}
           id={`${id}-content`}
-        />
-
-        {/* Answer */}
-        <SubQuestionBlockAnswer
-          answerContent={answerContent}
-          showAnswer={showAnswer}
-          canEdit={canEdit}
-          onAnswerChange={handleAnswerChange}
-          id={`${id}-answer`}
         />
       </Stack>
     </Paper>

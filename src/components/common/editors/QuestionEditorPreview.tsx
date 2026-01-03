@@ -41,7 +41,7 @@ export const QuestionEditorPreview: React.FC<QuestionEditorPreviewProps> = ({
   onSave,
   isSaving = false,
   minEditorHeight = 120,
-  minPreviewHeight = 120,
+  minPreviewHeight = 80,
   previewDisabled = false,
   disableFolding = false,
   disableUndo = false,
@@ -57,8 +57,19 @@ export const QuestionEditorPreview: React.FC<QuestionEditorPreviewProps> = ({
   const { present, past, future, setState, undo, redo } = useUndo(safeValue);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
 
+  // 外部からの値（valueプロパティ）が変更された場合に、内部状態を同期する
+  // これにより、データロード後やフォームリセット後にプレビューが更新される
+  useEffect(() => {
+    if (safeValue !== present) {
+      setState(safeValue);
+    }
+  }, [safeValue, setState]); // present を依存に入れると変更時にループするので注意
+
   // 初期値を記録（未保存判定用）
-  const [initialValue] = useState(safeValue);
+  const [initialValue, setInitialValue] = useState(safeValue);
+  useEffect(() => {
+    setInitialValue(safeValue);
+  }, [safeValue]);
 
   // 未保存内容があるかどうかを判定し、コールバックを呼ぶ
   useEffect(() => {
@@ -71,7 +82,7 @@ export const QuestionEditorPreview: React.FC<QuestionEditorPreviewProps> = ({
     (newValue: string) => {
       setState(newValue);
       onChange(newValue);
-      
+
       // 未保存状態を通知
       const hasUnsaved = newValue !== initialValue;
       onUnsavedChange?.(hasUnsaved);
@@ -146,7 +157,7 @@ export const QuestionEditorPreview: React.FC<QuestionEditorPreviewProps> = ({
         <EditorPreviewPanel
           value={present}
           onChange={() => { }}
-          minEditorHeight={0}
+          minEditorHeight={minPreviewHeight}
           minPreviewHeight={minPreviewHeight}
           previewDisabled={false}
           disableFolding={true}
