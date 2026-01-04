@@ -1,1 +1,0 @@
-// This file contains model definitions that represent the data structures used in the frontend application.
