@@ -1,4 +1,4 @@
-import React from 'react';
+import type { FC } from 'react';
 import { Box, Card, CardContent, Typography, Stack, Chip } from '@mui/material';
 import { QuestionEditorPreview } from '@/components/common/editors';
 import { ProblemTypeViewProps } from '@/types/problemTypes';
@@ -15,7 +15,7 @@ import { ProblemTypeViewProps } from '@/types/problemTypes';
  * 
  * Moodleの実装を参考にした簡潔な設計
  */
-export const SQ5_Ordering: React.FC<ProblemTypeViewProps & {
+export const SQ5_Ordering: FC<ProblemTypeViewProps & {
   items?: Array<{ id: string; text: string; correctOrder: number }>;
   mode?: 'preview' | 'edit';
 }> = ({

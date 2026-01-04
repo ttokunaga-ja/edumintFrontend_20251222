@@ -14,7 +14,7 @@ import { ComingSoon } from '@/components/common/ComingSoon';
 
 export interface AccountSettingsAccordionProps {
   expandedAccordion: string | false;
-  onAccordionChange: (panel: string) => (event: React.SyntheticEvent, isExpanded: boolean) => void;
+  onAccordionChange: (panel: string) => (event: SyntheticEvent, isExpanded: boolean) => void;
   isEditingProfile: boolean;
   editForm: ProfileEditFormData;
   onFormChange: (form: ProfileEditFormData) => void;
@@ -42,7 +42,7 @@ export interface AccountSettingsAccordionProps {
  * 
  * プロフィール編集アコーディオン開時に、AppBar に SAVE/Preview/Edit ボタンを表示
  */
-export const AccountSettingsAccordion: React.FC<AccountSettingsAccordionProps> = ({
+export const AccountSettingsAccordion: FC<AccountSettingsAccordionProps> = ({
   expandedAccordion,
   onAccordionChange,
   isEditingProfile,

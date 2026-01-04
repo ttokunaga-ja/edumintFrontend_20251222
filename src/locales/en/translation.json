@@ -1,6 +1,6 @@
 {
   "common": {
-    "app_name": "EduMint",
+    "app_name": "Edumint",
     "home": "Home",
     "search": "Search",
     "my_page": "My Page",
@@ -32,7 +32,7 @@
   },
   "search": {
     "search_problems": "Search Problems",
-    "search_placeholder": "Search by keyword, university, or subject...",
+    "search_placeholder": "Search by keyword, exam, or subject name...",
     "no_results": "No results found",
     "advanced_search": "Advanced Search",
     "custom_search": "Custom Search",
@@ -65,5 +65,125 @@
     "complete": "Complete",
     "paused": "Paused",
     "error": "Error"
+  },
+  "common": {
+    "all": "All",
+    "question_count": "{{count}} questions"
+  },
+  "problemCreate": {
+    "startPhase": {
+      "mode": {
+        "exercise": "From practice problems",
+        "document": "From documents"
+      },
+      "drop_here": "Drop files here",
+      "drag_drop_or_click": "Drag & drop files, or click to select",
+      "accepted_formats": "Accepted: PDF, TXT, DOCX | Max per file 10MB | Max total 20MB",
+      "select_files": "Select files",
+      "settings": "Generation settings",
+      "options": {
+        "includeCharts": "Include charts",
+        "autoPublish": "Auto-publish generated problems",
+        "autoFormat": "Auto-detect problem formats",
+        "customizeFormats": "Choose formats individually"
+      },
+      "labels": {
+        "difficulty": "Difficulty",
+        "count": "Number of problems"
+      },
+      "start": "Start generation"
+    }
+  },
+  "enum": {
+    "difficulty": {
+      "auto": "Auto",
+      "basic": "Basic",
+      "standard": "Standard",
+      "advanced": "Advanced",
+      "expert": "Expert"
+    },
+    "format": {
+      "single_choice": "Single choice",
+      "multiple_choice": "Multiple choice",
+      "true_false": "True/False",
+      "matching": "Matching",
+      "ordering": "Ordering",
+      "free_text": "Free text",
+      "proof": "Proof",
+      "code": "Code",
+      "translation": "Translation",
+      "numeric": "Numeric"
+    },
+    "duration": {
+      "short": "Within 5 min",
+      "medium": "Within 15 min",
+      "long": "30+ min"
+    },
+    "period": {
+      "none": "Any",
+      "1day": "Within 1 day",
+      "1week": "Within 1 week",
+      "1month": "Within 1 month",
+      "1year": "Within 1 year",
+      "custom": "Custom period"
+    },
+    "lang": {
+      "ja": "Japanese",
+      "en": "English",
+      "zh": "Chinese",
+      "ko": "Korean",
+      "other": "Other"
+    },
+    "exam": {
+      "regular": "Regular exam",
+      "class": "In-class exam",
+      "quiz": "Quiz"
+    },
+    "academic": {
+      "system": {
+        "liberal_arts": "Liberal arts",
+        "science": "Science"
+      }
+    }
+  },
+  "filters": {
+    "professor": "Professor",
+    "professor_placeholder": "Enter professor name",
+    "exam_type": "Exam type",
+    "level": "Difficulty",
+    "formats": "Formats",
+    "period": "Updated",
+    "duration": "Duration",
+    "academic_system": "Academic system",
+    "language": "Language",
+    "field": "Field",
+    "year": "Exam year",
+    "custom": {
+      "title": "Custom Search",
+      "learned": "Learned",
+      "high_rating": "High rating",
+      "commented": "Commented",
+      "posted": "Posted"
+    }
+  },
+  "problemCreate": {
+    "resultEditor": {
+      "title": "Generated Practice Problems",
+      "summary": "A total of {{count}} practice problems were generated. Please edit them if needed before publishing.",
+      "publish": "Publish",
+      "dialog": {
+        "title": "Title",
+        "content": "Problem",
+        "answer": "Answer",
+        "explanation": "Explanation"
+      }
+    }
+  },
+  "generation": {
+    "timeline": {
+      "start": "Generation",
+      "structure": "Structure Review",
+      "complete": "Complete"
+    }
   }
 }

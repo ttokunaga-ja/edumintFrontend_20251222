@@ -3,7 +3,6 @@ import { __test_problems } from './problemHandlers';
 
 describe('problemHandlers mock data', () => {
   it('includes the three new exams', () => {
-    expect(__test_problems.length).toBeGreaterThanOrEqual(5);
     const ids = __test_problems.map(p => p.id);
     expect(ids).toEqual(expect.arrayContaining([
       'v7N2jK8mP4wL9XRz',

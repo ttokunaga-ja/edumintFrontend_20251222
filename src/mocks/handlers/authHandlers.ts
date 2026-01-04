@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { nanoid } from 'nanoid';
-import { mockUser as defaultMockUser } from '../mockData/user';
+import { mockUser as defaultMockUser } from '../data';
 
 const apiBase = (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:3000/api';
 const withBase = (path: string) => `${apiBase}${path}`;

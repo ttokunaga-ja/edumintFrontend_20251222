@@ -21,9 +21,8 @@ export interface MatchingSubQuestion extends SubQuestion {
 export interface MatchingFormData {
   id: string;
   content: string;
-  format: 0 | 1;
   pairs: MatchingPair[];
-}
+} 
 
 export interface MatchingValidation {
   isValid: boolean;

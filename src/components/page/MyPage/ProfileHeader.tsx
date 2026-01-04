@@ -1,4 +1,4 @@
-import React from 'react';
+import type { FC } from 'react';
 import {
   Card,
   CardContent,
@@ -30,7 +30,7 @@ export interface ProfileHeaderProps {
  * プロフィールヘッダーコンポーネント
  * MyPage の上部に表示されるユーザープロフィール情報
  */
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
+export const ProfileHeader: FC<ProfileHeaderProps> = ({
   user,
   onLogout,
   onNavigateAdmin,
@@ -53,14 +53,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 color: '#ffffff',
               }}
             >
-              {user.username?.charAt(0).toUpperCase() || 'U'}
+              {user.displayName?.charAt(0).toUpperCase() || 'U'}
             </Avatar>
             <Box>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                {user.displayName || user.username}
-              </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
-                @{user.username}
+                {user.displayName || 'ユーザー'}
               </Typography>
               <Typography variant="body2" color="textSecondary">
                 {user.email}

@@ -1,0 +1,5 @@
+[
+  { "id": "n1", "userId": "u_k8P3n9L2mR5qW4xZ", "type": "like", "title": "いいねされました", "content": "佐藤花子さんがあなたの問題にいいねしました", "message": "佐藤花子さんがあなたの問題にいいねしました", "isRead": false, "relatedExamId": null, "createdAt": "2024-12-31T10:00:00Z" },
+  { "id": "n2", "userId": "u_k8P3n9L2mR5qW4xZ", "type": "new_comment", "title": "新しいコメント", "content": "山田太郎さん: とても分かりやすい解説でした！", "message": "山田太郎さん: とても分かりやすい解説でした！", "isRead": false, "relatedExamId": null, "createdAt": "2024-12-31T08:00:00Z" },
+  { "id": "n3", "userId": "u_k8P3n9L2mR5qW4xZ", "type": "system", "title": "システム通知", "content": "来週メンテナンスを予定しています。", "message": "来週メンテナンスを予定しています。", "isRead": true, "createdAt": "2024-12-30T09:00:00Z" }
+]

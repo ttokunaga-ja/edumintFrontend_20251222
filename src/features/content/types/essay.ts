@@ -26,9 +26,8 @@ export interface EssaySubQuestion extends SubQuestion {
 export interface EssayFormData {
   id: string;
   content: string;
-  format: 0 | 1;
   answers: EssayAnswer[];
-}
+} 
 
 export interface EssayValidation {
   isValid: boolean;

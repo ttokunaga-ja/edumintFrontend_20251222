@@ -19,7 +19,7 @@ export interface OptionListEditorProps {
  * 
  * 選択肢の追加・削除・正解設定
  */
-export const OptionListEditor: React.FC<OptionListEditorProps> = ({
+export const OptionListEditor: FC<OptionListEditorProps> = ({
   options,
   onChange,
 }) => {

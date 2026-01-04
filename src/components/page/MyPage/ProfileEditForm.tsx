@@ -59,7 +59,6 @@ const LANGUAGES = [
 
 export interface ProfileEditFormData {
   displayName: string;
-  username?: string;
   email?: string;
   universities?: string[];
   faculties?: string[];
@@ -91,7 +90,7 @@ export interface ProfileEditFormProps {
  * MyPage のプロフィール編集 Accordion 内で使用される共通フォーム
  * 共通SearchFilterFieldコンポーネントを使用
  */
-export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
+export const ProfileEditForm: FC<ProfileEditFormProps> = ({
   isEditing,
   editForm,
   onFormChange,
@@ -134,16 +133,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
           size="small"
         />
 
-        <TextField
-          id="username-input"
-          label="ユーザー名"
-          value={editForm.username || user?.username || ''}
-          onChange={(e) => handleFieldChange('username', e.target.value)}
-          fullWidth
-          variant="outlined"
-          size="small"
-          disabled
-        />
+
 
         <TextField
           id="email-input"
@@ -233,14 +223,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
         </Typography>
       </Box>
 
-      <Box>
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
-          ユーザー名
-        </Typography>
-        <Typography variant="body2">
-          {user?.username}
-        </Typography>
-      </Box>
+
 
       <Box>
         <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>

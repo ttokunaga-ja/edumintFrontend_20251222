@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import {
     Box,
     Stack,
@@ -38,7 +39,7 @@ export interface ExamQuestionMetaProps {
     canMoveDown?: boolean;
 }
 
-export const ExamQuestionMeta: React.FC<ExamQuestionMetaProps> = ({
+export const ExamQuestionMeta: FC<ExamQuestionMetaProps> = ({
     number,
     level,
     metaType,

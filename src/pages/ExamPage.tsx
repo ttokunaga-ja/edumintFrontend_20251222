@@ -98,31 +98,12 @@ export default function ExamPage() {
     */
   }, [user]);
 
-  // isDirty の前回の値を記録
-  const prevContextValues = useRef({
-    isAuthor: false,
-    hasUnsavedChanges: false,
-  });
-
   // ===== 効果: AppBarActionContext との同期 (単一のEffectに集約) =====
   useEffect(() => {
-    const prev = prevContextValues.current;
-
-    // 1. Author権限 (View/Editボタンの表示制御)
-    if (prev.isAuthor !== isAuthor) {
-      console.log('[ExamPage] Updating EnableAppBarActions:', !!isAuthor);
-      setEnableAppBarActions(!!isAuthor);
-      prev.isAuthor = !!isAuthor;
-    }
-
-    // 2. 未保存状態 (Saveボタンの有効化)
-    if (prev.hasUnsavedChanges !== isDirty) {
-      console.log('[ExamPage] Updating HasUnsavedChanges:', isDirty);
-      setHasUnsavedChanges(isDirty);
-      prev.hasUnsavedChanges = isDirty;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthor, isDirty]);
+    console.log('[ExamPage] Syncing AppBar state:', { isAuthor, isDirty });
+    setEnableAppBarActions(isAuthor);
+    setHasUnsavedChanges(isDirty);
+  }, [isAuthor, isDirty, setEnableAppBarActions, setHasUnsavedChanges]);
 
   // ===== 保存ハンドラ =====
   const handleSave = useCallback(async () => {
@@ -150,10 +131,24 @@ export default function ExamPage() {
 
   // 保存ハンドラの登録
   useEffect(() => {
+    console.log('[ExamPage] Registering onSave handler');
     setOnSave(() => handleSave);
-    return () => setOnSave(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleSave]);
+    // Clean up only on unmount (return function runs on unmount)
+    return () => {
+      console.log('[ExamPage] Clearing onSave handler on unmount');
+      setOnSave(null);
+    };
+  }, [handleSave, setOnSave]);
+
+  // Clean up AppBar context only on page unmount
+  useEffect(() => {
+    return () => {
+      console.log('[ExamPage] Cleaning up AppBar state on unmount');
+      setEnableAppBarActions(false);
+      setHasUnsavedChanges(false);
+      setIsEditMode(false);
+    };
+  }, [setEnableAppBarActions, setHasUnsavedChanges, setIsEditMode]);
 
   // ===== エラー表示 =====
   if (error) {

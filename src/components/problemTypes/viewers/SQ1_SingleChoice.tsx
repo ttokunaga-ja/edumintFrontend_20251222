@@ -14,7 +14,7 @@ import { ProblemTypeViewProps } from '@/types/problemTypes';
  * 
  * Moodleの実装を参考にした簡潔な設計
  */
-export const SQ1_SingleChoice: React.FC<ProblemTypeViewProps & {
+export const SQ1_SingleChoice: FC<ProblemTypeViewProps & {
   mode?: 'preview' | 'edit';
 }> = ({
   options = [],

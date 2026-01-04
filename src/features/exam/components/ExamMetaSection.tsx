@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { useFormContext, Controller } from 'react-hook-form';
 import {
   Box,
@@ -15,6 +16,9 @@ import {
   Autocomplete,
 } from '@mui/material';
 import type { ExamFormValues } from '../schema';
+import React, { useEffect, useState, useMemo } from 'react';
+import { getLookup, searchLookup, type LookupItem } from '@/services/api/gateway/lookups';
+import CircularProgress from '@mui/material/CircularProgress';
 
 /**
  * 試験メタデータセクション
@@ -26,8 +30,8 @@ interface ExamMetaSectionProps {
   isEditMode: boolean;
 }
 
-export const ExamMetaSection: React.FC<ExamMetaSectionProps> = ({ isEditMode }) => {
-  const { control, watch } = useFormContext<ExamFormValues>();
+export const ExamMetaSection: FC<ExamMetaSectionProps> = ({ isEditMode }) => {
+  const { control, watch, setValue, getValues } = useFormContext<ExamFormValues>();
 
   const examName = watch('examName');
   const examYear = watch('examYear');
@@ -39,6 +43,109 @@ export const ExamMetaSection: React.FC<ExamMetaSectionProps> = ({ isEditMode }) 
   const examType = watch('examType');
   const majorType = watch('majorType');
   const academicFieldName = watch('academicFieldName');
+
+  // --- LookupAutocomplete component (small helper) ---
+  const LookupAutocomplete: FC<{ entity: string; nameField: string; idField: string; label: string }> = ({ entity, nameField, idField, label }) => {
+    const nameValue = watch(nameField as any) as string;
+    const [options, setOptions] = useState<LookupItem[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [inputValue, setInputValue] = useState('');
+
+    // On mount, try fetching full list; if size <=15 keep as full options, else use search
+    useEffect(() => {
+      let mounted = true;
+      (async () => {
+        setLoading(true);
+        try {
+          const all = await getLookup(entity);
+          if (!mounted) return;
+          if (all.length <= 15) {
+            setOptions(all);
+          } else {
+            setOptions([]); // force search mode
+          }
+        } catch (err) {
+          console.warn('[LookupAutocomplete] getLookup failed', entity, err);
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      })();
+      return () => { mounted = false; };
+    }, [entity]);
+
+    // Search when input changes and options is empty (large dataset)
+    useEffect(() => {
+      if (inputValue.length < 2) return;
+      if (options.length > 0) return; // small dataset already loaded
+      let mounted = true;
+      const id = setTimeout(async () => {
+        try {
+          setLoading(true);
+          const res = await searchLookup(entity, inputValue, 10, 0);
+          if (!mounted) return;
+          setOptions(res.items || []);
+        } catch (err) {
+          console.warn('[LookupAutocomplete] searchLookup failed', entity, err);
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      }, 250);
+      return () => { mounted = false; clearTimeout(id); };
+    }, [inputValue, entity, options.length]);
+
+    return (
+      <Controller
+        name={nameField as any}
+        control={control}
+        render={({ field }) => (
+          <Autocomplete
+            freeSolo
+            options={options}
+            getOptionLabel={(opt) => (typeof opt === 'string' ? opt : opt.name || '')}
+            value={(options.find(o => o.name === field.value) as any) || null}
+            onChange={(_, value) => {
+              if (typeof value === 'string') {
+                field.onChange(value);
+                setValue(idField as any, undefined);
+              } else if (value && typeof value === 'object') {
+                field.onChange(value.name);
+                setValue(idField as any, value.id);
+              } else {
+                field.onChange('');
+                setValue(idField as any, undefined);
+              }
+            }}
+            inputValue={inputValue}
+            onInputChange={(_, newInput) => {
+              setInputValue(newInput);
+              field.onChange(newInput);
+              // clear id when user types
+              setValue(idField as any, undefined);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={label}
+                size="small"
+                variant="outlined"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {loading ? <CircularProgress color="inherit" size={16} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            isOptionEqualToValue={(option, value) => option.id === (value as any)?.id}
+          />
+        )}
+      />
+    );
+  };
+
 
   // 統計情報（読み取り専用）
   const viewCount = watch('viewCount' as any) || 0;
@@ -246,13 +353,7 @@ export const ExamMetaSection: React.FC<ExamMetaSectionProps> = ({ isEditMode }) 
             {/* 大学名 */}
             <Grid item xs={12} sm={6} md={4}>
               {isEditMode ? (
-                <Controller
-                  name="universityName"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField {...field} label="大学名" fullWidth variant="outlined" size="small" />
-                  )}
-                />
+                <LookupAutocomplete entity="universities" nameField="universityName" idField="universityId" label="大学名" />
               ) : (
                 <MetaField label="大学名" value={universityName} />
               )}
@@ -260,13 +361,7 @@ export const ExamMetaSection: React.FC<ExamMetaSectionProps> = ({ isEditMode }) 
             {/* 学部 */}
             <Grid item xs={12} sm={6} md={4}>
               {isEditMode ? (
-                <Controller
-                  name="facultyName"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField {...field} label="学部" fullWidth variant="outlined" size="small" />
-                  )}
-                />
+                <LookupAutocomplete entity="faculties" nameField="facultyName" idField="facultyId" label="学部" />
               ) : (
                 <MetaField label="学部" value={facultyName} />
               )}
@@ -274,13 +369,7 @@ export const ExamMetaSection: React.FC<ExamMetaSectionProps> = ({ isEditMode }) 
             {/* 教授 */}
             <Grid item xs={12} sm={6} md={4}>
               {isEditMode ? (
-                <Controller
-                  name="teacherName"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField {...field} label="教授" fullWidth variant="outlined" size="small" />
-                  )}
-                />
+                <LookupAutocomplete entity="teachers" nameField="teacherName" idField="teacherId" label="教授" />
               ) : (
                 <MetaField label="教授" value={teacherName} />
               )}

@@ -43,8 +43,7 @@ export interface Question {
   id: string;
   problemId: string;
   questionNumber: number;
-  content: string; // LaTeX/Markdown対応
-  format: 0 | 1; // 0: Markdown, 1: LaTeX
+  content: string;
   difficulty?: Difficulty;
   keywords: Keyword[];
   subQuestions: SubQuestion[];
@@ -60,13 +59,13 @@ export interface SubQuestion {
   questionId: string;
   subQuestionNumber: number;
   questionTypeId: number; // 1-5, 10-14
-  content: string; // LaTeX/Markdown対応
-  format: 0 | 1; // 0: Markdown, 1: LaTeX
+  content: string;
+  format?: 0 | 1; // 0: Markdown, 1: LaTeX (legacy - kept for validators)
   difficulty?: Difficulty;
   keywords: Keyword[];
   createdAt: string;
   updatedAt: string;
-}
+} 
 
 /**
  * ProblemEditorState - エディタ用の状態管理

@@ -28,7 +28,7 @@ interface EditorPreviewPanelProps {
   name?: string;
 }
 
-export const EditorPreviewPanel: React.FC<EditorPreviewPanelProps> = ({
+export const EditorPreviewPanel: FC<EditorPreviewPanelProps> = ({
   value,
   onChange,
   minEditorHeight = 120,

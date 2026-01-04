@@ -137,7 +137,7 @@ const renderLatex = (mathContent: string, isBlock: boolean): string => {
   }
 };
 
-export const LaTeXPreview: React.FC<LaTeXPreviewProps> = ({ content }) => {
+export const LaTeXPreview: FC<LaTeXPreviewProps> = ({ content }) => {
   const theme = useTheme();
 
   const parsedContent = useMemo(() => {
@@ -165,7 +165,6 @@ export const LaTeXPreview: React.FC<LaTeXPreviewProps> = ({ content }) => {
       {content === '' && (
         <Box
           sx={{
-            fontSize: '14px',
             color: theme.palette.text.disabled,
             fontStyle: 'italic',
           }}
@@ -207,7 +206,6 @@ export const LaTeXPreview: React.FC<LaTeXPreviewProps> = ({ content }) => {
                       backgroundColor: theme.palette.warning.lighter || theme.palette.action.hover,
                       color: theme.palette.warning.main,
                       borderRadius: '4px',
-                      fontSize: '12px',
                       fontStyle: 'italic',
                     }}
                   >
@@ -241,7 +239,6 @@ export const LaTeXPreview: React.FC<LaTeXPreviewProps> = ({ content }) => {
                     backgroundColor: theme.palette.error.lighter || theme.palette.action.hover,
                     color: theme.palette.error.main,
                     borderRadius: '4px',
-                    fontSize: '12px',
                   }}
                 >
                   ⚠ 数式のエラー: {item.value}
@@ -255,7 +252,6 @@ export const LaTeXPreview: React.FC<LaTeXPreviewProps> = ({ content }) => {
           severity="warning"
           sx={{
             mt: 2,
-            fontSize: '12px',
           }}
         >
           一部の数式がレンダリングできません。LaTeX構文を確認してください。

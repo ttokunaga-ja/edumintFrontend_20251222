@@ -16,43 +16,13 @@ import {
 import {
   Add as AddIcon,
   Person as PersonIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material';
 
 interface SettingsSliderProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
-// Edumintロゴ SVGコンポーネント
-const EdumintLogo = () => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <rect
-      x="4"
-      y="8"
-      width="5"
-      height="12"
-      rx="1"
-      fill="currentColor"
-      opacity="0.8"
-    />
-    <rect x="10" y="6" width="5" height="14" rx="1" fill="currentColor" />
-    <rect
-      x="16"
-      y="10"
-      width="5"
-      height="10"
-      rx="1"
-      fill="currentColor"
-      opacity="0.6"
-    />
-  </svg>
-);
 
 export default function SettingsSlider({
   isOpen,
@@ -101,8 +71,8 @@ export default function SettingsSlider({
                 },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 40, display: 'flex', justifyContent: 'center' }}>
-                <EdumintLogo />
+              <ListItemIcon sx={{ minWidth: 40 }}>
+                <HomeIcon sx={{ fontSize: 20 }} />
               </ListItemIcon>
               <ListItemText
                 primary="HOME"

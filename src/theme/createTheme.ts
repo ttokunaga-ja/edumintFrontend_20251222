@@ -110,21 +110,17 @@ export function useTheme() {
             lineHeight: 1.4,
           },
           h5: {
-            fontSize: '1rem',
             fontWeight: 600,
             lineHeight: 1.5,
           },
           h6: {
-            fontSize: '0.875rem',
             fontWeight: 600,
             lineHeight: 1.6,
           },
           body1: {
-            fontSize: '1rem',
             lineHeight: 1.5,
           },
           body2: {
-            fontSize: '0.875rem',
             lineHeight: 1.43,
           },
           button: {
@@ -177,6 +173,10 @@ export function useTheme() {
                 ].join(','),
                 WebkitFontSmoothing: 'antialiased',
                 MozOsxFontSmoothing: 'grayscale',
+              },
+              html: {
+                // minimum base font size for the service (affects rem sizing)
+                fontSize: '16px',
               },
             },
           },
@@ -233,7 +233,7 @@ export function useTheme() {
             styleOverrides: {
               root: {
                 '& .MuiOutlinedInput-root': {
-                  backgroundColor: prefersDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8f8f8',
+                  backgroundColor: prefersDarkMode ? '#333' : '#f8f8f8',
                   borderRadius: '10px',
                   transition: 'all 0.2s ease',
                   '& fieldset': {
@@ -243,7 +243,7 @@ export function useTheme() {
                     borderColor: prefersDarkMode ? '#444' : '#c0c0c0',
                   },
                   '&.Mui-focused': {
-                    backgroundColor: prefersDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
+                    backgroundColor: prefersDarkMode ? '#666' : '#ffffff',
                     '& fieldset': {
                       borderColor: '#00bcd4',
                     },
@@ -252,6 +252,80 @@ export function useTheme() {
               },
             },
           },
+
+          MuiSelect: {
+            styleOverrides: {
+              root: {
+                backgroundColor: prefersDarkMode ? '#333' : '#f8f8f8',
+                borderRadius: '10px',
+                transition: 'all 0.2s ease',
+                '& fieldset': {
+                  borderColor: prefersDarkMode ? '#333' : '#e0e0e0',
+                },
+                '&:hover fieldset': {
+                  borderColor: prefersDarkMode ? '#444' : '#c0c0c0',
+                },
+                '&.Mui-focused': {
+                  backgroundColor: prefersDarkMode ? '#666' : '#ffffff',
+                  '& fieldset': {
+                    borderColor: '#00bcd4',
+                  },
+                },
+              },
+            },
+          },
+
+          // Ensure dropdown / menu popovers use the same gray background as input fields
+          MuiMenu: {
+            styleOverrides: {
+              paper: {
+                backgroundColor: prefersDarkMode ? '#333' : '#f8f8f8',
+                borderRadius: '10px',
+              },
+            },
+          },
+
+          MuiAutocomplete: {
+            styleOverrides: {
+              paper: {
+                backgroundColor: prefersDarkMode ? '#333' : '#f8f8f8',
+                borderRadius: '10px',
+              },
+              popper: {
+                zIndex: 1300,
+              },
+            },
+          },
+
+          MuiPopover: {
+            styleOverrides: {
+              paper: {
+                backgroundColor: prefersDarkMode ? '#333' : '#f8f8f8',
+              },
+            },
+          },
+
+          MuiMenuItem: {
+            styleOverrides: {
+              root: {
+                '&:hover': {
+                  backgroundColor: prefersDarkMode ? '#444' : '#eaeaea',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: prefersDarkMode ? '#555' : '#e6e6e6',
+                },
+              },
+            },
+          },
+
+          MuiList: {
+            styleOverrides: {
+              root: {
+                backgroundColor: prefersDarkMode ? '#333' : '#f8f8f8',
+              },
+            },
+          },
+
           MuiCard: {
             styleOverrides: {
               root: {
@@ -385,7 +459,6 @@ export function useTheme() {
               },
               label: {
                 fontWeight: 500,
-                fontSize: '0.875rem',
                 color: prefersDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(26, 26, 26, 0.7)',
                 '&.Mui-active': {
                   color: prefersDarkMode ? '#ffffff' : '#1a1a1a',

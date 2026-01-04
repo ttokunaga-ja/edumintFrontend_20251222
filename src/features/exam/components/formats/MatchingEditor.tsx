@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { useFieldArray, useFormContext, useWatch, Controller } from 'react-hook-form';
 import {
   Box,
@@ -27,7 +28,7 @@ interface MatchingEditorProps {
  * 既存の SQ4_Matching を活用
  * 編集・プレビュー両モードに対応
  */
-export const MatchingEditor: React.FC<MatchingEditorProps> = ({
+export const MatchingEditor: FC<MatchingEditorProps> = ({
   basePath,
   isEditMode,
 }) => {

@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import {
   Box,
   CircularProgress,
@@ -10,6 +11,7 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { ProblemCard, ProblemCardItem } from '@/components/common/ProblemCard';
+import ExamCardCompact, { ExamCompactItem, mapProblemToCompactItem } from '@/components/common/ExamCardCompact';
 
 export interface SearchResultsGridProps {
   data?: {
@@ -29,7 +31,7 @@ export interface SearchResultsGridProps {
  * HomePage の検索結果表示UI
  * Loading, Error, Empty, Data の各状態に対応
  */
-export const SearchResultsGrid: React.FC<SearchResultsGridProps> = ({
+export const SearchResultsGrid: FC<SearchResultsGridProps> = ({
   data,
   isLoading,
   error,
@@ -76,10 +78,10 @@ export const SearchResultsGrid: React.FC<SearchResultsGridProps> = ({
             <Grid container spacing={2} sx={{ mb: 4 }}>
               {data.data.map((problem) => (
                 <Grid item xs={12} sm={6} md={4} key={problem.id}>
-                  <ProblemCard
-                    problem={problem}
-                    onCardClick={onCardClick}
-                    variant="full"
+                  <ExamCardCompact
+                    item={mapProblemToCompactItem(problem)}
+                    onView={(id) => onCardClick(id, problem.title || problem.examName || '')}
+                    onGood={() => {/* noop for now */ }}
                   />
                 </Grid>
               ))}

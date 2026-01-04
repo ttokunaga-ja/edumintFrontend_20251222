@@ -22,7 +22,7 @@ export interface ExamEditorProps {
   helperText?: string;
 }
 
-export const ExamEditor: React.FC<ExamEditorProps> = ({
+export const ExamEditor: FC<ExamEditorProps> = ({
   value,
   onChange,
   placeholder,

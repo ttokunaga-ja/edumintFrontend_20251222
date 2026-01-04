@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -16,7 +17,7 @@ interface QuestionListProps {
   isEditMode: boolean;
 }
 
-export const QuestionList: React.FC<QuestionListProps> = ({ isEditMode }) => {
+export const QuestionList: FC<QuestionListProps> = ({ isEditMode }) => {
   const { control } = useFormContext<ExamFormValues>();
   const { fields, append, remove, move } = useFieldArray({
     control,

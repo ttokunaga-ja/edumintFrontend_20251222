@@ -1,0 +1,16 @@
+[
+  {
+    "id": "sel1",
+    "subQuestionId": 1,
+    "content": "2x",
+    "isCorrect": true,
+    "order": 1
+  },
+  {
+    "id": "sel2",
+    "subQuestionId": 1,
+    "content": "x^2",
+    "isCorrect": false,
+    "order": 2
+  }
+]

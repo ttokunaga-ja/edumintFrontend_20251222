@@ -32,7 +32,7 @@ const questionTypeOptions = Object.entries(QuestionTypeLabels).map(([value, labe
   label,
 }));
 
-export const SubQuestionItem: React.FC<SubQuestionItemProps> = ({
+export const SubQuestionItem: FC<SubQuestionItemProps> = ({
   questionIndex,
   subQuestionIndex,
   isEditMode,

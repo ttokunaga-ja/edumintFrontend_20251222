@@ -30,7 +30,7 @@ interface SelectionEditorProps {
  * 既存の SQ1_SingleChoice, SQ2_MultipleChoice を活用
  * 編集・プレビュー両モードに対応
  */
-export const SelectionEditor: React.FC<SelectionEditorProps> = ({
+export const SelectionEditor: FC<SelectionEditorProps> = ({
   basePath,
   questionTypeId,
   isEditMode,

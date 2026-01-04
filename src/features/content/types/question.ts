@@ -19,7 +19,6 @@ export interface QuestionEditState {
 export interface QuestionFormData {
   id: string;
   content: string;
-  format: 0 | 1;
   difficulty?: Difficulty;
   keywords: Keyword[];
 }

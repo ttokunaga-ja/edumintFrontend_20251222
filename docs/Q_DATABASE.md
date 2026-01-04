@@ -6,7 +6,7 @@
 3. **試験・問題データ** (`exams`, `questions`, `sub_questions`, `question_types`, `file_inputs`)
 4. **検索・キーワード** (`keywords`, `question_keywords`, `sub_question_keywords`, 外部ベクトルDB)
 5. **ソーシャル・評価（試験）** (`exam_likes`, `exam_bads`, `exam_comments`)
-6. **経済・広告・システム** (`mintcoin_transactions`, `user_ad_views`)
+6. **経済・広告・システム** (`mintcoin_transactions`, `user_ad_views`, `learning_histories`)
 7. **通報システム（コンテンツ・ユーザー）** (`reports`, `report_reasons`, `report_files` など)
 
 ---
@@ -23,6 +23,15 @@
 | `name` | VARCHAR(255) | | 大学名 |
 | `country` | VARCHAR(100) | DEFAULT 'JP' | 国名 |
 | `updated_at` | TIMESTAMP | | レコード更新日時 |
+
+#### クライアント参照とIDマッピングのルール（運用）
+フロントエンドで参照・選択されるマスタデータ（大学・学部・科目・教授・キーワード・試験名等）に関しては、候補数に応じて取り扱いを以下のように定めます：
+
+- 候補が**15件以下**の場合：バックエンドで INT 型の ID（例: `id`）を管理し、フロントエンドは小規模ルックアップ API（`GET /lookups/{entity}`）で全件取得してローカルでマッピング（id ↔ name）を保持します（TTLキャッシュ推奨）。
+- 候補が**15件を超える**場合：フロントエンドはサーバサイド検索API（`GET /search/{entity}?q=...`）を用いたオートコンプリートUIを採用することを推奨します。
+- 候補が**50件を超える**場合：オートコンプリートを必須とし、クライアントは全件を事前ロードしないこと（デバウンス、minChars=2、limit=10 のような挙動）を実装してください。
+
+各エンティティは `*_terms` などの補助テーブルで正規化された検索用カラム（`normalized_term`, `phonetic_key` 等）を持ち、検索APIは低遅延で曖昧検索をサポートすること。
 
 ### 1.2. `faculties` テーブル
 学部情報のマスタテーブル。
@@ -226,6 +235,8 @@
 | `execution_options` | JSONB | NULL | **[ID 12用]** 実行環境設定（言語/制限時間など） |
 | `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |
 | `updated_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 更新日時 |
+
+**注意 (2026-01-03)**: `question_format` / `answer_format` の格納は廃止され、DB上から削除されました。レンダリングの判定はコンテンツ内の `$` / `$$` 検出によりフロントエンドで自動判定します。削除に伴うマイグレーションスクリプトは `docs/Z_AGENT_REPORT/migrations/20260103_drop_format_columns.sql` を参照してください。
 
 ### 3.4. `question_types` テーブル
 問題形式の定義マスタ。
@@ -560,6 +571,16 @@ LLMから返却された候補語を保持します。ヒューマンレビュ�
 | `action_type` | VARCHAR(50) | NOT NULL | トリガーアクション種別 |
 | `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 完了日時 |
 | UNIQUE | | (`user_id`, `exam_id`, `action_type`) | 重複防止 |
+
+### 6.3. `learning_histories` テーブル 【新規追加】
+ユーザーの学習（閲覧）履歴。検索画面での「閲覧履歴」フィルタリング等に使用します。
+
+| カラム名 | データ型 | 制約 | 説明 |
+| :--- | :--- | :--- | :--- |
+| `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | ID |
+| `user_id` | BIGINT | FOREIGN KEY → `users(id)` | ユーザーID |
+| `exam_id` | BIGINT | FOREIGN KEY → `exams(id)` | 試験ID |
+| `viewed_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 閲覧日時 |
 
 ---
 

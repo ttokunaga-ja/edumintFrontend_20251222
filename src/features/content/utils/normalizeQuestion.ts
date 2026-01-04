@@ -29,6 +29,15 @@ function normalizeText(text: string): string {
 }
 
 /**
+ * 簡易LaTeX検出
+ * - $...$ または $$...$$ を含む場合に true を返す
+ */
+function containsLatex(text: string): boolean {
+  if (!text) return false;
+  return /\$\$?[\s\S]*?\$\$?/.test(text);
+}
+
+/**
  * LaTeX形式テキストの正規化
  *
  * @param text - LaTeXテキスト
@@ -97,19 +106,16 @@ function normalizeKeyword(keyword: string): string {
  * @returns 正規化済み大問
  */
 export function normalizeQuestion(question: Question): Question {
-  const format = question.format;
-  const contentNormalizer = format === 1 ? normalizeLatex : normalizeMarkdown;
-
   return {
     ...question,
-    content: contentNormalizer(question.content),
+    content: containsLatex(question.content) ? normalizeLatex(question.content) : normalizeMarkdown(question.content),
     keywords: question.keywords.map((kw) => ({
       ...kw,
       keyword: normalizeKeyword(kw.keyword),
     })),
     subQuestions: question.subQuestions.map((sq) => ({
       ...sq,
-      content: contentNormalizer(sq.content),
+      content: containsLatex(sq.content) ? normalizeLatex(sq.content) : normalizeMarkdown(sq.content),
     })),
   };
 }
@@ -118,12 +124,10 @@ export function normalizeQuestion(question: Question): Question {
  * 大問フォームデータの正規化
  *
  * @param content - 問題文
- * @param format - 形式（0: Markdown, 1: LaTeX）
  * @returns 正規化済みコンテンツ
  */
-export function normalizeQuestionContent(content: string, format: 0 | 1): string {
-  const normalizer = format === 1 ? normalizeLatex : normalizeMarkdown;
-  return normalizer(content);
+export function normalizeQuestionContent(content: string): string {
+  return containsLatex(content) ? normalizeLatex(content) : normalizeMarkdown(content);
 }
 
 /**
@@ -209,7 +213,6 @@ export function getQuestionDifferences(
   const differences: string[] = [];
 
   if (original.content !== updated.content) differences.push('content');
-  if (original.format !== updated.format) differences.push('format');
   if (original.difficulty?.id !== updated.difficulty?.id)
     differences.push('difficulty');
   if (JSON.stringify(original.keywords) !== JSON.stringify(updated.keywords))

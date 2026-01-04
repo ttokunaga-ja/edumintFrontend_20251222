@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { useFieldArray, useFormContext, useWatch, Controller } from 'react-hook-form';
 import {
   Box,
@@ -29,7 +30,7 @@ interface OrderingEditorProps {
  * 既存の SQ5_Ordering を活用
  * 編集・プレビュー両モードに対応
  */
-export const OrderingEditor: React.FC<OrderingEditorProps> = ({
+export const OrderingEditor: FC<OrderingEditorProps> = ({
   basePath,
   isEditMode,
 }) => {

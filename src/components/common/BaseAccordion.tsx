@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import {
   Accordion,
   AccordionSummary,
@@ -12,9 +13,9 @@ export interface BaseAccordionProps {
   id: string;
   title: string;
   isExpanded: boolean;
-  onChange: (event: React.SyntheticEvent, isExpanded: boolean) => void;
-  children?: React.ReactNode;
-  headerAction?: React.ReactNode;
+  onChange: (event: SyntheticEvent, isExpanded: boolean) => void;
+  children?: ReactNode;
+  headerAction?: ReactNode;
 }
 
 /**
@@ -30,7 +31,7 @@ export interface BaseAccordionProps {
  * @param children - アコーディオン内のコンテンツ
  * @param headerAction - ヘッダーに配置するアクション（ボタンなど）
  */
-export const BaseAccordion: React.FC<BaseAccordionProps> = ({
+export const BaseAccordion: FC<BaseAccordionProps> = ({
   id,
   title,
   isExpanded,

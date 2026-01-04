@@ -32,7 +32,7 @@ export interface KeywordInputProps {
  * hideChips={true} を渡すと入力フォームのみを表示します
  * 親コンポーネント側でキーワードチップを別途管理する場合に使用します
  */
-export const KeywordInput: React.FC<KeywordInputProps> = ({
+export const KeywordInput: FC<KeywordInputProps> = ({
   keywords = [],
   onAdd,
   onRemove,

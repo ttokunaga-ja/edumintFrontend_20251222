@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "questionId": 1,
+    "subQuestionNumber": 1,
+    "questionTypeId": 10,
+    "content": "$f(x) = x^2$ の導関数を求めよ。",
+    "answer": "2x",
+    "explanation": "べき関数の微分公式より、$x^n$ の導関数は $n x^{n-1}$ である。",
+    "keywords": [],
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": 2,
+    "questionId": 2,
+    "subQuestionNumber": 1,
+    "questionTypeId": 1,
+    "content": "行列 $A = [[1, 2], [3, 4]]$ の固有値は？",
+    "answer": "5.372, -0.372",
+    "explanation": "特性方程式を解くことで固有値を求める。",
+    "keywords": [],
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": 3,
+    "questionId": 3,
+    "subQuestionNumber": 1,
+    "questionTypeId": 10,
+    "content": "行列 $B = [[2, 1], [1, 1]]$ の逆行列を求めよ。",
+    "answer": "[[1, -1], [-1, 2]]",
+    "explanation": "逆行列の公式を用いて計算する。",
+    "keywords": [],
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  }
+]

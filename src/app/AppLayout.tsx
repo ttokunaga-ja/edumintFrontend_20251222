@@ -3,7 +3,7 @@ import { Box } from '@mui/material';
 import { TopMenuBar } from '@/components/common/TopMenuBar';
 
 interface AppLayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 /**
@@ -20,15 +20,19 @@ export function AppLayout({ children }: AppLayoutProps) {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '100vh',
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
       }}
     >
       {shouldShowTopMenuBar && (
         <Box
+          component="header"
           sx={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 1100, // MUI AppBar のデフォルト zIndex
+            flexShrink: 0,
+            zIndex: 1100,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
           }}
         >
           <TopMenuBar />
@@ -38,8 +42,11 @@ export function AppLayout({ children }: AppLayoutProps) {
         component="main"
         sx={{
           flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          bgcolor: 'background.default',
         }}
       >
         {children}

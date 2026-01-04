@@ -23,9 +23,8 @@ export interface SelectionSubQuestion extends SubQuestion {
 export interface SelectionFormData {
   id: string;
   content: string;
-  format: 0 | 1;
   options: SelectionOption[];
-}
+} 
 
 export interface SelectionValidation {
   isValid: boolean;

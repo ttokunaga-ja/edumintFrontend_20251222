@@ -74,6 +74,7 @@ export const SubQuestionSchema = z.object({
   subQuestionNumber: z.number().int().positive(),
   questionTypeId: QuestionTypeEnum,
   questionContent: z.string().min(1, '問題文は必須です'),
+  format: z.number().int().optional().default(0), // 0: Markdown, 1: LaTeX (legacy)
   answerContent: z.string().optional().default(''), // 「解答解説」として使用（解答例と解説を統合）
   explanation: z.string().optional().default(''), // 互換性のため保持（UI には表示しない）
   keywords: z.array(z.object({
@@ -122,6 +123,11 @@ export const ExamSchema = z.object({
   durationMinutes: z.number().int().optional().default(60),
   majorType: z.number().int().optional().default(0),
   academicFieldName: z.string().optional().default(''),
+  // ID fields for normalized relations (optional during transition)
+  universityId: z.number().int().optional(),
+  facultyId: z.number().int().optional(),
+  teacherId: z.number().int().optional(),
+  subjectId: z.number().int().optional(),
   questions: z.array(QuestionSchema),
 });
 
@@ -134,6 +140,7 @@ export const createDefaultSubQuestion = (index: number): SubQuestion => ({
   subQuestionNumber: index + 1,
   questionTypeId: '1',
   questionContent: '',
+  format: 0,
   answerContent: '',
   explanation: '',
   keywords: [],
@@ -164,5 +171,9 @@ export const createDefaultExam = (): ExamFormValues => ({
   durationMinutes: 60,
   majorType: 0,
   academicFieldName: '',
+  universityId: undefined,
+  facultyId: undefined,
+  teacherId: undefined,
+  subjectId: undefined,
   questions: [createDefaultQuestion(0)],
 });

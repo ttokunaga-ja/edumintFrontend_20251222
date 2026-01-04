@@ -24,7 +24,7 @@ interface FormEditorProps {
   name?: string;
 }
 
-export const FormEditor: React.FC<FormEditorProps> = ({
+export const FormEditor: FC<FormEditorProps> = ({
   value,
   onChange,
   placeholder = '',
@@ -153,7 +153,6 @@ export const FormEditor: React.FC<FormEditorProps> = ({
           border: 'none',
           padding: '16px',
           fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-          fontSize: '13px',
           lineHeight: '1.6',
           backgroundColor: 'transparent',
           color: theme.palette.text.primary,

@@ -20,9 +20,8 @@ export interface OrderingSubQuestion extends SubQuestion {
 export interface OrderingFormData {
   id: string;
   content: string;
-  format: 0 | 1;
   items: OrderingItem[];
-}
+} 
 
 export interface OrderingValidation {
   isValid: boolean;

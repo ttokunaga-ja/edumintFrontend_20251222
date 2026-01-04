@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { ToggleButton, ToggleButtonGroup, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
@@ -7,7 +8,7 @@ interface PreviewEditToggleProps {
   onToggle: (isEdit: boolean) => void;
 }
 
-export const PreviewEditToggle: React.FC<PreviewEditToggleProps> = ({
+export const PreviewEditToggle: FC<PreviewEditToggleProps> = ({
   isEditMode,
   onToggle,
 }) => {

@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { Box } from '@mui/material';
 import { SelectionEditor } from './SelectionEditor';
 import { MatchingEditor } from './MatchingEditor';
@@ -21,7 +22,7 @@ interface FormatRegistryProps {
  * ID 5: OrderingEditor (順序並べ替え)
  * ID 10-14: 基本フォーム（SubQuestionItem で問題文・答案・解説で完全対応）
  */
-export const FormatRegistry: React.FC<FormatRegistryProps> = ({
+export const FormatRegistry: FC<FormatRegistryProps> = ({
   questionTypeId,
   basePath,
   isEditMode,

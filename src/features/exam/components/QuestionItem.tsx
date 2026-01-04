@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { useFormContext, Controller, useFieldArray } from 'react-hook-form';
 import {
   Paper,
@@ -34,7 +35,7 @@ const difficultyOptions = Object.entries(DifficultyLabels).map(([value, label]) 
   label,
 }));
 
-export const QuestionItem: React.FC<QuestionItemProps> = ({
+export const QuestionItem: FC<QuestionItemProps> = ({
   questionIndex,
   isEditMode,
   onDelete,

@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
@@ -17,7 +18,7 @@ interface MarkdownBlockProps {
   content: string;
 }
 
-export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({ content }) => {
+export const MarkdownBlock: FC<MarkdownBlockProps> = ({ content }) => {
   const rendered = React.useMemo(() => {
     const source = content || '';
     const file = processor.processSync(source);

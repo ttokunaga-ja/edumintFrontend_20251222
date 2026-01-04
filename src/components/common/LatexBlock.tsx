@@ -8,7 +8,7 @@ export interface LatexBlockProps {
 const normalizeLatex = (raw: string) => { if (!raw) return ''; const unescaped = raw.replace(/\\\\/g, '\\').trim(); return unescaped.replace(/^\s*\${1,2}|\${1,2}\s*$/g, '');
 };
 
-export const LatexBlock: React.FC<LatexBlockProps> = ({ content }) => {
+export const LatexBlock: FC<LatexBlockProps> = ({ content }) => {
   return <div data-testid="latex-block">{content}</div>;
 };
 

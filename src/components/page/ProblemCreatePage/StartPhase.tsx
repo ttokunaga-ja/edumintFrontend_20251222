@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DIFFICULTY_OPTIONS, COUNT_OPTIONS, PROBLEM_FORMAT_OPTIONS } from '@/features/ui/selectionOptions';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -176,8 +177,8 @@ export function StartPhase() {
             }}
             fullWidth
           >
-            <ToggleButton value="exercise">演習問題から生成</ToggleButton>
-            <ToggleButton value="document">資料から生成</ToggleButton>
+            <ToggleButton value="exercise">{t('problemCreate.startPhase.mode.exercise')}</ToggleButton>
+            <ToggleButton value="document">{t('problemCreate.startPhase.mode.document')}</ToggleButton>
           </ToggleButtonGroup>
         </CardContent>
       </Card>
@@ -200,16 +201,16 @@ export function StartPhase() {
               mb: 2,
             }}
           >
-            <input {...getInputProps()} />
+            <input {...getInputProps({ id: 'generation-file-input', name: 'generationFiles' })} />
             <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
             <Typography variant="body1" sx={{ mb: 1 }}>
-              {isDragActive ? 'ここにドロップしてください' : 'ファイルをドラッグ＆ドロップ、またはクリックして選択'}
+              {isDragActive ? t('problemCreate.startPhase.drop_here') : t('problemCreate.startPhase.drag_drop_or_click')}
             </Typography>
             <Typography variant="caption" color="textSecondary" sx={{ mb: 2, display: 'block' }}>
-              対応形式: PDF, TXT, DOCX | 個別ファイル最大 10MB | 合計最大 20MB
+              {t('problemCreate.startPhase.accepted_formats')}
             </Typography>
             <Button variant="outlined" size="small">
-              ファイルを選択
+              {t('problemCreate.startPhase.select_files')}
             </Button>
           </Box>
 
@@ -299,7 +300,7 @@ export function StartPhase() {
       <Card>
         <CardContent>
           <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-            生成設定
+            {t('problemCreate.startPhase.settings')}
           </Typography>
 
           <Stack spacing={2}>
@@ -311,7 +312,7 @@ export function StartPhase() {
                   onChange={(e) => setOptions({ includeCharts: e.target.checked })}
                 />
               }
-              label="図表を使用する"
+              label={t('problemCreate.startPhase.options.includeCharts')}
             />
 
             <FormControlLabel
@@ -331,22 +332,22 @@ export function StartPhase() {
                   onChange={(e) => setOptions({ isPublic: e.target.checked })}
                 />
               }
-              label="生成問題を自動公開"
+              label={t('problemCreate.startPhase.options.autoPublish')}
             />
 
             {/* 難易度選択（共通） */}
             <FormControl fullWidth>
-              <InputLabel>難易度</InputLabel>
+              <InputLabel>{t('problemCreate.startPhase.labels.difficulty')}</InputLabel>
               <Select
-                label="難易度"
+                label={t('problemCreate.startPhase.labels.difficulty')}
                 value={options.difficulty || 'auto'}
                 onChange={(e) => setOptions({ difficulty: e.target.value as any })}
               >
-                <MenuItem value="auto">自動判別</MenuItem>
-                <MenuItem value="basic">基礎</MenuItem>
-                <MenuItem value="standard">標準</MenuItem>
-                <MenuItem value="advanced">応用</MenuItem>
-                <MenuItem value="expert">難関</MenuItem>
+                {DIFFICULTY_OPTIONS.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
 
@@ -354,15 +355,15 @@ export function StartPhase() {
             {mode === 'document' && (
               <>
                 <FormControl fullWidth>
-                  <InputLabel>問題数</InputLabel>
+                  <InputLabel>{t('problemCreate.startPhase.labels.count')}</InputLabel>
                   <Select
-                    label="問題数"
+                    label={t('problemCreate.startPhase.labels.count')}
                     value={options.count || 10}
                     onChange={(e) => setOptions({ count: parseInt(e.target.value as string) })}
                   >
-                    {[5, 10, 15, 20].map((num) => (
+                    {COUNT_OPTIONS.map((num) => (
                       <MenuItem key={num} value={num}>
-                        {num}問
+                        {t('common.question_count', { count: num })}
                       </MenuItem>
                     ))}
                   </Select>
@@ -377,48 +378,33 @@ export function StartPhase() {
                         onChange={(e) => setOptions({ autoFormat: e.target.checked })}
                       />
                     }
-                    label="問題形式を自動設定"
+                    label={t('problemCreate.startPhase.options.autoFormat')}
                   />
 
                   {!(options.autoFormat ?? true) && (
                     <Accordion>
                       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Typography>問題形式を個別指定</Typography>
+                        <Typography>{t('problemCreate.startPhase.options.customizeFormats')}</Typography>
                       </AccordionSummary>
                       <AccordionDetails>
                         <Stack spacing={1}>
-                          {[
-                            // パターンA：選択系
-                            '単一選択',
-                            '複数選択',
-                            '正誤判定',
-                            '組み合わせ',
-                            '順序並べ替え',
-                            // パターンB：記述系
-                            '記述式',
-                            '証明問題',
-                            'コード記述',
-                            '翻訳',
-                            '数値計算',
-                          ].map(
-                            (format) => (
-                              <FormControlLabel
-                                key={format}
-                                control={
-                                  <Checkbox
-                                    checked={options.formats?.includes(format) ?? false}
-                                    onChange={(e) => {
-                                      const newFormats = e.target.checked
-                                        ? [...(options.formats || []), format]
-                                        : (options.formats || []).filter((f) => f !== format);
-                                      setOptions({ formats: newFormats });
-                                    }}
-                                  />
-                                }
-                                label={format}
-                              />
-                            )
-                          )}
+{PROBLEM_FORMAT_OPTIONS.map((fmt) => (
+                            <FormControlLabel
+                              key={fmt.id}
+                              control={
+                                <Checkbox
+                                  checked={options.formats?.includes(fmt.value) ?? false}
+                                  onChange={(e) => {
+                                    const newFormats = e.target.checked
+                                      ? [...(options.formats || []), fmt.value]
+                                      : (options.formats || []).filter((f) => f !== fmt.value);
+                                    setOptions({ formats: newFormats });
+                                  }}
+                                />
+                              }
+                              label={t(fmt.labelKey)}
+                            />
+                          ))}
                         </Stack>
                       </AccordionDetails>
                     </Accordion>
@@ -433,7 +419,7 @@ export function StartPhase() {
       {/* アクションボタン */}
       <Stack direction="row" spacing={2}>
         <Button variant="contained" size="large" fullWidth onClick={handleStart}>
-          生成開始
+          {t('problemCreate.startPhase.start')}
         </Button>
       </Stack>
     </Stack>

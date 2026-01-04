@@ -27,6 +27,14 @@ function normalizeText(text: string): string {
 }
 
 /**
+ * 簡易LaTeX検出
+ */
+function containsLatex(text: string): boolean {
+  if (!text) return false;
+  return /\$\$?[\s\S]*?\$\$?/.test(text);
+}
+
+/**
  * LaTeX形式テキストの正規化
  */
 function normalizeLatex(text: string): string {
@@ -55,15 +63,10 @@ function normalizeMarkdown(text: string): string {
  * 小問コンテンツの正規化
  *
  * @param content - 正規化対象のコンテンツ
- * @param format - 形式（0: Markdown, 1: LaTeX）
  * @returns 正規化済みコンテンツ
  */
-export function normalizeSubQuestionContent(
-  content: string,
-  format: 0 | 1
-): string {
-  const normalizer = format === 1 ? normalizeLatex : normalizeMarkdown;
-  return normalizer(content);
+export function normalizeSubQuestionContent(content: string): string {
+  return containsLatex(content) ? normalizeLatex(content) : normalizeMarkdown(content);
 }
 
 /**
@@ -73,11 +76,9 @@ export function normalizeSubQuestionContent(
  * @returns 正規化済み小問
  */
 export function normalizeSubQuestionBase(subQuestion: SubQuestion): SubQuestion {
-  const normalizer = subQuestion.format === 1 ? normalizeLatex : normalizeMarkdown;
-
   return {
     ...subQuestion,
-    content: normalizer(subQuestion.content),
+    content: containsLatex(subQuestion.content) ? normalizeLatex(subQuestion.content) : normalizeMarkdown(subQuestion.content),
   };
 }
 
@@ -90,14 +91,12 @@ export function normalizeSubQuestionBase(subQuestion: SubQuestion): SubQuestion 
 export function normalizeSelectionSubQuestion(
   subQuestion: SelectionSubQuestion
 ): SelectionSubQuestion {
-  const normalizer = subQuestion.format === 1 ? normalizeLatex : normalizeMarkdown;
-
   return {
     ...subQuestion,
-    content: normalizer(subQuestion.content),
+    content: containsLatex(subQuestion.content) ? normalizeLatex(subQuestion.content) : normalizeMarkdown(subQuestion.content),
     options: subQuestion.options.map((opt) => ({
       ...opt,
-      content: normalizer(opt.content),
+      content: containsLatex(opt.content) ? normalizeLatex(opt.content) : normalizeMarkdown(opt.content),
     })),
   };
 }
@@ -111,15 +110,13 @@ export function normalizeSelectionSubQuestion(
 export function normalizeMatchingSubQuestion(
   subQuestion: MatchingSubQuestion
 ): MatchingSubQuestion {
-  const normalizer = subQuestion.format === 1 ? normalizeLatex : normalizeMarkdown;
-
   return {
     ...subQuestion,
-    content: normalizer(subQuestion.content),
+    content: containsLatex(subQuestion.content) ? normalizeLatex(subQuestion.content) : normalizeMarkdown(subQuestion.content),
     pairs: subQuestion.pairs.map((pair) => ({
       ...pair,
-      question: normalizer(pair.question),
-      answer: normalizer(pair.answer),
+      question: containsLatex(pair.question) ? normalizeLatex(pair.question) : normalizeMarkdown(pair.question),
+      answer: containsLatex(pair.answer) ? normalizeLatex(pair.answer) : normalizeMarkdown(pair.answer),
     })),
   };
 }
@@ -133,14 +130,12 @@ export function normalizeMatchingSubQuestion(
 export function normalizeOrderingSubQuestion(
   subQuestion: OrderingSubQuestion
 ): OrderingSubQuestion {
-  const normalizer = subQuestion.format === 1 ? normalizeLatex : normalizeMarkdown;
-
   return {
     ...subQuestion,
-    content: normalizer(subQuestion.content),
+    content: containsLatex(subQuestion.content) ? normalizeLatex(subQuestion.content) : normalizeMarkdown(subQuestion.content),
     items: subQuestion.items.map((item) => ({
       ...item,
-      text: normalizer(item.text),
+      text: containsLatex(item.text) ? normalizeLatex(item.text) : normalizeMarkdown(item.text),
     })),
   };
 }
@@ -154,15 +149,13 @@ export function normalizeOrderingSubQuestion(
 export function normalizeEssaySubQuestion(
   subQuestion: EssaySubQuestion
 ): EssaySubQuestion {
-  const normalizer = subQuestion.format === 1 ? normalizeLatex : normalizeMarkdown;
-
   return {
     ...subQuestion,
-    content: normalizer(subQuestion.content),
+    content: containsLatex(subQuestion.content) ? normalizeLatex(subQuestion.content) : normalizeMarkdown(subQuestion.content),
     answers: subQuestion.answers.map((ans) => ({
       ...ans,
-      sampleAnswer: normalizer(ans.sampleAnswer),
-      gradingCriteria: ans.gradingCriteria ? normalizer(ans.gradingCriteria) : ans.gradingCriteria,
+      sampleAnswer: containsLatex(ans.sampleAnswer) ? normalizeLatex(ans.sampleAnswer) : normalizeMarkdown(ans.sampleAnswer),
+      gradingCriteria: ans.gradingCriteria ? (containsLatex(ans.gradingCriteria) ? normalizeLatex(ans.gradingCriteria) : normalizeMarkdown(ans.gradingCriteria)) : ans.gradingCriteria,
     })),
   };
 }
@@ -222,13 +215,11 @@ export function normalizeSubQuestions(subQuestions: SubQuestion[]): SubQuestion[
  */
 export function normalizeSelectionOptions(
   options: Array<{ id: string; content: string; isCorrect: boolean; order: number }>,
-  format: 0 | 1,
   removeDuplicates: boolean = false
 ) {
-  const normalizer = format === 1 ? normalizeLatex : normalizeMarkdown;
   const normalized = options.map((opt) => ({
     ...opt,
-    content: normalizer(opt.content),
+    content: containsLatex(opt.content) ? normalizeLatex(opt.content) : normalizeMarkdown(opt.content),
   }));
 
   if (!removeDuplicates) {
@@ -255,14 +246,12 @@ export function normalizeSelectionOptions(
  * @returns 正規化済みペア配列
  */
 export function normalizeMatchingPairs(
-  pairs: Array<{ id: string; question: string; answer: string; order: number }>,
-  format: 0 | 1
+  pairs: Array<{ id: string; question: string; answer: string; order: number }>
 ) {
-  const normalizer = format === 1 ? normalizeLatex : normalizeMarkdown;
   return pairs.map((pair) => ({
     ...pair,
-    question: normalizer(pair.question),
-    answer: normalizer(pair.answer),
+    question: containsLatex(pair.question) ? normalizeLatex(pair.question) : normalizeMarkdown(pair.question),
+    answer: containsLatex(pair.answer) ? normalizeLatex(pair.answer) : normalizeMarkdown(pair.answer),
   }));
 }
 
@@ -274,13 +263,11 @@ export function normalizeMatchingPairs(
  * @returns 正規化済みアイテム配列
  */
 export function normalizeOrderingItems(
-  items: Array<{ id: string; text: string; correctOrder: number }>,
-  format: 0 | 1
+  items: Array<{ id: string; text: string; correctOrder: number }>
 ) {
-  const normalizer = format === 1 ? normalizeLatex : normalizeMarkdown;
   return items.map((item) => ({
     ...item,
-    text: normalizer(item.text),
+    text: containsLatex(item.text) ? normalizeLatex(item.text) : normalizeMarkdown(item.text),
   }));
 }
 
@@ -297,14 +284,12 @@ export function normalizeEssayAnswers(
     sampleAnswer: string;
     gradingCriteria: string;
     pointValue: number;
-  }>,
-  format: 0 | 1
+  }>
 ) {
-  const normalizer = format === 1 ? normalizeLatex : normalizeMarkdown;
   return answers.map((ans) => ({
     ...ans,
-    sampleAnswer: normalizer(ans.sampleAnswer),
-    gradingCriteria: normalizer(ans.gradingCriteria),
+    sampleAnswer: containsLatex(ans.sampleAnswer) ? normalizeLatex(ans.sampleAnswer) : normalizeMarkdown(ans.sampleAnswer),
+    gradingCriteria: containsLatex(ans.gradingCriteria) ? normalizeLatex(ans.gradingCriteria) : normalizeMarkdown(ans.gradingCriteria),
   }));
 }
 
@@ -322,7 +307,6 @@ export function getSubQuestionDifferences(
   const differences: string[] = [];
 
   if (original.content !== updated.content) differences.push('content');
-  if (original.format !== updated.format) differences.push('format');
   if (original.questionTypeId !== updated.questionTypeId)
     differences.push('questionTypeId');
 

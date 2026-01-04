@@ -35,7 +35,7 @@ interface QuestionEditorPreviewProps {
   name?: string;
 }
 
-export const QuestionEditorPreview: React.FC<QuestionEditorPreviewProps> = ({
+export const QuestionEditorPreview: FC<QuestionEditorPreviewProps> = ({
   value,
   onChange,
   onSave,

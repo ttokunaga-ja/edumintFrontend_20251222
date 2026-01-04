@@ -1,0 +1,7 @@
+[
+  { "id": 1, "university_id": 1, "name": "数学科" },
+  { "id": 2, "university_id": 2, "name": "理工学部" },
+  { "id": 3, "university_id": 3, "name": "理学部" },
+  { "id": 4, "university_id": 4, "name": "先進理工学部" },
+  { "id": 5, "university_id": 1, "name": "工学部" }
+]

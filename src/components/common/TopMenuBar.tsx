@@ -31,6 +31,7 @@ import {
   Add as AddIcon,
   Notifications as NotificationsIcon,
   AccountCircle as AccountCircleIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -108,7 +109,7 @@ export function TopMenuBar() {
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
   const notificationPopoverOpen = Boolean(notificationAnchorEl);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/?q=${encodeURIComponent(searchQuery)}`);
@@ -271,7 +272,7 @@ export function TopMenuBar() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                EduMint
+                Edumint
               </Typography>
             </Box>
           </Box>
@@ -293,11 +294,9 @@ export function TopMenuBar() {
               id="search-input"
               fullWidth
               size="small"
-              label={t('search.search_placeholder')}
               placeholder={t('search.search_placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              InputLabelProps={{ shrink: true, sx: { srOnly: true } }}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -376,7 +375,7 @@ export function TopMenuBar() {
                       justifyContent: 'center',
                       border: `1px solid ${theme.palette.divider}`,
                       color: theme.palette.text.secondary,
-                      fontSize: '0.75rem',
+                      fontSize: theme.typography.body2.fontSize,
                       '&.Mui-selected': {
                         backgroundColor: theme.palette.primary.main,
                         color: '#ffffff',
@@ -540,7 +539,7 @@ export function TopMenuBar() {
                       color: '#ffffff',
                     }}
                   >
-                    {user.username?.charAt(0).toUpperCase()}
+                    <PersonIcon sx={{ fontSize: 24 }} />
                   </Avatar>
                 </IconButton>
               </Tooltip>
@@ -657,11 +656,11 @@ export function TopMenuBar() {
                 variant="outlined"
                 sx={{
                   fontWeight: 600,
-                  borderColor: 'rgba(0, 0, 0, 0.3)',
-                  color: 'rgba(0, 0, 0, 0.8)',
+                  borderColor: theme.palette.divider,
+                  color: theme.palette.text.primary,
                   '&:hover': {
-                    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                    borderColor: 'rgba(0, 0, 0, 0.5)',
+                    backgroundColor: theme.palette.action.hover,
+                    borderColor: theme.palette.divider,
                   },
                   '&:disabled': {
                     opacity: 0.6,

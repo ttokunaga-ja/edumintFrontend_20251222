@@ -9,7 +9,7 @@ import {
   mockSubQuestionEssay,
   mockAcademicFields,
   mockFaculties,
-} from '../mockData/content';
+} from '../data';
 
 const apiBase =
   (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(

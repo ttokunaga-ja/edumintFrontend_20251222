@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -19,7 +20,7 @@ export interface ExamViewerProps {
   className?: string;
 }
 
-export const ExamViewer: React.FC<ExamViewerProps> = ({ 
+export const ExamViewer: FC<ExamViewerProps> = ({ 
   content, 
   sx, 
   className 

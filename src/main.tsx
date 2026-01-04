@@ -1,4 +1,4 @@
-import React from 'react';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
 import './index.css';
@@ -18,9 +18,9 @@ const bootstrap = async () => {
   const container = document.getElementById('root');
   if (!container) return;
   createRoot(container).render(
-    <React.StrictMode>
+    <StrictMode>
       <App />
-    </React.StrictMode>
+    </StrictMode>
   );
 };
 

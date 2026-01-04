@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
-import { mockExams } from "../mockData/search";
-import { mockUser, mockUserStats, mockWalletBalance } from "../mockData/user";
+import { mockExams } from "../data";
+import { mockUser, mockUserStats, mockWalletBalance } from "../data";
 
 const apiBase = (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:3000/api';
 const withBase = (path: string) => `${apiBase}${path}`;
@@ -52,8 +52,13 @@ export const userHandlers = [
     const limit = Number(url.searchParams.get('limit') || '20');
     const { items, total, hasMore } = paginate(mockExams, page, limit);
     return HttpResponse.json({ exams: items, total, page, limit, hasMore });
-  }),
-  http.get(withBase('/user/:userId/commented'), ({ params, request }) => {
+  }),  http.get(withBase('/user/:userId/completed'), ({ params, request }) => {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page') || '1');
+    const limit = Number(url.searchParams.get('limit') || '20');
+    const { items, total, hasMore } = paginate(mockExams, page, limit);
+    return HttpResponse.json({ exams: items, total, page, limit, hasMore });
+  }),  http.get(withBase('/user/:userId/commented'), ({ params, request }) => {
     const url = new URL(request.url);
     const page = Number(url.searchParams.get('page') || '1');
     const limit = Number(url.searchParams.get('limit') || '20');

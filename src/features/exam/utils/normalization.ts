@@ -54,6 +54,10 @@ export function transformToForm(apiData: any): ExamFormValues {
 
     // 追加のメタデータ
     school: apiData.school || '',
+    universityId: apiData.university_id || apiData.school || apiData.universityId || undefined,
+    facultyId: apiData.faculty_id || apiData.facultyId || undefined,
+    teacherId: apiData.teacher_id || apiData.teacherId || undefined,
+    subjectId: apiData.subject_id || apiData.subjectId || undefined,
     universityName: apiData.university_name || apiData.universityName || '',
     facultyName: apiData.faculty_name || apiData.facultyName || '',
     teacherName: apiData.teacher_name || apiData.teacherName || '',
@@ -140,6 +144,11 @@ export function transformToApi(formData: ExamFormValues): any {
     duration_minutes: formData.durationMinutes,
     academic_field_name: formData.academicFieldName,
     major_type: formData.majorType,
+    // ID based relations (if provided by front-end)
+    university_id: formData.universityId !== undefined ? formData.universityId : undefined,
+    faculty_id: formData.facultyId !== undefined ? formData.facultyId : undefined,
+    teacher_id: formData.teacherId !== undefined ? formData.teacherId : undefined,
+    subject_id: formData.subjectId !== undefined ? formData.subjectId : undefined,
 
     questions: formData.questions.map((q) => ({
       id: isTemporaryId(q.id) ? undefined : q.id,

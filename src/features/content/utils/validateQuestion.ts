@@ -31,9 +31,7 @@ export function validateQuestion(question: Question): ValidationResult {
   }
 
   // formatの検証
-  if (question.format !== 0 && question.format !== 1) {
-    errors.format = ['形式は0（Markdown）または1（LaTeX）である必要があります'];
-  }
+  // format の値は将来的に自動解析されるため、厳密な値チェックは行いません
 
   // difficultyの検証
   if (question.difficulty) {
@@ -74,12 +72,10 @@ export function validateQuestion(question: Question): ValidationResult {
  * 大問のフォームデータバリデーション
  *
  * @param content - 問題文
- * @param format - 形式（0: Markdown, 1: LaTeX）
  * @returns バリデーション結果
  */
 export function validateQuestionForm(
-  content: string,
-  format: 0 | 1
+  content: string
 ): ValidationResult {
   const errors: Record<string, string[]> = {};
 
@@ -87,10 +83,6 @@ export function validateQuestionForm(
     errors.content = ['問題文は必須です'];
   } else if (content.length > 10000) {
     errors.content = ['問題文は10000文字以下である必要があります'];
-  }
-
-  if (format !== 0 && format !== 1) {
-    errors.format = ['形式が不正です'];
   }
 
   return {
@@ -146,8 +138,8 @@ export function validateQuestionComprehensive(
   const baseResult = validateQuestion(question);
   const warnings: string[] = [];
 
-  // LaTeX検証
-  if (checkLatex && question.format === 1 && !validateLatexSyntax(question.content)) {
+  // LaTeX構文の検証は、本文上の数式表記の有無にかかわらず実施する
+  if (checkLatex && !validateLatexSyntax(question.content)) {
     warnings.push('LaTeX数式の構文に問題がある可能性があります');
   }
 

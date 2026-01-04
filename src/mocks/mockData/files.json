@@ -1,0 +1,5 @@
+{
+  "jobId": "mock-upload-job",
+  "uploadUrl": "https://storage.example.com/upload/mock",
+  "expiresAt": "2025-01-01T00:00:00Z"
+}

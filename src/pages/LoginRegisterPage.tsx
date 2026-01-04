@@ -19,6 +19,7 @@ import {
   DialogActions,
 } from '@mui/material';
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLogin, useRegister } from '@/features/auth/hooks/useAuth';
 import { useNotification } from '@/contexts/NotificationContext';
@@ -41,7 +42,7 @@ export function LoginRegisterPage({ mode = 'login' }: LoginRegisterPageProps) {
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [termsDialogOpen, setTermsDialogOpen] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -121,7 +122,7 @@ export function LoginRegisterPage({ mode = 'login' }: LoginRegisterPageProps) {
         <Card sx={{ p: 4 }}>
           {/* ロゴ・タイトル */}
           <Typography variant="h5" sx={{ mb: 1, textAlign: 'center', fontWeight: 600 }}>
-            EduMint
+            Edumint
           </Typography>
           <Typography variant="body2" sx={{ mb: 4, textAlign: 'center', color: 'text.secondary' }}>
             教育支援プラットフォーム

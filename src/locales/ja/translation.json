@@ -1,6 +1,6 @@
 {
   "common": {
-    "app_name": "EduMint",
+    "app_name": "Edumint",
     "home": "ホーム",
     "search": "検索",
     "my_page": "マイページ",
@@ -18,7 +18,9 @@
     "create": "作成",
     "saving": "保存中...",
     "view_mode": "閲覧",
-    "edit_mode": "編集"
+    "edit_mode": "編集",
+    "all": "すべて",
+    "question_count": "{{count}}問"
   },
   "auth": {
     "login_title": "ログイン",
@@ -65,5 +67,125 @@
     "complete": "完了",
     "paused": "一時停止",
     "error": "エラー"
+  },
+  "common": {
+    "all": "すべて",
+    "question_count": "{{count}}問"
+  },
+  "problemCreate": {
+    "startPhase": {
+      "mode": {
+        "exercise": "演習問題から生成",
+        "document": "資料から生成"
+      },
+      "drop_here": "ここにドロップしてください",
+      "drag_drop_or_click": "ファイルをドラッグ＆ドロップ、またはクリックして選択",
+      "accepted_formats": "対応形式: PDF, TXT, DOCX | 個別ファイル最大 10MB | 合計最大 20MB",
+      "select_files": "ファイルを選択",
+      "settings": "生成設定",
+      "options": {
+        "includeCharts": "図表を使用する",
+        "autoPublish": "生成問題を自動公開",
+        "autoFormat": "問題形式を自動設定",
+        "customizeFormats": "問題形式を個別指定"
+      },
+      "labels": {
+        "difficulty": "難易度",
+        "count": "問題数"
+      },
+      "start": "生成開始"
+    }
+  },
+  "enum": {
+    "difficulty": {
+      "auto": "自動判別",
+      "basic": "基礎",
+      "standard": "標準",
+      "advanced": "応用",
+      "expert": "難関"
+    },
+    "format": {
+      "single_choice": "単一選択",
+      "multiple_choice": "複数選択",
+      "true_false": "正誤判定",
+      "matching": "組み合わせ",
+      "ordering": "順序並べ替え",
+      "free_text": "記述式",
+      "proof": "証明問題",
+      "code": "コード記述",
+      "translation": "翻訳",
+      "numeric": "数値計算"
+    },
+    "duration": {
+      "short": "5分以内",
+      "medium": "15分以内",
+      "long": "30分以上"
+    },
+    "period": {
+      "none": "指定なし",
+      "1day": "1日以内",
+      "1week": "1週間以内",
+      "1month": "1ヶ月以内",
+      "1year": "1年以内",
+      "custom": "期間指定"
+    },
+    "lang": {
+      "ja": "日本語",
+      "en": "英語",
+      "zh": "中国語",
+      "ko": "韓国語",
+      "other": "その他"
+    },
+    "exam": {
+      "regular": "定期試験",
+      "class": "授業内試験",
+      "quiz": "小テスト"
+    },
+    "academic": {
+      "system": {
+        "liberal_arts": "文系",
+        "science": "理系"
+      }
+    }
+  },
+  "filters": {
+    "professor": "教授",
+    "professor_placeholder": "教授名を入力",
+    "exam_type": "試験種別",
+    "level": "難易度",
+    "formats": "問題形式",
+    "period": "更新日時",
+    "duration": "所要時間",
+    "academic_system": "学問系統",
+    "language": "言語",
+    "field": "分野",
+    "year": "試験年度",
+    "custom": {
+      "title": "Custom Search",
+      "learned": "学習済",
+      "high_rating": "高評価",
+      "commented": "コメント",
+      "posted": "投稿"
+    }
+  },
+  "problemCreate": {
+    "resultEditor": {
+      "title": "生成された演習問題",
+      "summary": "合計 {{count}} 問の演習問題が生成されました。\n必要に応じて編集してから公開してください。",
+      "publish": "公開する",
+      "dialog": {
+        "title": "タイトル",
+        "content": "問題文",
+        "answer": "解答",
+        "explanation": "解説"
+      }
+    }
+  },
+  "generation": {
+    "timeline": {
+      "start": "生成開始",
+      "structure": "構造確定",
+      "complete": "生成完了"
+    }
   }
 }

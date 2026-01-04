@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { Box, FormControl, FormHelperText, Typography } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ExamEditor } from '@/components/ui/exam/ExamEditor';
@@ -30,7 +31,7 @@ interface ExamContentFieldProps {
   initialEditorHeight?: number;
 }
 
-export const ExamContentField: React.FC<ExamContentFieldProps> = ({
+export const ExamContentField: FC<ExamContentFieldProps> = ({
   name,
   label,
   isEditMode,

@@ -1,0 +1,21 @@
+{
+  "university": [
+    { "id": "u1", "name": "筑波大学", "category": "university", "popularity": 100, "readingHiragana": "つくばだいがく", "readingRomaji": "tsukuba daigaku" },
+    { "id": "u2", "name": "慶應義塾大学", "category": "university", "popularity": 90, "readingHiragana": "けいおうぎじゅくだいがく", "readingRomaji": "keio gijuku daigaku" },
+    { "id": "u3", "name": "東京大学", "category": "university", "popularity": 95, "readingHiragana": "とうきょうだいがく", "readingRomaji": "tokyo daigaku" }
+  ],
+  "faculty": [
+    { "id": "f1", "name": "理工学群", "category": "faculty", "popularity": 100, "readingHiragana": "りこうがくぐん" },
+    { "id": "f2", "name": "文学部", "category": "faculty", "popularity": 90, "readingHiragana": "ぶんがくぶ" },
+    { "id": "f3", "name": "理学部", "category": "faculty", "popularity": 95, "readingHiragana": "りがくぶ" }
+  ],
+  "subject": [
+    { "id": "s1", "name": "微分積分学", "category": "subject", "popularity": 95, "readingHiragana": "びぶんせきぶんがく" },
+    { "id": "s2", "name": "線形代数", "category": "subject", "popularity": 90, "readingHiragana": "せんけいだいすう" },
+    { "id": "s3", "name": "量子力学", "category": "subject", "popularity": 80, "readingHiragana": "りょうしりきがく" }
+  ],
+  "teacher": [
+    { "id": "t1", "name": "山田太郎", "category": "teacher", "popularity": 80, "readingHiragana": "やまだたろう" },
+    { "id": "t2", "name": "佐藤花子", "category": "teacher", "popularity": 75, "readingHiragana": "さとうはなこ" }
+  ]
+}

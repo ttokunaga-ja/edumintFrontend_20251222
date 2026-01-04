@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import {
   Card,
   CardContent,
@@ -40,7 +41,7 @@ export interface ProblemCardProps {
  * @param onCardClick - カードをクリック時のコールバック
  * @param variant - 表示バリアント（compact: minWidth小, full: 通常）
  */
-export const ProblemCard: React.FC<ProblemCardProps> = ({
+export const ProblemCard: FC<ProblemCardProps> = ({
   problem,
   onCardClick,
   variant = 'full',

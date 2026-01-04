@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import {
   Box,
   Typography,
@@ -6,35 +7,41 @@ import {
   Card,
   CardContent,
 } from '@mui/material';
+import ExamCardCompact, { ExamCompactItem } from '@/components/common/ExamCardCompact';
 
 export interface HorizontalScrollSectionProps {
   title: string;
-  items: any[];
+  items: ExamCompactItem[];
   isLoading?: boolean;
-  renderItem: (item: any) => React.ReactNode;
   onViewAll?: () => void;
+  onView?: (id: string) => void;
+  onGood?: (id: string) => void;
   emptyMessage?: string;
+  viewAllLabel?: string;
 }
 
 /**
  * 横スクロール セクション（再利用可能なコンポーネント）
  * MyPage の「学習済」「高評価」「コメント」「投稿」などの
- * 複数の横スクロール section で使用される共通UI
+ * ExamCardCompact を表示する共通UI
  * 
  * @param title - セクションタイトル
- * @param items - 表示アイテムの配列
+ * @param items - 表示アイテムの配列（ExamCompactItem[]）
  * @param isLoading - ローディング状態
- * @param renderItem - アイテムのレンダリング関数
  * @param onViewAll - 「すべて表示」クリック時のコールバック
+ * @param onView - カード クリック時のコールバック
+ * @param onGood - いいね ボタン クリック時のコールバック
  * @param emptyMessage - 空状態のメッセージ
  */
-export const HorizontalScrollSection: React.FC<HorizontalScrollSectionProps> = ({
+export const HorizontalScrollSection: FC<HorizontalScrollSectionProps> = ({
   title,
   items,
   isLoading = false,
-  renderItem,
   onViewAll,
+  onView,
+  onGood,
   emptyMessage = 'データがありません',
+  viewAllLabel = 'すべて表示',
 }) => {
   return (
     <Box sx={{ mb: 3 }}>
@@ -55,7 +62,7 @@ export const HorizontalScrollSection: React.FC<HorizontalScrollSectionProps> = (
             }}
             onClick={onViewAll}
           >
-            すべて表示
+            {viewAllLabel}
           </Typography>
         )}
       </Box>
@@ -74,6 +81,7 @@ export const HorizontalScrollSection: React.FC<HorizontalScrollSectionProps> = (
             overflowX: 'auto',
             overflowY: 'hidden',
             pb: 1,
+            alignItems: 'stretch',
             '&::-webkit-scrollbar': {
               height: '6px',
             },
@@ -90,8 +98,12 @@ export const HorizontalScrollSection: React.FC<HorizontalScrollSectionProps> = (
           }}
         >
           {items.map((item, index) => (
-            <Box key={item.id || index} sx={{ flexShrink: 0 }}>
-              {renderItem(item)}
+            <Box key={item.id || index} sx={{ flexShrink: 0, minWidth: 320 }}>
+              <ExamCardCompact
+                item={item}
+                onView={onView}
+                onGood={onGood}
+              />
             </Box>
           ))}
         </Box>

@@ -1,10 +1,7 @@
 import {
   Container,
   Box,
-  TextField,
-  InputAdornment,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSearch } from '@/features/content/hooks/useContent';
@@ -90,24 +87,6 @@ export default function HomePage() {
     <Box sx={{ width: '100%' }}>
       <Container maxWidth="lg">
         <Box sx={{ py: 4 }}>
-          {/* キーワード検索 */}
-          <Box sx={{ mb: 3 }}>
-            <TextField
-              fullWidth
-              placeholder="キーワードで検索..."
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              variant="outlined"
-            />
-          </Box>
-
           {/* 詳細検索パネル */}
           <Box sx={{ mb: 3 }}>
             <AdvancedSearchPanel

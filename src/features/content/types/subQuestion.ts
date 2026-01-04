@@ -20,7 +20,6 @@ export interface SubQuestionFormData {
   id: string;
   questionTypeId: number;
   content: string;
-  format: 0 | 1;
   difficulty?: Difficulty;
   keywords: Keyword[];
 }

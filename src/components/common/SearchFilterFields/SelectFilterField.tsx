@@ -1,4 +1,5 @@
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 export interface SelectFilterFieldProps {
   label: string;
@@ -18,6 +19,8 @@ export function SelectFilterField({
   defaultValue,
   onChange,
 }: SelectFilterFieldProps) {
+  const { t } = useTranslation();
+
   return (
     <FormControl fullWidth>
       <InputLabel>{label}</InputLabel>
@@ -26,7 +29,7 @@ export function SelectFilterField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
-        <MenuItem value="">すべて</MenuItem>
+        <MenuItem value="">{t('common.all')}</MenuItem>
         {options.map((option) => (
           <MenuItem key={option.value} value={option.value}>
             {option.label}

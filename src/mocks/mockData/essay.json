@@ -1,0 +1,16 @@
+[
+  {
+    "id": "essay1",
+    "subQuestionId": 1,
+    "sampleAnswer": "2x",
+    "gradingCriteria": "計算過程が正しいか",
+    "pointValue": 10
+  },
+  {
+    "id": "essay3",
+    "subQuestionId": 3,
+    "sampleAnswer": "[[1, -1], [-1, 2]]",
+    "gradingCriteria": "逆行列の計算が正しいか",
+    "pointValue": 15
+  }
+]

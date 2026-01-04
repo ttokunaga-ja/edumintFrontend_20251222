@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -18,7 +19,7 @@ interface SubQuestionListProps {
   isEditMode: boolean;
 }
 
-export const SubQuestionList: React.FC<SubQuestionListProps> = ({
+export const SubQuestionList: FC<SubQuestionListProps> = ({
   questionIndex,
   isEditMode,
 }) => {

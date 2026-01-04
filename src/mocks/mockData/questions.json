@@ -1,0 +1,68 @@
+[
+  {
+    "id": 1,
+    "problemId": "8fA9xKQ2ZP7mR4LJ",
+    "questionNumber": 1,
+    "content": "次の関数の導関数を求めよ。",
+    "difficulty": { "id": 1, "label": "標準", "level": 2 },
+    "keywords": [ { "id": "kw1", "keyword": "導関数" }, { "id": "kw2", "keyword": "微分" } ],
+    "subQuestions": [
+      {
+        "id": 1,
+        "questionId": 1,
+        "subQuestionNumber": 1,
+        "questionTypeId": 10,
+        "content": "$f(x) = x^2$ の導関数を求めよ。",
+        "answer": "2x",
+        "explanation": "べき関数の微分公式より、$x^n$ の導関数は $n x^{n-1}$ である。",
+        "keywords": []
+      }
+    ],
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": 2,
+    "problemId": "9gB0yLR3AQ8nS5MK",
+    "questionNumber": 1,
+    "content": "次の行列の固有値を求めよ。",
+    "difficulty": { "id": 2, "label": "やや難", "level": 3 },
+    "keywords": [ { "id": "kw3", "keyword": "固有値" }, { "id": "kw4", "keyword": "線形代数" } ],
+    "subQuestions": [
+      {
+        "id": 2,
+        "questionId": 2,
+        "subQuestionNumber": 1,
+        "questionTypeId": 1,
+        "content": "行列 $A = [[1, 2], [3, 4]]$ の固有値は？",
+        "answer": "5.372, -0.372",
+        "explanation": "特性方程式を解くことで固有値を求める。",
+        "keywords": []
+      }
+    ],
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": 3,
+    "problemId": "9gB0yLR3AQ8nS5MK",
+    "questionNumber": 2,
+    "content": "次の行列の逆行列を求めよ。",
+    "difficulty": { "id": 2, "label": "やや難", "level": 3 },
+    "keywords": [ { "id": "kw5", "keyword": "逆行列" }, { "id": "kw6", "keyword": "線形代数" } ],
+    "subQuestions": [
+      {
+        "id": 3,
+        "questionId": 3,
+        "subQuestionNumber": 1,
+        "questionTypeId": 10,
+        "content": "行列 $B = [[2, 1], [1, 1]]$ の逆行列を求めよ。",
+        "answer": "[[1, -1], [-1, 2]]",
+        "explanation": "逆行列の公式を用いて計算する。",
+        "keywords": []
+      }
+    ],
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  }
+]

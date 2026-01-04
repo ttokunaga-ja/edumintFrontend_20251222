@@ -1,42 +1,74 @@
 import { http, HttpResponse } from 'msw';
-import { mockExams } from '../mockData/content';
+import { mockExams } from '../data';
+import { EXAM_TYPE_LABELS, DIFFICULTY_LEVELS, ACADEMIC_FIELDS, ALLOWED_EXAM_TYPE_IDS } from '../../constants/fixedVariables';
 
 const apiBase = (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:3000/api';
 const withBase = (path: string) => `${apiBase}${path}`;
 
-// Convert mockExams to problems format lazily
+// Convert mockExams to problems format lazily (with enum enforcement)
 let _createdProblems: any[] = [];
-const mapExamToProblem = (exam: any) => ({
-  id: exam.id,
-  title: exam.examName,
-  subject: exam.subjectName,
-  university: exam.universityName,
-  faculty: exam.facultyName,
-  type: exam.examType === 0 ? 'past_exam' : 'exercise',
-  difficulty: exam.questions?.[0]?.difficulty === '1' ? 'standard' : 'difficult',
-  rating: 4.5,
-  likes: Math.floor(Math.random() * 200) + 50,
-  comments: Math.floor(Math.random() * 20) + 5,
-  views: Math.floor(Math.random() * 500) + 200,
-  author: { id: exam.author_id, name: exam.teacherName, avatar: `/avatars/${exam.author_id}.jpg` },
-  createdAt: '2025-11-20T10:00:00Z',
-  updatedAt: '2025-11-20T10:00:00Z',
-  content: `${exam.subjectName}の${exam.examName}です。`,
-  description: `${exam.universityName} ${exam.facultyName}の${exam.examName}。`,
-  tags: exam.questions?.flatMap(q => q.keywords?.map(k => k.keyword) || []) || [],
-  isPublic: true,
-  questions: exam.questions?.map(q => ({
-    id: `q${q.id}`,
-    text: (q.questionContent || q.content || q.text || ''),
-    type: 'proof',
-    points: 10,
-  })) || [],
-});
+const mapExamToProblem = (exam: any) => {
+  // Enforce: only allow exams with valid examType IDs
+  if (!ALLOWED_EXAM_TYPE_IDS.includes(exam.examType)) {
+    return null; // Filter out invalid exam types
+  }
 
-const getAllProblems = () => [
-  ...mockExams.map(mapExamToProblem),
-  ..._createdProblems,
-];
+  const examType = exam.examType;
+  const difficulty = exam.difficulty !== undefined ? exam.difficulty : (exam.questions?.[0]?.difficulty === '1' ? 1 : 2);
+  const academicFieldId = exam.academicFieldId !== undefined ? exam.academicFieldId : (exam.majorType === 1 ? 0 : 1);
+
+  return {
+    id: exam.id,
+    title: exam.examName,
+    examName: exam.examName,
+    subject: exam.subjectName,
+    subjectName: exam.subjectName,
+    university: exam.universityName,
+    faculty: exam.facultyName,
+    examType, // Numeric ID
+    examTypeLabel: EXAM_TYPE_LABELS[examType], // Use fixed variable
+    examYear: exam.examYear || (exam.createdAt ? new Date(exam.createdAt).getFullYear() : undefined),
+    durationMinutes: exam.durationMinutes,
+    academicFieldId, // Numeric ID
+    academicFieldName: exam.academicFieldName,
+    academicFieldType: ACADEMIC_FIELDS[academicFieldId] === 'science' ? '理系' : '文系',
+    type: exam.examType === 0 ? 'past_exam' : 'exercise',
+    difficulty, // Numeric ID
+    difficultyLabel: DIFFICULTY_LEVELS[difficulty], // Use fixed variable
+    rating: 4.5,
+    likes: Math.floor(Math.random() * 200) + 50,
+    comments: Math.floor(Math.random() * 20) + 5,
+    views: Math.floor(Math.random() * 500) + 200,
+    author: { id: exam.author_id, name: exam.teacherName, avatar: `/avatars/${exam.author_id}.jpg` },
+    // Keep createdAt consistent for tests/environments (legacy mock timestamp)
+    createdAt: '2025-11-20T10:00:00Z',
+    updatedAt: '2025-11-20T10:00:00Z',
+    content: `${exam.subjectName}の${exam.examName}です。`,
+    description: `${exam.universityName} ${exam.facultyName}の${exam.examName}。`,
+    tags: exam.questions?.flatMap(q => q.keywords?.map(k => k.keyword) || []) || [],
+    isPublic: true,
+    questions: exam.questions?.map(q => ({
+      id: `q${q.id}`,
+      text: (q.questionContent || q.content || q.text || ''),
+      type: 'proof',
+      points: 10,
+    })) || [],
+  };
+};
+
+const getAllProblems = () => {
+  // Map exams to problems, filter out invalid exam types (null values)
+  const mapped = mockExams.map(mapExamToProblem).filter((p): p is any => p !== null);
+  // Combine with created problems, then deduplicate by id (keep first occurrence)
+  const combined = [...mapped, ..._createdProblems];
+  const seen = new Map<string, any>();
+  for (const p of combined) {
+    if (!seen.has(p.id)) {
+      seen.set(p.id, p);
+    }
+  }
+  return Array.from(seen.values());
+};
 
 export const __test_problems = getAllProblems();
 
@@ -58,7 +90,6 @@ export const problemHandlers = [
     const subjects = url.searchParams.getAll('subjects[]');
     const universities = url.searchParams.getAll('universities[]');
     const faculties = url.searchParams.getAll('faculties[]');
-    const formats = url.searchParams.getAll('formats[]');
     const difficulty = url.searchParams.get('level');
     const professor = url.searchParams.get('professor');
     const year = url.searchParams.get('year');
@@ -124,10 +155,6 @@ export const problemHandlers = [
       }
     }
 
-    if (formats.length > 0) {
-      // Mock logic: check if any question matches the format
-      filtered = filtered.filter(p => p.questions?.some(q => formats.includes(q.type)));
-    }
 
     if (duration) {
       // Mock logic: filter by views as a proxy for duration

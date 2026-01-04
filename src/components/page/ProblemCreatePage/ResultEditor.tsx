@@ -62,10 +62,9 @@ export function ResultEditor() {
     <Stack spacing={3}>
       {/* ヘッダー */}
       <Box>
-        <Typography variant="h6">生成された演習問題</Typography>
+        <Typography variant="h6">{t('problemCreate.resultEditor.title')}</Typography>
         <Typography variant="body2" color="text.secondary">
-          合計 {generatedProblems?.length || 0} 問の演習問題が生成されました。
-          必要に応じて編集してから公開してください。
+          {t('problemCreate.resultEditor.summary', { count: generatedProblems?.length || 0 })}
         </Typography>
       </Box>
 
@@ -80,15 +79,24 @@ export function ResultEditor() {
                   <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                     <Chip label={problem.subject} size="small" />
                     <Chip
-                      label={problem.difficulty}
+                      label={(() => {
+                        const raw = problem.difficulty;
+                        const keys = ['auto','basic','standard','advanced','expert'];
+                        let key = keys.find(k => k === raw);
+                        if (!key) {
+                          key = keys.find(k => t(`enum.difficulty.${k}`) === raw);
+                        }
+                        return key ? t(`enum.difficulty.${key}`) : raw || '';
+                      })()}
                       size="small"
-                      color={
-                        problem.difficulty === '応用' || problem.difficulty === '難関'
-                          ? 'error'
-                          : problem.difficulty === '標準'
-                            ? 'warning'
-                            : 'default'
-                      }
+                      color={(() => {
+                        const raw = problem.difficulty;
+                        const keys = ['auto','basic','standard','advanced','expert'];
+                        const key = keys.find(k => k === raw) || keys.find(k => t(`enum.difficulty.${k}`) === raw);
+                        if (key === 'advanced' || key === 'expert') return 'error';
+                        if (key === 'standard') return 'warning';
+                        return 'default';
+                      })()}
                     />
                   </Stack>
                 }
@@ -144,10 +152,10 @@ export function ResultEditor() {
       {/* アクションボタン */}
       <Stack direction="row" spacing={2} justifyContent="flex-end">
         <Button variant="outlined" onClick={() => setPhase('start')}>
-          戻る
+          {t('common.cancel')}
         </Button>
         <Button variant="contained" endIcon={<PublishIcon />} onClick={handlePublish}>
-          公開する
+          {t('problemCreate.resultEditor.publish')}
         </Button>
       </Stack>
 
@@ -157,14 +165,14 @@ export function ResultEditor() {
         <DialogContent sx={{ py: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             id="edit-title-input"
-            label="タイトル"
+            label={t('problemCreate.resultEditor.dialog.title')}
             fullWidth
             value={editData.title || ''}
             onChange={(e) => setEditData({ ...editData, title: e.target.value })}
           />
           <TextField
             id="edit-content-input"
-            label="問題文"
+            label={t('problemCreate.resultEditor.dialog.content')}
             fullWidth
             multiline
             rows={4}
@@ -173,7 +181,7 @@ export function ResultEditor() {
           />
           <TextField
             id="edit-answer-input"
-            label="解答"
+            label={t('problemCreate.resultEditor.dialog.answer')}
             fullWidth
             multiline
             rows={2}
@@ -182,7 +190,7 @@ export function ResultEditor() {
           />
           <TextField
             id="edit-explanation-input"
-            label="解説"
+            label={t('problemCreate.resultEditor.dialog.explanation')}
             fullWidth
             multiline
             rows={3}

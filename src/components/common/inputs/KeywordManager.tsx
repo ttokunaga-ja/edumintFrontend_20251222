@@ -35,7 +35,7 @@ export interface KeywordManagerProps {
  * - Chip のX ボタンでキーワードを削除
  * - 読み取り専用・無効化モード対応
  */
-export const KeywordManager: React.FC<KeywordManagerProps> = ({
+export const KeywordManager: FC<KeywordManagerProps> = ({
   keywords = [],
   onAdd,
   onRemove,

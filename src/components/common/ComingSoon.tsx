@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { Box, Typography } from '@mui/material';
 
 export interface ComingSoonProps {
@@ -20,7 +21,7 @@ export interface ComingSoonProps {
  * @param description - 説明テキスト（デフォルト: "機能は開発中です"）
  * @param minHeight - ボックスの高さ
  */
-export const ComingSoon: React.FC<ComingSoonProps> = ({
+export const ComingSoon: FC<ComingSoonProps> = ({
   title = 'Coming Soon',
   description = '機能は開発中です',
   minHeight = '200px',

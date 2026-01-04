@@ -10,7 +10,6 @@ import { Question, QuestionEditState } from '../types';
 export interface UseQuestionStateReturn {
   state: QuestionEditState;
   updateContent: (content: string) => void;
-  updateFormat: (format: 0 | 1) => void;
   updateDifficulty: (difficultyId: number | undefined) => void;
   addKeyword: (keyword: string) => void;
   removeKeyword: (keywordId: string) => void;
@@ -44,17 +43,7 @@ export function useQuestionState(initialQuestion: Question): UseQuestionStateRet
     });
   }, []);
 
-  const updateFormat = useCallback((format: 0 | 1) => {
-    setState((prev) => {
-      const unsavedFields = new Set(prev.unsavedFields);
-      unsavedFields.add('format');
-      return {
-        question: { ...prev.question, format },
-        isDirty: true,
-        unsavedFields,
-      };
-    });
-  }, []);
+
 
   const updateDifficulty = useCallback((difficultyId: number | undefined) => {
     setState((prev) => {
@@ -135,7 +124,6 @@ export function useQuestionState(initialQuestion: Question): UseQuestionStateRet
   return {
     state,
     updateContent,
-    updateFormat,
     updateDifficulty,
     addKeyword,
     removeKeyword,

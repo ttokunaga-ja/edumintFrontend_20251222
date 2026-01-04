@@ -1,4 +1,5 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { Stack, Chip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
@@ -11,7 +12,7 @@ export interface SortChipGroupProps {
  * ソート選択チップグループ
  * HomePage の検索結果ソート選択UI
  */
-export const SortChipGroup: React.FC<SortChipGroupProps> = ({
+export const SortChipGroup: FC<SortChipGroupProps> = ({
   sortBy,
   onSortChange,
 }) => {

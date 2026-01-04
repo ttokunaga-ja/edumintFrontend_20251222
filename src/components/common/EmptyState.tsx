@@ -1,14 +1,15 @@
-import React from 'react';
+import { Fragment } from 'react';
+import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { Box, Typography } from '@mui/material';
 
 export interface EmptyStateProps {
   title?: string;
   description?: string;
-  action?: React.ReactNode;
-  children?: React.ReactNode;
+  action?: ReactNode;
+  children?: ReactNode;
 }
 
-const EmptyState: React.FC<EmptyStateProps> = ({
+const EmptyState: FC<EmptyStateProps> = ({
   title = 'No data available',
   description,
   action,

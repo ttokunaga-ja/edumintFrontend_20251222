@@ -1,4 +1,5 @@
-import React from 'react';
+import { lazy } from 'react';
+import type { ComponentType } from 'react';
 import { ProblemTypeEditProps, ProblemTypeRegistration, ProblemTypeViewProps } from '@/types/problemTypes';
 
 const registry = new Map<number, ProblemTypeRegistration>();
@@ -44,12 +45,12 @@ export function registerProblemType(entry: ProblemTypeRegistration) {
   registry.set(entry.id, entry);
 }
 
-export function getProblemTypeView(typeId: number): React.ComponentType<ProblemTypeViewProps> | null {
+export function getProblemTypeView(typeId: number): ComponentType<ProblemTypeViewProps> | null {
   const entry = registry.get(typeId);
   return entry ? entry.view : null;
 }
 
-export function getProblemTypeEdit(typeId: number): React.ComponentType<ProblemTypeEditProps> | null {
+export function getProblemTypeEdit(typeId: number): ComponentType<ProblemTypeEditProps> | null {
   const entry = registry.get(typeId);
   return entry && entry.edit ? entry.edit : null;
 }
@@ -95,31 +96,31 @@ export function registerDefaults() {
     // ========================================
 
     // ID 1: 単一選択（RadioButton）
-    const SQ1_SingleChoice = React.lazy(() =>
+    const SQ1_SingleChoice = lazy(() =>
       import('./viewers/SQ1_SingleChoice').then(m => ({ default: m.SQ1_SingleChoice }))
     );
     registerProblemType({ id: 1, view: SQ1_SingleChoice, edit: SQ1_SingleChoice });
 
     // ID 2: 複数選択（Checkbox）
-    const SQ2_MultipleChoice = React.lazy(() =>
+    const SQ2_MultipleChoice = lazy(() =>
       import('./viewers/SQ2_MultipleChoice').then(m => ({ default: m.SQ2_MultipleChoice }))
     );
     registerProblemType({ id: 2, view: SQ2_MultipleChoice, edit: SQ2_MultipleChoice });
 
     // ID 3: 正誤判定（True/False）
-    const SQ3_TrueFalse = React.lazy(() =>
+    const SQ3_TrueFalse = lazy(() =>
       import('./viewers/SQ3_TrueFalse').then(m => ({ default: m.SQ3_TrueFalse }))
     );
     registerProblemType({ id: 3, view: SQ3_TrueFalse, edit: SQ3_TrueFalse });
 
     // ID 4: 組み合わせ（Matching）
-    const SQ4_Matching = React.lazy(() =>
+    const SQ4_Matching = lazy(() =>
       import('./viewers/SQ4_Matching').then(m => ({ default: m.SQ4_Matching }))
     );
     registerProblemType({ id: 4, view: SQ4_Matching, edit: SQ4_Matching });
 
     // ID 5: 順序並べ替え（Ordering）
-    const SQ5_Ordering = React.lazy(() =>
+    const SQ5_Ordering = lazy(() =>
       import('./viewers/SQ5_Ordering').then(m => ({ default: m.SQ5_Ordering }))
     );
     registerProblemType({ id: 5, view: SQ5_Ordering, edit: SQ5_Ordering });

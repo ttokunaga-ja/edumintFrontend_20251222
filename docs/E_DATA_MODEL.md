@@ -74,7 +74,7 @@ type Question = {
   examId: string;
   questionNumber: number;
   questionContent: string;
-  questionFormat: 0 | 1; // 0: Markdown, 1: LaTeX
+  // NOTE: `questionFormat` removed. Rendering is auto-detected (LaTeX via $/$$).
   keywords?: Keyword[];
 };
 
@@ -84,9 +84,8 @@ type SubQuestion = {
   subQuestionNumber: number;
   questionTypeId: number;
   questionContent: string;
-  questionFormat: 0 | 1;
+  // NOTE: `questionFormat` / `answerFormat` removed. Rendering is auto-detected (LaTeX via $/$$).
   answerContent: string;
-  answerFormat: 0 | 1;
   keywords?: Keyword[];
 };
 

@@ -18,6 +18,15 @@ import {
   CheckboxGroupField,
   YearInputField,
 } from '../../common/SearchFilterFields';
+import {
+  LEVEL_OPTIONS,
+  PROBLEM_FORMAT_OPTIONS,
+  DURATION_OPTIONS,
+  PERIOD_OPTIONS,
+  LANGUAGE_OPTIONS,
+  EXAM_TYPE_OPTIONS,
+  CUSTOM_SEARCH_OPTIONS as CUSTOM_SEARCH_CONST,
+} from '@/features/ui/selectionOptions';
 
 export interface SearchFilters {
   keyword?: string;
@@ -27,17 +36,18 @@ export interface SearchFilters {
   professor?: string;
   year?: string;
   fieldType?: string;
-  level?: string;
+  level?: number[];
   formats?: string[];
-  duration?: string;
+  language?: string;
   period?: string;
-  academicSystem?: 'liberal-arts' | 'science';
-  sortBy?: 'recommended' | 'newest' | 'popular' | 'views';
+  duration?: string;
+  examType?: string;
+  academicSystem?: string;
+  sortBy?: string;
   isLearned?: boolean;
   isHighRating?: boolean;
   isCommented?: boolean;
   isPosted?: boolean;
-  language?: string;
 }
 
 export interface AdvancedSearchPanelProps {
@@ -83,11 +93,11 @@ const ACADEMIC_FIELDS = [
 ];
 
 const ACADEMIC_SYSTEMS = [
-  { value: 'liberal-arts', label: '文系' },
-  { value: 'science', label: '理系' },
+  { value: 'liberal-arts', labelKey: 'enum.academic.system.liberal_arts' },
+  { value: 'science', labelKey: 'enum.academic.system.science' },
 ];
 
-const CUSTOM_SEARCH_OPTIONS = ['学習済', '高評価', 'コメント', '投稿'];
+// Custom search options moved to i18n and selectionOptions.ts - use CUSTOM_SEARCH_CONST
 
 const SUBJECTS = [
   '数学',
@@ -112,53 +122,22 @@ const FIELDS = [
   'アルゴリズム',
 ];
 
-const LEVELS = [
-  { value: 'basic', label: '基礎' },
-  { value: 'standard', label: '標準' },
-  { value: 'advanced', label: '応用' },
-  { value: 'expert', label: '難関' },
-];
+// LEVEL_OPTIONS moved to selectionOptions.ts and localized via i18n
+
+// EXAM_TYPE_OPTIONS moved to selectionOptions.ts and localized via i18n
+
+
+
+// DURATION_OPTIONS moved to selectionOptions.ts and localized via i18n
 
 // 新規問題形式（ID 1-5, 10-14）
 // パターンA：選択・構造化データ系 (ID 1-5)
 // パターンB：自由記述・テキスト系 (ID 10-14)
-const PROBLEM_FORMATS = [
-  // パターンA：選択系
-  '単一選択',
-  '複数選択',
-  '正誤判定',
-  '組み合わせ',
-  '順序並べ替え',
-  // パターンB：記述系
-  '記述式',
-  '証明問題',
-  'コード記述',
-  '翻訳',
-  '数値計算',
-];
+// PROBLEM_FORMAT_OPTIONS moved to selectionOptions.ts and localized via i18n
 
-const DURATIONS = [
-  { value: 'short', label: '5分以内' },
-  { value: 'medium', label: '15分以内' },
-  { value: 'long', label: '30分以上' },
-];
+// PERIOD_OPTIONS moved to selectionOptions.ts and localized via i18n
 
-const PERIODS = [
-  { value: 'none', label: '指定なし' },
-  { value: '1day', label: '1日以内' },
-  { value: '1week', label: '1週間以内' },
-  { value: '1month', label: '1ヶ月以内' },
-  { value: '1year', label: '1年以内' },
-  { value: 'custom', label: '期間指定' },
-];
-
-const LANGUAGES = [
-  { value: 'ja', label: '日本語' },
-  { value: 'en', label: '英語' },
-  { value: 'zh', label: '中国語' },
-  { value: 'ko', label: '韓国語' },
-  { value: 'other', label: 'その他' },
-];
+// LANGUAGE_OPTIONS moved to selectionOptions.ts and localized via i18n
 
 const CURRENT_YEARS = ['2025', '2024', '2023', '2022', '2021'];
 
@@ -193,10 +172,14 @@ export function AdvancedSearchPanel({
         : (userProfile?.faculty ? [userProfile.faculty] : []),
       academicField: filters.academicField || userProfile?.academicField || '',
       year: filters.year || getDefaultYear(),
-      level: filters.level || '',
-      formats: filters.formats || [],
+      level: (filters.level && Array.isArray(filters.level) ? filters.level : (filters.level ? [filters.level] : [])) as number[],
+
+      // 問題形式（UIから選択可能にする）
+      formats: Array.isArray(filters.formats) ? filters.formats : (filters.formats ? String(filters.formats).split(',') : []),
+
       period: filters.period || '',
       duration: filters.duration || '',
+      examType: filters.examType || '',
       academicSystem: filters.academicSystem || userProfile?.academicSystem || '',
       language: filters.language || userProfile?.language || '',
       professor: filters.professor || '',
@@ -210,11 +193,11 @@ export function AdvancedSearchPanel({
   });
 
   const handleFilterChange = useCallback(
-    (key: keyof SearchFilters, value: string | string[] | boolean) => {
+    (key: keyof SearchFilters, value: string | string[] | boolean | number[]) => {
       const updated = {
         ...localFilters,
         [key]: value,
-      };
+      } as SearchFilters;
       setLocalFilters(updated);
     },
     [localFilters]
@@ -237,22 +220,22 @@ export function AdvancedSearchPanel({
   const getActiveFilters = (): {
     label: string;
     key: keyof SearchFilters;
-    value: string | string[] | boolean;
+    value: string | string[] | number[] | boolean;
   }[] => {
     const active = [];
 
     if (filters.universities && filters.universities.length > 0) {
       active.push({
-        label: `大学: ${filters.universities.join(', ')}`,
-        key: 'universities',
+        label: `${t('filters.university') || '大学'}: ${filters.universities.join(', ')}`,
+        key: 'universities' as keyof SearchFilters,
         value: filters.universities,
       });
     }
 
     if (filters.faculties && filters.faculties.length > 0) {
       active.push({
-        label: `学部: ${filters.faculties.join(', ')}`,
-        key: 'faculties',
+        label: `${t('filters.faculty') || '学部'}: ${filters.faculties.join(', ')}`,
+        key: 'faculties' as keyof SearchFilters,
         value: filters.faculties,
       });
     }
@@ -260,118 +243,127 @@ export function AdvancedSearchPanel({
     if (filters.academicField) {
       const fieldLabel = ACADEMIC_FIELDS.find((f) => f.value === filters.academicField)?.label || filters.academicField;
       active.push({
-        label: `学問系統: ${fieldLabel}`,
-        key: 'academicField',
+        label: `${t('filters.academic_field') || '学問系統'}: ${fieldLabel}`,
+        key: 'academicField' as keyof SearchFilters,
         value: filters.academicField,
       });
     }
 
     if (filters.professor) {
       active.push({
-        label: `教授: ${filters.professor}`,
-        key: 'professor',
+        label: `${t('filters.professor')}: ${filters.professor}`,
+        key: 'professor' as keyof SearchFilters,
         value: filters.professor,
       });
     }
 
     if (filters.year) {
       active.push({
-        label: `試験年度: ${filters.year}`,
-        key: 'year',
+        label: `${t('filters.year') || '試験年度'}: ${filters.year}`,
+        key: 'year' as keyof SearchFilters,
         value: filters.year,
       });
     }
 
     if (filters.fieldType) {
       active.push({
-        label: `分野: ${filters.fieldType}`,
-        key: 'fieldType',
+        label: `${t('filters.field') || '分野'}: ${filters.fieldType}`,
+        key: 'fieldType' as keyof SearchFilters,
         value: filters.fieldType,
       });
     }
 
-    if (filters.level) {
-      const levelLabel = LEVELS.find((l) => l.value === filters.level)?.label || filters.level;
+    if (filters.level && Array.isArray(filters.level) && filters.level.length > 0) {
+      const levelLabels = filters.level.map(l => t(LEVEL_OPTIONS.find((lv) => lv.value === l)?.labelKey || '') || `ID${l}`).join(', ');
       active.push({
-        label: `レベル: ${levelLabel}`,
-        key: 'level',
+        label: `${t('filters.level')}: ${levelLabels}`,
+        key: 'level' as keyof SearchFilters,
         value: filters.level,
       });
     }
 
-    if (filters.academicSystem) {
-      const systemLabel = ACADEMIC_SYSTEMS.find((s) => s.value === filters.academicSystem)?.label || filters.academicSystem;
+    if (filters.examType) {
       active.push({
-        label: `学問系統: ${systemLabel}`,
-        key: 'academicSystem',
+        label: `${t('filters.exam_type')}: ${t(EXAM_TYPE_OPTIONS.find(o => o.value === filters.examType)?.labelKey || '')}`,
+        key: 'examType' as keyof SearchFilters,
+        value: filters.examType,
+      });
+    }
+
+    if (filters.academicSystem) {
+      const systemLabel = t(ACADEMIC_SYSTEMS.find((s) => s.value === filters.academicSystem)?.labelKey || '');
+      active.push({
+        label: `${t('filters.academic_system')}: ${systemLabel}`,
+        key: 'academicSystem' as keyof SearchFilters,
         value: filters.academicSystem,
       });
     }
 
     if (filters.formats && filters.formats.length > 0) {
+      const labels = filters.formats.map(f => t(PROBLEM_FORMAT_OPTIONS.find(p => p.value === f)?.labelKey || '')).join(', ');
       active.push({
-        label: `問題形式: ${filters.formats.join(', ')}`,
-        key: 'formats',
+        label: `${t('filters.formats')}: ${labels}`,
+        key: 'formats' as keyof SearchFilters,
         value: filters.formats,
       });
     }
 
+
     if (filters.period) {
-      const periodLabel = PERIODS.find((p) => p.value === filters.period)?.label || filters.period;
+      const periodLabel = t(PERIOD_OPTIONS.find((p) => p.value === filters.period)?.labelKey || '');
       active.push({
-        label: `期間: ${periodLabel}`,
-        key: 'period',
+        label: `${t('filters.period')}: ${periodLabel}`,
+        key: 'period' as keyof SearchFilters,
         value: filters.period,
       });
     }
 
     if (filters.duration) {
-      const durationLabel =
-        DURATIONS.find((d) => d.value === filters.duration)?.label || filters.duration;
+      const durationLabel = t(DURATION_OPTIONS.find((d) => d.value === filters.duration)?.labelKey || '');
       active.push({
-        label: `所要時間: ${durationLabel}`,
-        key: 'duration',
+        label: `${t('filters.duration')}: ${durationLabel}`,
+        key: 'duration' as keyof SearchFilters,
         value: filters.duration,
       });
     }
 
     if (filters.isLearned) {
       active.push({
-        label: '学習済',
-        key: 'isLearned',
+        label: t('filters.custom.learned'),
+        key: 'isLearned' as keyof SearchFilters,
         value: true,
       });
     }
 
     if (filters.isHighRating) {
       active.push({
-        label: '高評価',
-        key: 'isHighRating',
+        label: t('filters.custom.high_rating'),
+        key: 'isHighRating' as keyof SearchFilters,
         value: true,
       });
     }
 
     if (filters.isCommented) {
       active.push({
-        label: 'コメント',
-        key: 'isCommented',
+        label: t('filters.custom.commented'),
+        key: 'isCommented' as keyof SearchFilters,
         value: true,
       });
     }
 
     if (filters.isPosted) {
       active.push({
-        label: '投稿',
-        key: 'isPosted',
+        label: t('filters.custom.posted'),
+        key: 'isPosted' as keyof SearchFilters,
         value: true,
       });
     }
 
     if (filters.language) {
-      const langLabel = LANGUAGES.find((l) => l.value === filters.language)?.label || filters.language;
+      const langLabel = t(LANGUAGE_OPTIONS.find((l) => l.value === filters.language)?.labelKey || '');
       active.push({
-        label: `言語: ${langLabel}`,
-        key: 'language',
+        label: `${t('filters.language') || '言語'}: ${langLabel}`,
+        key: 'language' as keyof SearchFilters,
         value: filters.language,
       });
     }
@@ -459,17 +451,17 @@ export function AdvancedSearchPanel({
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <AutocompleteFilterField
-                    label="教授"
+                    label={t('filters.professor')}
                     options={[]}
                     value={localFilters.professor || ''}
                     multiple={false}
                     onChange={(value) => handleFilterChange('professor', typeof value === 'string' ? value : value[0] || '')}
-                    placeholder="教授名を入力"
+                    placeholder={t('filters.professor_placeholder')}
                   />
                 </Grid>
               </Grid>
 
-              {/* Row 3: 試験年度 | 難易度 */}
+              {/* Row 3: 試験年度 | 試験種別 */}
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <YearInputField
@@ -481,53 +473,78 @@ export function AdvancedSearchPanel({
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <SelectFilterField
-                    label="難易度"
-                    options={LEVELS}
-                    value={localFilters.level || ''}
-                    onChange={(value) => handleFilterChange('level', value)}
+                    label={t('filters.exam_type')}
+                    options={EXAM_TYPE_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey) }))}
+                    value={localFilters.examType || ''}
+                    onChange={(value) => handleFilterChange('examType', value)}
                   />
                 </Grid>
               </Grid>
 
-              {/* Row 4: 問題形式 (Full width, checkbox format) */}
+              {/* Row 4: 難易度 (Full width, checkbox format) */}
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                  問題形式
+                  {t('filters.level')}
                 </Typography>
                 <CheckboxGroupField
-                  options={PROBLEM_FORMATS}
-                  value={localFilters.formats || []}
-                  onChange={(value) => handleFilterChange('formats', value)}
+                  options={LEVEL_OPTIONS.map(l => t(l.labelKey))}
+                  value={
+                    localFilters.level && Array.isArray(localFilters.level)
+                      ? localFilters.level.map(lv => t(LEVEL_OPTIONS.find(l => l.value === lv)?.labelKey || '') || `ID${lv}`).filter(Boolean)
+                      : []
+                  }
+                  onChange={(selectedLabels) => {
+                    const values = selectedLabels.map(label => LEVEL_OPTIONS.find(l => t(l.labelKey) === label)?.value).filter(v => v !== undefined) as number[];
+                    handleFilterChange('level', values);
+                  }}
                   columns={{ xs: 12, sm: 6, md: 4 }}
                 />
               </Box>
 
-              {/* Row 5: 更新日時 | 所要時間 */}
+              {/* Row 5: 問題形式 (CheckboxGroup) */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+                  {t('filters.formats')}
+                </Typography>
+                <CheckboxGroupField
+                  options={PROBLEM_FORMAT_OPTIONS.map(f => t(f.labelKey))}
+                  value={localFilters.formats || []}
+                  onChange={(selectedFormats) => {
+                    // selectedFormats are labels, map back to values
+                    const values = selectedFormats.map(lbl => PROBLEM_FORMAT_OPTIONS.find(f => t(f.labelKey) === lbl)?.value).filter(Boolean) as string[];
+                    handleFilterChange('formats', values);
+                  }}
+                  columns={{ xs: 12, sm: 6, md: 4 }}
+                />
+              </Box>
+
+
+              {/* Row 6: 更新日時 | 所要時間 */}
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <SelectFilterField
-                    label="更新日時"
-                    options={PERIODS}
+                    label={t('filters.period')}
+                    options={PERIOD_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey) }))}
                     value={localFilters.period || ''}
                     onChange={(value) => handleFilterChange('period', value)}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <SelectFilterField
-                    label="所要時間"
-                    options={DURATIONS}
+                    label={t('filters.duration')}
+                    options={DURATION_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey) }))}
                     value={localFilters.duration || ''}
                     onChange={(value) => handleFilterChange('duration', value)}
                   />
                 </Grid>
               </Grid>
 
-              {/* Row 6: 学問系統（文系・理系） | 言語 */}
+              {/* Row 7: 学問系統（文系・理系） | 言語 */}
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <SelectFilterField
-                    label="学問系統（文系・理系）"
-                    options={ACADEMIC_SYSTEMS}
+                    label={t('filters.academic_system')}
+                    options={ACADEMIC_SYSTEMS.map(a => ({ value: a.value, label: t((a as any).labelKey) }))}
                     value={localFilters.academicSystem || ''}
                     onChange={(value) => handleFilterChange('academicSystem', value)}
                   />
@@ -535,31 +552,31 @@ export function AdvancedSearchPanel({
                 <Grid item xs={12} sm={6}>
                   <SelectFilterField
                     label="言語"
-                    options={LANGUAGES}
+                    options={LANGUAGE_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey) }))}
                     value={localFilters.language || ''}
                     onChange={(value) => handleFilterChange('language', value)}
                   />
                 </Grid>
               </Grid>
 
-              {/* Row 7: Custom Search (Full width, checkbox format) */}
+              {/* Row 8: Custom Search (Full width, checkbox format) */}
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                  Custom Search
+                  {t('filters.custom.title')}
                 </Typography>
                 <CheckboxGroupField
-                  options={CUSTOM_SEARCH_OPTIONS}
+                  options={CUSTOM_SEARCH_CONST.map(o => t(o.labelKey))}
                   value={[
-                    ...(localFilters.isLearned ? ['学習済'] : []),
-                    ...(localFilters.isHighRating ? ['高評価'] : []),
-                    ...(localFilters.isCommented ? ['コメント'] : []),
-                    ...(localFilters.isPosted ? ['投稿'] : []),
+                    ...(localFilters.isLearned ? [t('filters.custom.learned')] : []),
+                    ...(localFilters.isHighRating ? [t('filters.custom.high_rating')] : []),
+                    ...(localFilters.isCommented ? [t('filters.custom.commented')] : []),
+                    ...(localFilters.isPosted ? [t('filters.custom.posted')] : []),
                   ]}
                   onChange={(values) => {
-                    handleFilterChange('isLearned', values.includes('学習済'));
-                    handleFilterChange('isHighRating', values.includes('高評価'));
-                    handleFilterChange('isCommented', values.includes('コメント'));
-                    handleFilterChange('isPosted', values.includes('投稿'));
+                    handleFilterChange('isLearned', values.includes(t('filters.custom.learned')));
+                    handleFilterChange('isHighRating', values.includes(t('filters.custom.high_rating')));
+                    handleFilterChange('isCommented', values.includes(t('filters.custom.commented')));
+                    handleFilterChange('isPosted', values.includes(t('filters.custom.posted')));
                   }}
                   columns={{ xs: 6, sm: 3, md: 3 }}
                 />

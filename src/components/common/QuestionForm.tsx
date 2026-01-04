@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useId } from 'react';
 import { Box, Typography, TextField, Button, ToggleButton, ToggleButtonGroup, Stack } from '@mui/material';
 import { MarkdownBlock } from './MarkdownBlock';
 import { LatexBlock } from './LatexBlock';
@@ -6,9 +6,7 @@ import { LatexBlock } from './LatexBlock';
 export type QuestionFormProps = {
   label?: string;
   value: string;
-  format: 0 | 1;
   onChange?: (content: string) => void;
-  onFormatChange?: (format: 0 | 1) => void;
   textareaLabel?: string;
   previewLabel?: string;
   readOnly?: boolean;
@@ -16,36 +14,33 @@ export type QuestionFormProps = {
   name?: string;
 };
 
+// Simple heuristic for format auto-detection: if contains $ or $$ treat as LaTeX
+function autoDetectFormat(content: string): 0 | 1 {
+  if (!content) return 0;
+  const hasDoubleDollar = /\$\$/g.test(content);
+  const hasSingleDollar = /(?<!\$)\$(?!\$)/g.test(content);
+  return (hasDoubleDollar || hasSingleDollar) ? 1 : 0;
+}
+
 export function QuestionForm({
   label,
   value,
-  format,
   onChange,
-  onFormatChange,
   textareaLabel = '問題文',
   previewLabel = 'プレビュー',
   readOnly = false,
   inputId,
   name,
 }: QuestionFormProps) {
-  const generatedId = React.useId();
+  const generatedId = useId();
   const actualId = inputId || `question-form-${generatedId}`;
   const actualName = name || actualId;
   const [content, setContent] = useState(value);
-  const [currentFormat, setCurrentFormat] = useState<0 | 1>(format);
+  const [currentFormat, setCurrentFormat] = useState<0 | 1>(autoDetectFormat(value));
 
   useEffect(() => setContent(value), [value]);
-  useEffect(() => setCurrentFormat(format), [format]);
+  useEffect(() => setCurrentFormat(autoDetectFormat(value)), [value]);
 
-  const handleFormatChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newFormat: 0 | 1 | null,
-  ) => {
-    if (newFormat !== null && !readOnly && onFormatChange) {
-      setCurrentFormat(newFormat);
-      onFormatChange(newFormat);
-    }
-  };
 
   if (readOnly) {
     return (
@@ -73,16 +68,7 @@ export function QuestionForm({
       {label && <Typography variant="subtitle2" gutterBottom>{label}</Typography>}
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Typography variant="caption" color="text.secondary">{textareaLabel}</Typography>
-        <ToggleButtonGroup
-          value={currentFormat}
-          exclusive
-          onChange={handleFormatChange}
-          size="small"
-          aria-label="問題文フォーマット切替"
-        >
-          <ToggleButton value={0} aria-label="Markdown">MD</ToggleButton>
-          <ToggleButton value={1} aria-label="LaTeX">LaTeX</ToggleButton>
-        </ToggleButtonGroup>
+        {/* Format is auto-detected. Manual selection removed. */}
       </Stack>
       <TextField
         id={actualId}
