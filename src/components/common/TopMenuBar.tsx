@@ -33,11 +33,12 @@ import {
   AccountCircle as AccountCircleIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useAppBarAction } from '@/contexts/AppBarActionContext';
+import { useGenerationStore } from '@/features/generation/stores/generationStore';
 import SettingsSlider from './SettingsSlider';
 
 /**
@@ -92,6 +93,7 @@ export function TopMenuBar() {
     onNavigateWithCheck,
   } = useAppBarAction();
   const { t } = useTranslation();
+  const { reset: resetGeneration } = useGenerationStore();
 
   // Phase 7: 未保存警告トースト UI 管理
   const [showWarningSnackbar, setShowWarningSnackbar] = useState(false);
@@ -128,6 +130,9 @@ export function TopMenuBar() {
     if (onNavigateWithCheck) {
       onNavigateWithCheck(path);
     } else {
+      if (path === '/create') {
+        resetGeneration();
+      }
       navigate(path);
     }
   };

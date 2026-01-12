@@ -10,6 +10,7 @@ import {
   mockAcademicFields,
   mockFaculties,
 } from '../data';
+import { createdExams } from '../db';
 
 const apiBase =
   (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(
@@ -27,7 +28,8 @@ export const contentHandlers = [
 
     const normalizedId = id;
     const fallbackId = id.startsWith('exam-') ? id.replace('exam-', '') : `exam-${id}`;
-    const exam = mockExams.find((e) => e.id === normalizedId) || mockExams.find((e) => e.id === fallbackId);
+    const allExams = [...mockExams, ...createdExams];
+    const exam = allExams.find((e) => e.id === normalizedId) || allExams.find((e) => e.id === fallbackId);
 
     if (!exam) {
       return HttpResponse.json({ message: 'Exam not found' }, { status: 404 });
@@ -179,7 +181,8 @@ export const contentHandlers = [
     const updates = (await request.json()) as Record<string, unknown>;
     const normalizedId = typeof id === 'string' ? id : '';
     const fallbackId = normalizedId.startsWith('exam-') ? normalizedId.replace('exam-', '') : `exam-${normalizedId}`;
-    const existing = mockExams.find((e) => e.id === normalizedId) || mockExams.find((e) => e.id === fallbackId) || {};
+    const allExams = [...mockExams, ...createdExams];
+    const existing = allExams.find((e) => e.id === normalizedId) || allExams.find((e) => e.id === fallbackId) || {};
     const merged = Object.assign({}, existing, updates);
     return HttpResponse.json(merged, { status: 200 });
   }),

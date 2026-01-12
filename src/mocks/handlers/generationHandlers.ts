@@ -1,24 +1,9 @@
 import { http, HttpResponse } from 'msw';
 import { nanoid } from 'nanoid';
+import { jobs, createdExams } from '../db'; // Shared DB
 
 const apiBase = ((import.meta as any).env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:3000/api';
 const withBase = (path: string) => `${apiBase}${path}`;
-
-// Job State Management
-interface JobState {
-  jobId: string;
-  tempKey?: string;
-  contentsId?: string;
-  phase: number;
-  lastUpdated: number;
-  options: {
-    checkStructure: boolean;
-    isPublic: boolean;
-  };
-  data?: any;
-}
-
-const jobs = new Map<string, JobState>();
 
 // UUID v7-like generator (32 hex chars)
 const generateJobId = () => {
@@ -28,14 +13,14 @@ const generateJobId = () => {
 };
 
 // Helper to update phase
-const updatePhase = (job: JobState, newPhase: number) => {
+const updatePhase = (job: any, newPhase: number) => {
   job.phase = newPhase;
   job.lastUpdated = Date.now();
   return job;
 };
 
 // Auto-transition logic based on time elapsed
-const processJob = (job: JobState) => {
+const processJob = (job: any) => {
   const now = Date.now();
   const elapsed = now - job.lastUpdated;
 
@@ -75,7 +60,11 @@ const processJob = (job: JobState) => {
             }
           ]
         };
-        updatePhase(job, 3); // -> confirmed
+        if (job.options.checkStructure === false) {
+          updatePhase(job, 4); // -> completed (auto-skip manual confirm)
+        } else {
+          updatePhase(job, 3); // -> confirmed
+        }
       }
       break;
     case 3: // structure_confirmed
@@ -126,19 +115,44 @@ const processJob = (job: JobState) => {
             ]
           }
         };
-        updatePhase(job, 13); // -> confirmed
+        updatePhase(job, 14); // -> generation_completed (Skip 13 for auto-redirect)
       }
       break;
-    case 13: // generation_confirmed
-      // Wait for user confirmation (or auto-publish logic if applicable)
-      // For now, wait for manual confirmation to proceed to completion/publication
+      // case 13: removed or unused for now
+      // Wait for user confirmation
       break;
     case 14: // generation_completed
+      // Create Exam Record here if not exists
       if (!job.contentsId) {
-        job.contentsId = nanoid(16);
-        job.data = { ...job.data, contentsId: job.contentsId };
-      }
-      if (job.options.isPublic) {
+        const newExamId = `exam-${nanoid(8)}`;
+        job.contentsId = newExamId;
+        job.data = { ...job.data, contentsId: newExamId };
+
+        // PERSIST TO SHARED DB
+        // Create a new exam record compatible with problemHandlers
+        const newExam = {
+          id: newExamId,
+          examName: job.data.generatedContent?.title || "Generated Exam",
+          subjectName: job.data.generatedContent?.subject || "General",
+          universityName: "Mock Univ",
+          facultyName: "Mock Faculty",
+          teacherName: "AI Generator",
+          examType: 1, // Exercise
+          examYear: new Date().getFullYear(),
+          createdAt: new Date().toISOString(),
+          questions: [
+            {
+              id: nanoid(8),
+              content: job.data.generatedContent?.content || "Generated Content",
+              level: 1,
+              keywords: job.data.generatedContent?.keywords || []
+            }
+          ],
+          isPublic: job.options.isPublic
+        };
+        createdExams.push(newExam);
+        console.log('[MSW] Created new exam from generation:', newExamId);
+
         updatePhase(job, 20); // -> publication_saving
       }
       break;
@@ -160,7 +174,7 @@ export const generationHandlers = [
     const body = await request.json() as any;
     const jobId = generateJobId();
 
-    const newJob: JobState = {
+    const newJob = {
       jobId,
       tempKey: body.tempKey,
       phase: 0, // structure_uploading
@@ -214,10 +228,16 @@ export const generationHandlers = [
       updatePhase(job, 4); // structure_confirmed -> structure_completed
     } else if (job.phase === 13) {
       updatePhase(job, 14); // generation_confirmed -> generation_completed
+      // Trigger process immediately to ensure ID generation happens
+      processJob(job);
     }
 
     jobs.set(jobId, job);
-    return HttpResponse.json({ success: true, phase: job.phase });
+    return HttpResponse.json({
+      success: true,
+      phase: job.phase,
+      examId: job.contentsId // Return examId if available
+    });
   }),
 ];
 

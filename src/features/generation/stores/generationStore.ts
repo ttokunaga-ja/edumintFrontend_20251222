@@ -24,9 +24,9 @@ import { create } from 'zustand';
  * - 20: publication_saving
  * - 21: publication_publishing
  */
-export type GenerationPhase = 
-  | 0 | 1 | 2 | 3 | 4 | 8 | 9 
-  | 10 | 11 | 12 | 13 | 14 | 18 | 19 
+export type GenerationPhase =
+  | 0 | 1 | 2 | 3 | 4 | 8 | 9
+  | 10 | 11 | 12 | 13 | 14 | 18 | 19
   | 20 | 21;
 
 export type GenerationMode = 'exercise' | 'document';
@@ -52,6 +52,10 @@ export interface GenerationState {
   // ジョブID
   jobId: string | null;
   setJobId: (id: string | null) => void;
+
+  // 生成された試験ID (リダイレクト用)
+  examId: string | null;
+  setExamId: (id: string | null) => void;
 
   // フェーズ
   phase: GenerationPhase;
@@ -97,6 +101,7 @@ export interface GenerationState {
 
 const initialState = {
   jobId: null,
+  examId: null,
   phase: 0 as GenerationPhase, // 0: structure_uploading
   mode: 'exercise' as GenerationMode,
   files: [],
@@ -116,6 +121,7 @@ export const useGenerationStore = create<GenerationState>((set) => ({
   ...initialState,
 
   setJobId: (jobId) => set({ jobId }),
+  setExamId: (examId) => set({ examId }),
 
   setPhase: (phase) => set({ phase }),
 

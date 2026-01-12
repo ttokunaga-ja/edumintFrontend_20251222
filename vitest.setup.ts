@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { server } from "@/mocks/server";
+import './src/lib/i18n';
 
 export let mockWebSocket: any;
 

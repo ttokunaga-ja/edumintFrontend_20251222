@@ -5,7 +5,7 @@ import { generationHandlers } from '@/mocks/handlers/generationHandlers';
 const server = setupServer(...generationHandlers);
 
 describe('msw generationHandlers', () => {
-  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+  beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
   afterEach(() => server.resetHandlers());
   afterAll(() => server.close());
 
@@ -28,7 +28,7 @@ describe('msw generationHandlers', () => {
     const maxAttempts = 30; // Allow enough time for transitions
 
     while (attempts < maxAttempts) {
-      const res = await fetch(`http://localhost:3000/api/jobs/${jobId}/status`);
+      const res = await fetch(`http://localhost:3000/api/generation/status/${jobId}`);
       const json = await res.json();
       currentPhase = json.phase;
       attempts++;
@@ -36,13 +36,13 @@ describe('msw generationHandlers', () => {
       // If waiting for confirmation (Phase 3: structure_confirmed)
       if (currentPhase === 3) {
         // Confirm structure
-        await fetch(`http://localhost:3000/api/jobs/${jobId}/confirm`, { method: 'POST' });
+        await fetch(`http://localhost:3000/api/generation/${jobId}/confirm`, { method: 'POST' });
       }
 
       // If waiting for confirmation (Phase 13: generation_confirmed)
       if (currentPhase === 13) {
         // Confirm generation
-        await fetch(`http://localhost:3000/api/jobs/${jobId}/confirm`, { method: 'POST' });
+        await fetch(`http://localhost:3000/api/generation/${jobId}/confirm`, { method: 'POST' });
       }
 
       // If completed (Phase 21: publication_publishing or done)

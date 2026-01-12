@@ -2,12 +2,12 @@ import { http, HttpResponse } from 'msw';
 import { mockExams } from '../data';
 import { EXAM_TYPE_LABELS, LEVELS, ACADEMIC_FIELDS, ALLOWED_EXAM_TYPE_IDS } from '../../constants/fixedVariables';
 import { getOrderedEnumIds } from '@/lib/enums/enumHelpers';
+import { createdExams } from '../db'; // Use shared DB
 
 const apiBase = (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:3000/api';
 const withBase = (path: string) => `${apiBase}${path}`;
 
 // Convert mockExams to problems format lazily (with enum enforcement)
-let _createdProblems: any[] = [];
 const mapExamToProblem = (exam: any) => {
   // Enforce: only allow exams with valid examType IDs from enumMappings.ts
   if (!ALLOWED_EXAM_TYPE_IDS.includes(exam.examType)) {
@@ -139,7 +139,7 @@ const getAllProblems = () => {
   // Map exams to problems, filter out invalid exam types (null values)
   const mapped = mockExams.map(mapExamToProblem).filter((p): p is any => p !== null);
   // Combine with created problems, then deduplicate by id (keep first occurrence)
-  const combined = [...mapped, ..._createdProblems];
+  const combined = [...mapped, ...createdExams];
   const seen = new Map<string, any>();
   for (const p of combined) {
     if (!seen.has(p.id)) {
@@ -346,7 +346,7 @@ export const problemHandlers = [
     const newProblem = (await request.json()) as any;
     newProblem.id = `exam-${getAllProblems().length + 1}`;
     newProblem.createdAt = new Date().toISOString();
-    _createdProblems.push(newProblem);
+    createdExams.push(newProblem);
     return HttpResponse.json(newProblem, { status: 201 });
   }),
 
@@ -359,13 +359,13 @@ export const problemHandlers = [
     if (index === -1) {
       return new HttpResponse(null, { status: 404 });
     }
-    // If it's in createdProblems, update there, otherwise we shallow copy to createdProblems
+    // If it's in createdExams, update there, otherwise we shallow copy to createdExams
     if (index >= mockExams.length) {
-      _createdProblems[index - mockExams.length] = { ..._createdProblems[index - mockExams.length], ...updateData };
-      return HttpResponse.json(_createdProblems[index - mockExams.length]);
+      createdExams[index - mockExams.length] = { ...createdExams[index - mockExams.length], ...updateData };
+      return HttpResponse.json(createdExams[index - mockExams.length]);
     } else {
       const updated = { ...mapExamToProblem(mockExams[index]), ...updateData };
-      _createdProblems.push(updated);
+      createdExams.push(updated);
       return HttpResponse.json(updated);
     }
   }),
