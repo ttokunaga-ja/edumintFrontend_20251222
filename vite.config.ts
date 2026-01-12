@@ -3,7 +3,12 @@
   import path from 'path';
 
   export default defineConfig({
-    plugins: [react()],
+    plugins: [
+      react({
+        // Avoid undefined path issues in CI environments
+        jsxImportSource: '@emotion/react',
+      }),
+    ],
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {
