@@ -3,7 +3,11 @@ import { test, expect } from '@playwright/test';
 test.describe('ユーザーシナリオ', () => {
   test.beforeEach(async ({ page }) => {
     // ログインしてからテストを開始
-    await page.goto('/');
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
+    
+    // ログインフォームが表示されることを確認
+    await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 10000 });
     
     // ログイン処理
     const emailInput = page.locator('input[type="email"]').first();
@@ -14,10 +18,10 @@ test.describe('ユーザーシナリオ', () => {
     
     const loginButton = page.locator('button:has-text("ログイン")').first();
     await loginButton.click();
-    
-    // ログイン完了まで待機
-    await expect(page).toHaveURL('/');
     await page.waitForLoadState('networkidle');
+    
+    // ホームページへリダイレクトされ、ログイン完了
+    await expect(page).toHaveURL('/', { timeout: 10000 });
   });
 
   test('ログイン -> 問題作成 -> 検索 -> 詳細表示', async ({ page }) => {

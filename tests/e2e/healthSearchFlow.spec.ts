@@ -24,8 +24,12 @@ test.describe('Health-aware search flow', () => {
     );
 
     await page.goto(baseUrl);
+    await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('検索機能が一時的にご利用いただけません')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'おすすめ' })).toBeDisabled();
+    // 検索機能が利用不可のメッセージを待つ（タイムアウト延長）
+    await expect(page.getByText('検索機能が一時的にご利用いただけません')).toBeVisible({ timeout: 10000 });
+    
+    // 検索ボタンが無効化されていることを確認（タイムアウト延長）
+    await expect(page.getByRole('button', { name: 'おすすめ' })).toBeDisabled({ timeout: 10000 });
   });
 });

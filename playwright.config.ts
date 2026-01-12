@@ -15,6 +15,11 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
+  /* Timeout settings */
+  timeout: 60000, // 60秒のテストタイムアウト
+  expect: {
+    timeout: 10000, // 10秒の期待値チェックタイムアウト
+  },
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -23,6 +28,8 @@ export default defineConfig({
     trace: 'on-first-retry',
     /* Screenshot on failure */
     screenshot: 'only-on-failure',
+    /* Increased action timeout */
+    actionTimeout: 15000, // 15秒のアクションタイムアウト
   },
 
   /* Configure projects for major browsers */

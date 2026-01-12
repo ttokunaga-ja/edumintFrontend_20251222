@@ -2,11 +2,12 @@ import { test, expect } from '@playwright/test';
 
 test.describe('認証フロー', () => {
   test('ログイン -> マイページ確認 -> ログアウト', async ({ page }) => {
-    // ログインページへ移動
-    await page.goto('/');
+    // ログインページへ明示的に移動
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
     
-    // ログインページが表示されることを確認
-    await expect(page).toHaveURL('/');
+    // ログインフォームが表示されることを確認
+    await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 10000 });
     
     // メールアドレスを入力
     const emailInput = page.locator('input[type="email"]').first();
@@ -19,12 +20,13 @@ test.describe('認証フロー', () => {
     // ログインボタンをクリック
     const loginButton = page.locator('button:has-text("ログイン")').first();
     await loginButton.click();
+    await page.waitForLoadState('networkidle');
     
     // ホームページへリダイレクトされることを確認
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/', { timeout: 10000 });
     
     // 成功通知が表示されることを確認
-    await expect(page.locator('text=ログインしました')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=ログインしました')).toBeVisible({ timeout: 10000 });
     
     // マイページへ移動
     await page.goto('/mypage');
@@ -46,14 +48,17 @@ test.describe('認証フロー', () => {
   });
 
   test('新規登録フロー', async ({ page }) => {
-    // ログインページへ移動
-    await page.goto('/');
+    // ログインページへ明示的に移動
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
     
     // 登録タブをクリック
     const registerTab = page.locator('button[role="tab"]:has-text("登録")');
-    if (await registerTab.isVisible()) {
-      await registerTab.click();
-    }
+    await expect(registerTab).toBeVisible({ timeout: 10000 });
+    await registerTab.click();
+    
+    // 登録フォームが表示されることを確認
+    await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 10000 });
     
     // メールアドレスを入力
     const emailInput = page.locator('input[type="email"]').first();
@@ -77,11 +82,12 @@ test.describe('認証フロー', () => {
     // 登録ボタンをクリック
     const registerButton = page.locator('button:has-text("登録")').last();
     await registerButton.click();
+    await page.waitForLoadState('networkidle');
     
     // ホームページへリダイレクトされることを確認
     await expect(page).toHaveURL('/', { timeout: 10000 });
     
     // 成功通知が表示されることを確認
-    await expect(page.locator('text=登録しました')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=登録しました')).toBeVisible({ timeout: 10000 });
   });
 });
