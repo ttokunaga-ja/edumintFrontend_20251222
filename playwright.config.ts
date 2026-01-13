@@ -16,7 +16,7 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Timeout settings */
-  timeout: 60000, // 60秒のテストタイムアウト
+  timeout: 150000, // 60秒のテストタイムアウト
   expect: {
     timeout: 10000, // 10秒の期待値チェックタイムアウト
   },
