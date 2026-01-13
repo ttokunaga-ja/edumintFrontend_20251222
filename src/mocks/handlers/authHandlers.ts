@@ -20,9 +20,12 @@ export const authHandlers = [
       );
     }
 
+    // Update the in-memory mock user to reflect the logged-in email (helps /auth/me)
+    mockUser.email = email;
+
     return HttpResponse.json({
       token: 'mock-jwt-token-' + Date.now(),
-      user: { ...mockUser, email },
+      user: { ...mockUser },
     });
   }),
 
@@ -48,14 +51,15 @@ export const authHandlers = [
       );
     }
 
+    // Update the in-memory mock user to represent the newly registered user
+    mockUser.id = nanoid(16);
+    mockUser.email = email;
+    mockUser.username = username;
+    mockUser.displayName = username;
+
     return HttpResponse.json({
       token: 'mock-jwt-token-' + Date.now(),
-      user: {
-        id: nanoid(16),
-        email,
-        username,
-        displayName: username,
-      },
+      user: { ...mockUser },
     });
   }),
 

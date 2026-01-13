@@ -16,7 +16,7 @@ test.describe('ユーザーシナリオ', () => {
     const passwordInput = page.locator('input[type="password"]').first();
     await passwordInput.fill('password123');
     
-    const loginButton = page.locator('button:has-text("ログイン")').first();
+    const loginButton = page.locator('button[type="submit"]');
     await loginButton.click();
     await page.waitForLoadState('networkidle');
     
