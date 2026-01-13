@@ -20,12 +20,12 @@ export const AUTH_ENDPOINTS = {
 // コンテンツ（問題）エンドポイント
 // ===============================
 export const CONTENT_ENDPOINTS = {
-  list: '/problems',
-  detail: (id: string) => `/problems/${id}`,
-  create: '/problems',
-  update: (id: string) => `/problems/${id}`,
-  delete: (id: string) => `/problems/${id}`,
-  search: '/problems/search',
+  list: '/exams',
+  detail: (id: string) => `/exams/${id}`,
+  create: '/exams',
+  update: (id: string) => `/exams/${id}`,
+  delete: (id: string) => `/exams/${id}`,
+  search: '/exams/search',
 } as const;
 
 // ===============================
@@ -102,19 +102,14 @@ export const ENDPOINTS = {
   health: HEALTH_ENDPOINTS,
 } as const;
 
+import { env } from '@/config/env';
+
 /**
  * API ベース URL
  * 環境変数から読み込み、デフォルトは localhost:3000/api
  */
 export const getApiBaseUrl = (): string => {
-  try {
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) {
-      return (import.meta as any).env.VITE_API_BASE_URL;
-    }
-  } catch {
-    // import.meta が利用できない環境
-  }
-  return 'http://localhost:3000/api';
+  return env.VITE_API_BASE_URL;
 };
 
 export const API_BASE_URL = getApiBaseUrl();

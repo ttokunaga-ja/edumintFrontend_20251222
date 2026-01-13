@@ -5,8 +5,8 @@
  */
 
 import { useState, useCallback } from 'react';
-import { ENDPOINTS, API_BASE_URL } from '@/services/api/endpoints';
-import { getHeaders, handleResponse, ApiError } from '@/services/api/httpClient';
+import { ENDPOINTS } from '@/services/api/endpoints';
+import { axiosInstance } from '@/lib/axios';
 import {
   SearchQuery,
   SearchResponse,
@@ -15,6 +15,7 @@ import {
   SearchError,
 } from '../types';
 import { useSearchStore } from '../stores/searchStore';
+import { AxiosError } from 'axios';
 
 export function useSearch() {
   const {
@@ -56,12 +57,12 @@ export function useSearch() {
         }
 
         // API call
-        const url = `${API_BASE_URL}${ENDPOINTS.search.problems}?${params.toString()}`;
-        const response = await fetch(url, {
-          headers: getHeaders(),
-        });
+        const response = await axiosInstance.get<SearchResponse>(
+          ENDPOINTS.search.problems,
+          { params }
+        );
 
-        const rawData = await handleResponse<SearchResponse>(response);
+        const rawData = response.data;
 
         // Validate response schema
         const validatedResponse = SearchResponseSchema.parse(rawData);
@@ -76,12 +77,20 @@ export function useSearch() {
         setLastQuery(validatedQuery);
 
         return validatedResponse;
-      } catch (err) {
-        const error = err instanceof ApiError
-          ? new SearchError(err.errorCode || 'SEARCH_FAILED', err.message, err.status)
-          : err instanceof SearchError
-          ? err
-          : new SearchError('UNKNOWN_ERROR', 'An unknown error occurred');
+      } catch (err: any) {
+        let error: SearchError;
+
+        if (err instanceof AxiosError) {
+          error = new SearchError(
+            err.code || 'SEARCH_FAILED',
+            err.message,
+            err.response?.status || 500
+          );
+        } else if (err instanceof SearchError) {
+          error = err;
+        } else {
+          error = new SearchError('UNKNOWN_ERROR', 'An unknown error occurred');
+        }
 
         setError(error);
         setLocalError(error);
@@ -94,6 +103,7 @@ export function useSearch() {
     },
     [setResults, setLoading, setError, setPagination, setLastQuery]
   );
+
 
   const retry = useCallback(() => {
     if (lastQuery) {

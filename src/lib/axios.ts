@@ -8,22 +8,9 @@
 import axios, { AxiosError } from 'axios';
 import { AppError, ApiErrorResponse } from '@/types/api';
 import { useErrorStore } from '@/stores/errorStore';
+import { env } from '@/config/env';
 
-const getApiBaseUrl = () => {
-  try {
-    if (
-      typeof import.meta !== 'undefined' &&
-      import.meta.env?.VITE_API_BASE_URL
-    ) {
-      return import.meta.env.VITE_API_BASE_URL;
-    }
-  } catch (e) {
-    // import.meta is not available in this environment
-  }
-  return 'http://localhost:3000/api';
-};
-
-export const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = env.VITE_API_BASE_URL;
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,

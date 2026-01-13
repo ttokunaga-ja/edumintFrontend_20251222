@@ -37,8 +37,31 @@ export type GenerationStatus =
 
 export type SourceType = 'lecture-notes' | 'past-exam';
 
-export type Question = any;
-export type Exam = any;
-export type Notification = any;
+export interface Question {
+  id: string;
+  examId: string;
+  content: string;
+  difficulty?: number;
+  format?: 'multiple_choice' | 'text' | 'code';
+}
+
+export interface Exam {
+  id: string;
+  title: string;
+  subjectId?: string;
+  status: 'draft' | 'published' | 'archived';
+  createdAt: string;
+  updatedAt: string;
+  questions?: Question[];
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+}
 
 export * from './health';

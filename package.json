@@ -38,6 +38,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.27.0",
     "@playwright/test": "^1.49.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.3",
@@ -73,6 +74,7 @@
     "playwright:install": "node node_modules/playwright/cli.js install --with-deps",
     "typecheck": "node node_modules/typescript/bin/tsc -p tsconfig.typecheck.json",
     "lint": "npm run typecheck",
+    "gen:api": "openapi-generator-cli generate -i docs/openapi.yaml -g typescript-axios -o src/services/api/generated",
     "generate:arch-index": "node docs/scripts/generate-architecture-index.js",
     "install:legacy": "npm install --legacy-peer-deps"
   },

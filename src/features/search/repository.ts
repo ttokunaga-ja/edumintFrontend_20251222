@@ -5,8 +5,8 @@
  * Legacy gateway imports removed
  */
 
-import { ENDPOINTS, API_BASE_URL } from '@/services/api/endpoints';
-import { getHeaders, handleResponse } from '@/services/api/httpClient';
+import { ENDPOINTS } from '@/services/api/endpoints';
+import { axiosInstance } from '@/lib/axios';
 import type { SearchResponse } from './types';
 
 /**
@@ -28,9 +28,10 @@ export async function searchExams(
     });
   }
 
-  const url = `${API_BASE_URL}${ENDPOINTS.search.problems}?${params.toString()}`;
-  const response = await fetch(url, { headers: getHeaders() });
-  return handleResponse<SearchResponse>(response);
+  const response = await axiosInstance.get<SearchResponse>(ENDPOINTS.search.problems, {
+    params,
+  });
+  return response.data;
 }
 
 /**
@@ -48,7 +49,8 @@ export async function suggestReadings(
     params.append('type', entityType);
   }
 
-  const url = `${API_BASE_URL}${ENDPOINTS.search.problems}?${params.toString()}`;
-  const response = await fetch(url, { headers: getHeaders() });
-  return handleResponse<SearchResponse>(response);
+  const response = await axiosInstance.get<SearchResponse>(ENDPOINTS.search.problems, {
+    params,
+  });
+  return response.data;
 }
