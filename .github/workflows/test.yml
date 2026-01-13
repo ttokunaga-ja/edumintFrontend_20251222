@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     strategy:
       matrix:
@@ -32,8 +33,9 @@ jobs:
       - name: Run unit tests
         run: npm test
       
-      - name: Run E2E tests
-        run: npm run test:e2e
+      - name: Run E2E tests (Playwright)
+        run: node node_modules/playwright/cli.js test --reporter=list --workers=1
+        # make output more visible and deterministic
       
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
