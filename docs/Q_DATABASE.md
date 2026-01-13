@@ -100,7 +100,7 @@
 
 | カラム名 | データ型 | 制約 | 説明 |
 | :--- | :--- | :--- | :--- |
-| `id` | SERIAL | PRIMARY KEY, UNIQUE | ユーザーID |
+| `id` | VARCHAR(255) | PRIMARY KEY, UNIQUE | ユーザーID (UUID) |
 | `username` | VARCHAR(255) | NOT NULL, UNIQUE | ログイン用ユーザー名 |
 | `university_id` | INTEGER | FOREIGN KEY → `universities(id)` | 大学ID |
 | `faculty_id` | INTEGER | FOREIGN KEY → `faculties(id)` | 学部ID |
@@ -187,7 +187,7 @@
 | カラム名 | データ型 | 制約 | 説明 |
 | :--- | :--- | :--- | :--- |
 | `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | 試験ID |
-| `exam_name` | VARCHAR(255) | **NOT NULL** | **[追加]** 試験名称・タイトル |
+| `title` | VARCHAR(255) | **NOT NULL** | **[追加]** 試験名称・タイトル |
 | `exam_type` | INT | DEFAULT 0 | **[追加]** 試験形式（0: 定期試験、1: 授業内試験、2: 小テスト） |
 | `school` | INT | NOT NULL | 学校ID（`universities.id`想定） |
 | `faculty_id` | BIGINT | FOREIGN KEY → `faculties(id)` | **[追加]** 学部ID |
@@ -217,7 +217,7 @@
 | `exam_id` | BIGINT | FOREIGN KEY → `exams(id)` | 所属試験ID |
 | `level` | INT | DEFAULT 0 | 難易度（AI推定など） |
 | `question_number` | INT | NOT NULL | 大問番号 |
-| `question_content` | TEXT | NOT NULL | 問題文 |
+| `content` | TEXT | NOT NULL | 問題文 |
 | `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |
 | `updated_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 更新日時 |
 
@@ -228,9 +228,9 @@
 | :--- | :--- | :--- | :--- |
 | `id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | 小問ID |
 | `question_id` | BIGINT | FOREIGN KEY → `questions(id)` | 所属大問ID |
-| `sub_question_number` | INT | NOT NULL | 小問番号 |
-| `sub_question_type_id` | INT | FOREIGN KEY → `question_types(id)` | 問題タイプID |
-| `sub_question_content` | TEXT | NOT NULL | **[共通]** 問題文（Markdown/LaTeX対応） |
+| `sub_number` | INT | NOT NULL | 小問番号 |
+| `question_type_id` | INT | FOREIGN KEY → `question_types(id)` | 問題タイプID |
+| `content` | TEXT | NOT NULL | **[共通]** 問題文（Markdown/LaTeX対応） |
 | `answer_explanation` | TEXT | NOT NULL | **[変更]** 模範解答および解説（記述系はここに統合） |
 | `execution_options` | JSONB | NULL | **[ID 12用]** 実行環境設定（言語/制限時間など） |
 | `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |

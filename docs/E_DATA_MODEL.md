@@ -39,7 +39,7 @@ type GenerationJob = {
 ```ts
 // Auth / Profile
 type User = {
-  id: string;
+  id: number;
   username: string;
   email?: string;
   university?: string;
@@ -51,14 +51,14 @@ type User = {
 
 // Exam / Content（詳細は API 契約に追随）
 type Exam = {
-  id: string;
+  id: number;
   examName: string;
   universityName?: string;
   facultyName?: string;
   subjectName?: string;
   teacherName?: string;
   examYear?: number;
-  userId?: string;
+  userId?: number;
   userName?: string;
   isPublic?: boolean;
   goodCount?: number;
@@ -70,8 +70,8 @@ type Exam = {
 };
 
 type Question = {
-  id: string;
-  examId: string;
+  id: number;
+  examId: number;
   questionNumber: number;
   questionContent: string;
   // NOTE: `questionFormat` removed. Rendering is auto-detected (LaTeX via $/$$).
@@ -79,8 +79,8 @@ type Question = {
 };
 
 type SubQuestion = {
-  id: string;
-  questionId: string;
+  id: number;
+  questionId: number;
   subQuestionNumber: number;
   questionTypeId: number;
   questionContent: string;
@@ -90,9 +90,9 @@ type SubQuestion = {
 };
 
 type ExamComment = {
-  id: string;
-  examId: string;
-  userId: string;
+  id: number;
+  examId: number;
+  userId: number;
   userName: string;
   userAvatar?: string;
   comment: string;

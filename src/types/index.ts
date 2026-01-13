@@ -38,17 +38,17 @@ export type GenerationStatus =
 export type SourceType = 'lecture-notes' | 'past-exam';
 
 export interface Question {
-  id: string;
-  examId: string;
+  id: number;
+  examId: number;
   content: string;
   difficulty?: number;
   format?: 'multiple_choice' | 'text' | 'code';
 }
 
 export interface Exam {
-  id: string;
+  id: number;
   title: string;
-  subjectId?: string;
+  subjectId?: number;
   status: 'draft' | 'published' | 'archived';
   createdAt: string;
   updatedAt: string;
@@ -56,8 +56,8 @@ export interface Exam {
 }
 
 export interface Notification {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   title: string;
   body: string;
   isRead: boolean;
