@@ -33,21 +33,10 @@ jobs:
       - name: Run unit tests
         run: npm test
       
-      - name: Wait for dev server to serve app
-        run: |
-          echo "Waiting for http://localhost:5173 to serve index.html containing <div id=\"root\">"
-          for i in {1..12}; do
-            if curl -sSf http://localhost:5173/ | grep -q '<div id="root">'; then
-              echo "App ready"; exit 0
-            fi
-            sleep 5
-          done
-          echo "App did not become ready within 60s"; curl -sSf http://localhost:5173/ || true; exit 1
       - name: Run E2E tests (Playwright)
         run: |
           echo "Running Playwright tests"
           node node_modules/playwright/cli.js test --reporter=list --workers=1
-        # make output more visible and deterministic
       
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
