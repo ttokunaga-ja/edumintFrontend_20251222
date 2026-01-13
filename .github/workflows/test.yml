@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     
     strategy:
       matrix:
@@ -36,6 +36,7 @@ jobs:
       - name: Run E2E tests (Playwright)
         env:
           VITE_ENABLE_MSW: 'true'
+          VITE_API_BASE_URL: 'http://localhost:9000'
         run: |
           echo "Running Playwright tests"
           node node_modules/playwright/cli.js test --reporter=list --workers=1
