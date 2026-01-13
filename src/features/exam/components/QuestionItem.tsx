@@ -78,6 +78,7 @@ export const QuestionItem: FC<QuestionItemProps> = ({
   return (
     <Paper
       elevation={1}
+      data-testid="question-item"
       sx={{
         p: 3,
         borderLeft: '4px solid',

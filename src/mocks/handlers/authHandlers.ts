@@ -69,7 +69,7 @@ export const authHandlers = [
   }),
 
   // 現在のユーザー情報取得
-  http.get(withBase('/auth/me'), () => {
+  http.get(withBase('/auth/profile'), () => {
     return HttpResponse.json(mockUser);
   }),
 ];

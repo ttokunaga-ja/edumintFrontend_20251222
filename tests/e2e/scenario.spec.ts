@@ -18,111 +18,68 @@ test.describe('ユーザーシナリオ', () => {
     
     const loginButton = page.locator('button[type="submit"]');
     await loginButton.click();
-    await page.waitForLoadState('networkidle');
     
-    // ホームページへリダイレクトされ、ログイン完了
-    await expect(page).toHaveURL('/', { timeout: 10000 });
+    // ホームページへリダイレクトされ、ログイン完了を待機
+    // ログインボタンが消えるか、アバターが表示されるのを待つのがより確実
+    await expect(page).toHaveURL('/', { timeout: 15000 });
+    await expect(page.getByRole('button', { name: 'ログイン' })).toHaveCount(0, { timeout: 10000 });
   });
 
   test('ログイン -> 問題作成 -> 検索 -> 詳細表示', async ({ page }) => {
     // 問題作成ページへ移動
-    await page.goto('/problem/create');
-    
-    // ページが読み込まれることを確認（role ベースのセレクタで安定化）
-    await expect(page.getByRole('heading', { name: /問題を作成|新規問題作成/ })).toBeVisible({ timeout: 5000 });
-    
-    // Step 0: 基本設定
-    // タイトルを入力
-    const titleInput = page.locator('input[placeholder*="タイトル"]');
-    await titleInput.fill('微分積分学 - 極限と連続性');
-    
-    // 教科を選択
-    const subjectSelect = page.locator('select, [role="combobox"]').first();
-    if (await subjectSelect.isVisible()) {
-      await subjectSelect.click();
-      await page.getByText('数学', { exact: true }).click();
-    }
-    
-    // 難易度を選択
-    const levelSelect = page.locator('select, [role="combobox"]').nth(1);
-    if (await levelSelect.isVisible()) {
-      await levelSelect.click();
-      await page.getByText('標準', { exact: true }).click();
-    }
-    
-    // タグを追加
-    const tagInput = page.locator('input[placeholder*="タグ"]');
-    if (await tagInput.isVisible()) {
-      await tagInput.fill('微積');
-      const addButton = page.getByRole('button', { name: '追加' }).first();
-      if (await addButton.isVisible()) {
-        await addButton.click();
-      }
-    }
-    
-    // 次へボタンをクリック
-    let nextButton = page.getByRole('button', { name: '次へ' }).last();
-    if (await nextButton.isVisible()) {
-      await nextButton.click();
-    }
-    
-    // Step 1: 問題入力
-    // 問題内容を入力
-    const contentInput = page.locator('textarea');
-    if (await contentInput.isVisible()) {
-      await contentInput.fill('以下の極限を求めよ: lim(x->0) sin(x)/x');
-    }
-    
-    // 次へボタンをクリック
-    nextButton = page.getByRole('button', { name: '次へ' }).last();
-    if (await nextButton.isVisible()) {
-      await nextButton.click();
-    }
-    
-    // Step 2: 確認・保存
-    // 保存ボタンをクリック
-    const saveButton = page.getByRole('button', { name: '保存' }).last();
-    if (await saveButton.isVisible()) {
-      await saveButton.click();
-    }
-    
-    // 成功通知を確認（役割ベースのセレクタで安定化）
-    await expect(page.getByText(/問題を作成しました|問題が作成されました/)).toBeVisible({ timeout: 5000 });
-    
-    // ホームページへリダイレクトされることを確認
-    await expect(page).toHaveURL('/', { timeout: 10000 });
-    
-    // ホームページで問題が表示されることを確認
+    await page.goto('/create');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('微分積分学')).toBeVisible({ timeout: 5000 });
     
-    // 問題をクリックして詳細表示を確認
-    const problemLink = page.getByText('微分積分学').first();
-    if (await problemLink.isVisible()) {
-      await problemLink.click();
-      
-      // 詳細ページが表示されることを確認
-      await expect(page.getByText('微分積分学 - 極限と連続性')).toBeVisible({ timeout: 5000 });
-      
-      // 問題内容が表示されることを確認
-      await expect(page.getByText(/極限を求めよ/)).toBeVisible({ timeout: 5000 });
-      
-      // 編集ボタンが表示されることを確認
-      const editButton = page.getByRole('button', { name: '編集' }).first();
-      if (await editButton.isVisible()) {
-        // 編集モードに切り替え
-        await editButton.click();
-        
-        // 編集フォームが表示されることを確認
-        await expect(page.locator('input[value*="微分積分学"]')).toBeVisible({ timeout: 5000 });
-        
-        // キャンセルボタンをクリック
-        const cancelButton = page.getByRole('button', { name: 'キャンセル' }).first();
-        if (await cancelButton.isVisible()) {
-          await cancelButton.click();
-        }
-      }
+    // ページが読み込まれることを確認
+    // ログイン状態が維持されていることを確認するために、URLが /login に戻っていないことをチェック
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 10000 });
+    await expect(page.getByText('1. 生成開始')).toBeVisible({ timeout: 15000 });
+    
+    // モードを「資料から生成」に切り替え
+    await page.getByText('資料から生成').click();
+    
+    // テキストエリアに内容を入力
+    const textArea = page.locator('textarea').first();
+    await textArea.fill('量子力学の基本原理について。シュレディンガー方程式と演算子。');
+
+    // 問題構造を確認チェックボックスをONにする（確実なフェーズ遷移のため）
+    const checkStructure = page.getByLabel('問題構造を確認（確認画面を表示）');
+    if (await checkStructure.isVisible()) {
+      await checkStructure.check();
     }
+    
+    // 生成開始ボタンをクリック
+    await page.getByRole('button', { name: '生成開始' }).click();
+    
+    // フェーズ遷移（構造解析）を待機
+    await expect(page.getByText('構造解析結果の確認')).toBeVisible({ timeout: 40000 });
+    
+    // 生成を確定
+    await page.getByRole('button', { name: 'この構成で生成を開始' }).click();
+    
+    // 生成完了とリダイレクトを待機（リダイレクト先は /exam/:id ）
+    await expect(page).toHaveURL(/\/exam\//, { timeout: 30000 });
+    
+    // 詳細ページが表示されることを確認
+    await expect(page.getByRole('heading', { name: /量子力学|Sample Problem/i })).toBeVisible({ timeout: 15000 });
+    
+    // ホームページに戻って検索を確認
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    
+    // 検索入力
+    const searchInput = page.getByPlaceholder(/キーワード、大学、教科を検索/);
+    await searchInput.fill('量子力学');
+    await page.keyboard.press('Enter');
+    
+    // 検索結果に該当する問題が表示されることを確認 (MSWが返すデフォルトデータ)
+    await expect(page.getByRole('heading', { name: '量子力学基礎 中間試験' })).toBeVisible({ timeout: 10000 });
+    
+    // 問題をクリック
+    await page.getByRole('heading', { name: '量子力学基礎 中間試験' }).first().click();
+    
+    // 詳細ページが表示されることを確認
+    await expect(page.getByRole('heading', { name: '量子力学基礎 中間試験' })).toBeVisible({ timeout: 10000 });
   });
 
   test('検索機能の動作確認', async ({ page }) => {

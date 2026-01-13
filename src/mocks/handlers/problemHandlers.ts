@@ -153,7 +153,7 @@ export const __test_problems = getAllProblems();
 
 export const problemHandlers = [
   // Get all problems (simplified search/list)
-  http.get(withBase('/problems'), () => {
+  http.get(withBase('/exams'), () => {
     return HttpResponse.json(getAllProblems());
   }),
 
@@ -332,7 +332,7 @@ export const problemHandlers = [
   }),
 
   // Get single problem by ID
-  http.get(withBase('/problems/:id'), ({ params }) => {
+  http.get(withBase('/exams/:id'), ({ params }) => {
     const { id } = params;
     const problem = getAllProblems().find((p) => p.id === id);
     if (!problem) {
@@ -342,7 +342,7 @@ export const problemHandlers = [
   }),
 
   // Create new problem (mock)
-  http.post(withBase('/problems'), async ({ request }) => {
+  http.post(withBase('/exams'), async ({ request }) => {
     const newProblem = (await request.json()) as any;
     newProblem.id = `exam-${getAllProblems().length + 1}`;
     newProblem.createdAt = new Date().toISOString();
@@ -351,7 +351,7 @@ export const problemHandlers = [
   }),
 
   // Update problem (mock)
-  http.put(withBase('/problems/:id'), async ({ params, request }) => {
+  http.put(withBase('/exams/:id'), async ({ params, request }) => {
     const { id } = params;
     const updateData = (await request.json()) as any;
     const all = getAllProblems();

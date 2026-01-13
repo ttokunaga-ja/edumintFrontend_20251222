@@ -45,7 +45,9 @@ export const getHealthNotifications = async (): Promise<HealthStatus> => {
 
 export const getHealthSearch = async (): Promise<HealthStatus> => {
   try {
+    console.log('[HealthAPI] Fetching search health...');
     const response = await api.get<HealthStatus>('/health/search');
+    console.log('[HealthAPI] Search health response:', response.data);
     return response.data;
   } catch (error) {
     console.error('[Health API] Failed to fetch search health:', error);

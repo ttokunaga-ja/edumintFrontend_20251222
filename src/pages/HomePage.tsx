@@ -5,6 +5,7 @@ import {
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSearch } from '@/features/content/hooks/useContent';
+import { useServiceHealthContext } from '@/contexts/ServiceHealthContext';
 import { AdvancedSearchPanel, SearchFilters } from '@/components/page/HomePage/AdvancedSearchPanel';
 import { SortChipGroup } from '@/components/page/HomePage/SortChipGroup';
 import { SearchResultsGrid } from '@/components/page/HomePage/SearchResultsGrid';
@@ -12,6 +13,8 @@ import { SearchResultsGrid } from '@/components/page/HomePage/SearchResultsGrid'
 export default function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { health } = useServiceHealthContext();
+  const isSearchDisabled = health.search === 'outage';
 
   // Slug generation function
   const generateSlug = useCallback((examName: string) => {
@@ -93,6 +96,7 @@ export default function HomePage() {
               filters={filters}
               onFiltersChange={handleFiltersChange}
               isOpen={Object.keys(filters).length > 0}
+              disabled={isSearchDisabled}
             />
           </Box>
 
@@ -100,6 +104,7 @@ export default function HomePage() {
           <SortChipGroup
             sortBy={sortBy}
             onSortChange={handleSortChange}
+            disabled={isSearchDisabled}
           />
 
           {/* 検索結果 */}

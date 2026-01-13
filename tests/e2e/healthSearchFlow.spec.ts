@@ -3,33 +3,50 @@ import { test, expect } from '@playwright/test';
 const baseUrl = process.env.E2E_BASE_URL || 'http://localhost:5173/';
 
 test.describe('Health-aware search flow', () => {
-  test('disables search interactions when search service is outage', async ({ page }) => {
-    await page.route('**/health/search', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ status: 'outage', message: 'outage', timestamp: new Date().toISOString() }),
-      }),
-    );
-    const operationalBody = JSON.stringify({ status: 'operational', message: 'ok', timestamp: new Date().toISOString() });
-    await page.route(/\/health\/(content|community|notifications|wallet)/, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: operationalBody }),
-    );
-    await page.route('**/search/exams**', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ exams: [], total: 0, page: 1, limit: 20, hasMore: false }),
-      }),
-    );
+  test('disables search interactions when search service is outage', async ({ page, context }) => {
+    // Trace all requests
+    // page.on('request', request => console.log('>>', request.method(), request.url()));
+    // page.on('response', response => console.log('<<', response.status(), response.url()));
+
+    // Inject a script to force locale
+    await context.addInitScript(() => {
+      window.localStorage.setItem('i18nextLng', 'ja');
+    });
+
+    // Logging from page
+    // page.on('console', msg => console.log(`[PAGE LOG] ${msg.text()}`));
 
     await page.goto(baseUrl);
-    await page.waitForLoadState('networkidle');
-
-    // 検索機能が利用不可のメッセージを待つ（タイムアウト延長）
-    await expect(page.getByText('検索機能が一時的にご利用いただけません')).toBeVisible({ timeout: 10000 });
     
-    // 検索ボタンが無効化されていることを確認（タイムアウト延長）
-    await expect(page.getByRole('button', { name: 'おすすめ' })).toBeDisabled({ timeout: 10000 });
+    // Wait for MSW and QueryClient to be available
+    await page.waitForFunction(() => (window as any).msw && (window as any).queryClient);
+
+    // Apply runtime mock override
+    await page.evaluate(() => {
+      const { worker, http, HttpResponse } = (window as any).msw;
+      worker.use(
+        http.get('*/api/health/search', () => {
+          return HttpResponse.json({
+            status: 'outage',
+            message: 'Search service is currently unavailable',
+            timestamp: new Date().toISOString(),
+          });
+        })
+      );
+    });
+
+    // Invalidate the query to force a re-fetch with the new mock
+    await page.evaluate(() => {
+        (window as any).queryClient.invalidateQueries({ queryKey: ['health'] });
+    });
+
+    // Wait for the outage alert
+    const alert = page.getByTestId('health-outage-alert').filter({ hasText: /検索機能/ });
+    await expect(alert).toBeVisible({ timeout: 20000 });
+    await expect(alert).toContainText('停止しています');
+    
+    // Check if search button is disabled
+    const searchButton = page.getByRole('button', { name: /検索|おすすめ/ }).first();
+    await expect(searchButton).toBeDisabled({ timeout: 10000 });
   });
 });

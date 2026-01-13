@@ -6,6 +6,7 @@ import { SORT_ORDER_ENUM_OPTIONS } from '@/lib/enums/enumHelpers';
 export interface SortChipGroupProps {
   sortBy: number;
   onSortChange: (sort: number) => void;
+  disabled?: boolean;
 }
 
 /**
@@ -15,6 +16,7 @@ export interface SortChipGroupProps {
 export const SortChipGroup: FC<SortChipGroupProps> = ({
   sortBy,
   onSortChange,
+  disabled = false,
 }) => {
   const { t } = useTranslation();
 
@@ -24,9 +26,12 @@ export const SortChipGroup: FC<SortChipGroupProps> = ({
         <Chip
           key={option.value}
           label={t(option.labelKey)}
-          onClick={() => onSortChange(option.value)}
+          onClick={() => !disabled && onSortChange(option.value)}
+          disabled={disabled}
           variant={sortBy === option.value ? 'filled' : 'outlined'}
           color={sortBy === option.value ? 'primary' : 'default'}
+          color={sortBy === option.value ? 'primary' : 'default'}
+          disabled={disabled}
         />
       ))}
     </Stack>

@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import React, { Fragment } from 'react';
 import type { FC, ReactNode, SyntheticEvent, FormEvent } from 'react';
 import { Alert, Stack, Snackbar, Button, Box } from '@mui/material';
 import { useServiceHealthContext } from '@/contexts/ServiceHealthContext';
@@ -27,7 +27,9 @@ export const ContextHealthAlert = () => {
 
   const alerts = services.filter(service => {
     const status = health[service.key as keyof typeof health] as HealthStatus;
-    return status && status !== 'operational';
+    const isAlert = status && status !== 'operational';
+    if (isAlert) console.log(`[HealthAlert] Service ${service.key} status: ${status}`);
+    return isAlert;
   });
 
   return (
@@ -58,7 +60,7 @@ export const ContextHealthAlert = () => {
             }
 
             return (
-              <Alert key={service.key} severity={severity}>
+              <Alert key={service.key} severity={severity} data-testid="health-outage-alert">
                 {message}
               </Alert>
             );

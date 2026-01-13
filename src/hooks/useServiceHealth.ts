@@ -49,6 +49,7 @@ export interface ServiceHealthState {
  * - CTA disable/enable sync (0-200ms)
  */
 export function useServiceHealth() {
+  console.log('[useServiceHealth] Hook called');
   const queryClient = useQueryClient();
 
   // Individual service health queries with error boundary

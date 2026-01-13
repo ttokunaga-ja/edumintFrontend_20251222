@@ -60,6 +60,7 @@ export interface AdvancedSearchPanelProps {
   filters: SearchFilters;
   onFiltersChange: (filters: SearchFilters) => void;
   isOpen?: boolean;
+  disabled?: boolean;
   userProfile?: {
     university?: string;
     faculty?: string;
@@ -144,6 +145,7 @@ export function AdvancedSearchPanel({
   filters,
   onFiltersChange,
   isOpen = false,
+  disabled = false,
   userProfile,
 }: AdvancedSearchPanelProps) {
   const { t } = useTranslation();
@@ -396,12 +398,11 @@ export function AdvancedSearchPanel({
       <Accordion
         expanded={expanded}
         onChange={() => setExpanded(!expanded)}
+        disabled={disabled}
         sx={{
-          mb: 2,
-          '&:before': { display: 'none' },
-          boxShadow: 'none',
-          border: (theme) => `1px solid ${theme.palette.divider}`,
-          borderRadius: '8px !important',
+          '&.Mui-disabled': {
+            backgroundColor: 'rgba(0, 0, 0, 0.12)',
+          }
         }}
       >
         <AccordionSummary
@@ -607,6 +608,7 @@ export function AdvancedSearchPanel({
                   variant="contained"
                   color="primary"
                   onClick={handleApplyFilters}
+                  disabled={disabled}
                   sx={{ minWidth: 120 }}
                 >
                   {t('common.search')}
@@ -614,6 +616,7 @@ export function AdvancedSearchPanel({
                 <Button
                   variant="outlined"
                   onClick={handleReset}
+                  disabled={disabled}
                   sx={{ minWidth: 120 }}
                 >
                   リセット

@@ -1,6 +1,8 @@
+import { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { TopMenuBar } from '@/components/common/TopMenuBar';
+import { ContextHealthAlert } from '@/components/common/ContextHealthAlert';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -49,6 +51,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           bgcolor: 'background.default',
         }}
       >
+        <ContextHealthAlert />
         {children}
       </Box>
     </Box>

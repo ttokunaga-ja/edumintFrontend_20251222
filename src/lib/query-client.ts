@@ -13,3 +13,7 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+if (typeof window !== 'undefined') {
+  (window as any).queryClient = queryClient;
+}

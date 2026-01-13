@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { login, register, getMe, logout } from '@/services/api/gateway/auth';
 
 interface LoginRequest {
@@ -24,17 +24,20 @@ interface AuthResponse {
 }
 
 export function useLogin() {
+  const queryClient = useQueryClient();
   return useMutation<AuthResponse, Error, LoginRequest>({
     mutationFn: login,
     onSuccess: (data) => {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('authToken', data.token);
       }
+      queryClient.invalidateQueries({ queryKey: ['auth'] });
     },
   });
 }
 
 export function useRegister() {
+  const queryClient = useQueryClient();
   return useMutation<AuthResponse, Error, RegisterRequest>({
     mutationFn: (data) => {
       // confirmPasswordはバックエンドに送信しない
@@ -45,17 +48,20 @@ export function useRegister() {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('authToken', data.token);
       }
+      queryClient.invalidateQueries({ queryKey: ['auth'] });
     },
   });
 }
 
 export function useLogout() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: logout,
     onSuccess: () => {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('authToken');
       }
+      queryClient.setQueryData(['auth'], null);
     },
   });
 }
