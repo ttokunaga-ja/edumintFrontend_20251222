@@ -312,6 +312,17 @@
       "start": "生成開始",
       "structure": "構造確定",
       "complete": "生成完了"
+    },
+    "steps": {
+      "waiting_for_upload": "アップロード待ち",
+      "uploading": "アップロード中",
+      "upload_verifying": "ファイル検証中",
+      "phase1_markdown_generating": "テキスト抽出中（Phase 1）",
+      "phase2_structure_analyzing": "構造解析中（Phase 2）",
+      "structure_review": "構造確認待ち",
+      "phase3_content_generating": "問題生成中（Phase 3）",
+      "postprocessing": "最終検証中",
+      "completed": "完了"
     }
   }
 }

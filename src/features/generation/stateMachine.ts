@@ -44,14 +44,14 @@ const mapStepToPhase = (
     case 'uploading':
     case 'upload_verifying':
       return 'uploading';
-    case 'extracting':
-    case 'sectioning':
+    // Phase 1 & 2を'analyzing'にマッピング（UIは変更しない）
+    case 'phase1_markdown_generating':
+    case 'phase2_structure_analyzing':
       return 'analyzing';
-    case 'structure_detecting':
     case 'structure_review':
       return 'structure-review';
-    case 'waiting_for_slot':
-    case 'generating':
+    // Phase 3を'generating'にマッピング
+    case 'phase3_content_generating':
       return 'generating';
     case 'postprocessing':
       return 'postprocessing';

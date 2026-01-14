@@ -1,9 +1,32 @@
 import { axiosInstance } from '@/lib/axios';
 
+export type GenerationCurrentStep =
+  | 'waiting_for_upload'
+  | 'uploading'
+  | 'upload_verifying'
+  // Phase 1: Raw to Markdown
+  | 'phase1_markdown_generating'
+  // Phase 2: Structure Analysis
+  | 'phase2_structure_analyzing'
+  | 'structure_review'          // ユーザー確認待ち
+  // Phase 3: Content Generation
+  | 'phase3_content_generating'
+  | 'postprocessing'
+  | 'completed';
+
+export type GenerationJobStatus = 'queued' | 'processing' | 'paused' | 'completed' | 'failed';
+
 export interface GenerationStatusResponse {
   jobId: string;
-  phase: number;
+  status: GenerationJobStatus;
+  currentStep: GenerationCurrentStep;
+  phase: 1 | 2 | 3;  // 現在のPhase番号
+  progress: number;
   data?: any;
+  problemId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  message?: string;
   updatedAt: string;
 }
 

@@ -310,6 +310,17 @@
       "start": "Generation",
       "structure": "Structure Review",
       "complete": "Complete"
+    },
+    "steps": {
+      "waiting_for_upload": "Waiting for upload",
+      "uploading": "Uploading",
+      "upload_verifying": "Verifying file",
+      "phase1_markdown_generating": "Extracting text (Phase 1)",
+      "phase2_structure_analyzing": "Analyzing structure (Phase 2)",
+      "structure_review": "Awaiting structure confirmation",
+      "phase3_content_generating": "Generating content (Phase 3)",
+      "postprocessing": "Final verification",
+      "completed": "Completed"
     }
   }
 }
