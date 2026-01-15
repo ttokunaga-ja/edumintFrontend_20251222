@@ -104,6 +104,25 @@
     }
   },
   "enum": {
+    "common": {
+      "confirming": "確認中",
+      "saving": "保存中",
+      "completed": "完了",
+      "queued": "キュー待ち",
+      "retry": "リトライ中",
+      "failed": "失敗"
+    },
+    "structure": {
+      "uploading": "アップロード中",
+      "extracting": "抽出中",
+      "analyzing": "解析中"
+    },
+    "generation": {
+      "creating": "生成中"
+    },
+    "publication": {
+      "publishing": "公開中"
+    },
     "level": {
       "auto": "自動判別",
       "basic": "基礎",

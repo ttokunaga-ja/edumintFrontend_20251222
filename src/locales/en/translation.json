@@ -103,6 +103,25 @@
     }
   },
   "enum": {
+    "common": {
+      "confirming": "Confirming",
+      "saving": "Saving",
+      "completed": "Completed",
+      "queued": "Queued",
+      "retry": "Retrying",
+      "failed": "Failed"
+    },
+    "structure": {
+      "uploading": "Uploading",
+      "extracting": "Extracting",
+      "analyzing": "Analyzing"
+    },
+    "generation": {
+      "creating": "Creating"
+    },
+    "publication": {
+      "publishing": "Publishing"
+    },
     "level": {
       "auto": "Auto",
       "basic": "Basic",
