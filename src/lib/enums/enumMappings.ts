@@ -98,31 +98,29 @@ export const DEFAULT_ENUM_MAPPINGS: EnumMappings = {
   ]),
 
   // Generation Phase (CreatePage state transitions)
-  // Structure Phase: 0-9
-  // Generation Phase: 10-19
-  // Publication Phase: 20-29
+  // 00-09: Common states (shared across all phases)
+  // 10-19: Structure Phase (Markdown extraction)
+  // 20-29: Generation Phase (AI content creation)
+  // 30-39: Publication Phase
   generation_phase: new Map<number, any>([
-    // Structure Phase
-    [0, { i18nKey: 'enum.generation_phase.structure_uploading', editable: false, order: 0 }],
-    [1, { i18nKey: 'enum.generation_phase.structure_queued', editable: false, order: 1 }],
-    [2, { i18nKey: 'enum.generation_phase.structure_analysing', editable: false, order: 2 }],
-    [3, { i18nKey: 'enum.generation_phase.structure_confirmed', editable: false, order: 3 }],
-    [4, { i18nKey: 'enum.generation_phase.structure_completed', editable: false, order: 4 }],
-    [8, { i18nKey: 'enum.generation_phase.structure_failed', editable: false, order: 8 }],
-    [9, { i18nKey: 'enum.generation_phase.structure_retry', editable: false, order: 9 }],
+    // Common States (00-09) - Used across all phases
+    [0, { i18nKey: 'enum.common.confirming', editable: false, order: 0 }],
+    [1, { i18nKey: 'enum.common.saving', editable: false, order: 1 }],
+    [2, { i18nKey: 'enum.common.completed', editable: false, order: 2 }],
+    [3, { i18nKey: 'enum.common.queued', editable: false, order: 3 }],
+    [4, { i18nKey: 'enum.common.retry', editable: false, order: 4 }],
+    [5, { i18nKey: 'enum.common.failed', editable: false, order: 5 }],
     
-    // Generation Phase
-    [10, { i18nKey: 'enum.generation_phase.generation_preparing', editable: false, order: 10 }],
-    [11, { i18nKey: 'enum.generation_phase.generation_queued', editable: false, order: 11 }],
-    [12, { i18nKey: 'enum.generation_phase.generation_creating', editable: false, order: 12 }],
-    [13, { i18nKey: 'enum.generation_phase.generation_confirmed', editable: false, order: 13 }],
-    [14, { i18nKey: 'enum.generation_phase.generation_completed', editable: false, order: 14 }],
-    [18, { i18nKey: 'enum.generation_phase.generation_failed', editable: false, order: 18 }],
-    [19, { i18nKey: 'enum.generation_phase.generation_retry', editable: false, order: 19 }],
-
-    // Publication Phase
-    [20, { i18nKey: 'enum.generation_phase.publication_saving', editable: false, order: 20 }],
-    [21, { i18nKey: 'enum.generation_phase.publication_publishing', editable: false, order: 21 }],
+    // Structure Phase (10-19) - Markdown extraction from files
+    [10, { i18nKey: 'enum.structure.uploading', editable: false, order: 10 }],
+    [11, { i18nKey: 'enum.structure.extracting', editable: false, order: 11 }],
+    [12, { i18nKey: 'enum.structure.analyzing', editable: false, order: 12 }],
+    
+    // Generation Phase (20-29) - AI content creation
+    [20, { i18nKey: 'enum.generation.creating', editable: false, order: 20 }],
+    
+    // Publication Phase (30-39)
+    [30, { i18nKey: 'enum.publication.publishing', editable: false, order: 30 }],
   ]),
 };
 
