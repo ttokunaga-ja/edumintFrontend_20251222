@@ -100,7 +100,7 @@
 
 #### **3.1.2. edumintGateway (Node.js)**
 
-*   **役割**: すべての外部クライアントからのリクエストを受け付ける単一の窓口。フロントエンドとバックエンドGoサービス群の橋渡し役として、セキュリティ、監視、リクエスト制御を集約します。
+*   **役割**: すべての外部クライアントからのリクエストを受け付ける単一の窓口。フロントエンドとバックエンドGoサービス群の橋渡し役として、セキュリティ、監視、リクエスト制御を集約します。また、**全てのジョブのライフサイクル管理（ジョブオーケストレーション）**を担当します。
 *   **主な機能モジュール**:
     *   **AuthProxy**: JWT/SSOアクセストークンを検証し、RBAC（ロールベースアクセス制御）に基づいた認可を行います。
     *   **RequestValidator**: 入力スキーマをバリデーションし、不正なリクエストを早期に遮断します。
@@ -108,6 +108,10 @@
     *   **CacheLayer**: Redisを活用し、検索結果や共通データをキャッシュしてレスポンスを高速化します。
     *   **LogCollector**: 構造化ログを収集し、OpenTelemetryによる分散トレーシングの起点となります。
     *   **ErrorHandler**: サービス全体で共通化されたエラーレスポンスを管理・返却します。
+    *   **JobOrchestrator**: 全てのジョブタイプ（`exam_creation`, `file_processing`, `index_rebuild`等）を統一管理し、ジョブの作成・状態管理・冪等性保証を提供します。
+*   **DB (例)**: `jobs`（ジョブ管理テーブル - 全サービス共通）
+*   **Kafka**: `gateway.jobs`（`job.created`）をPublishし、`content.lifecycle`, `ai.results`, `gateway.job_status`をSubscribeします。
+*   **備考**: ジョブ管理を集約することで、各ドメインサービスはジョブインフラを意識せず、ドメインロジックに専念できます。
 
 ### **3.2. バックエンド・コアサービス群 (Go)**
 
@@ -136,11 +140,14 @@
 
 #### **D. edumintContent**
 
-*   **責務**: 演習問題や講義資料のメタデータ、構造化された問題文・解答などを保持する「信頼できる唯一の情報源（Source of Truth）」です。
+*   **責務**: 演習問題や講義資料のメタデータ、構造化された問題文・解答などを保持する「信頼できる唯一の情報源（Source of Truth）」です。ジョブ管理は行わず、Kafkaイベントを購読してドメインロジックを実行します。
 *   **gRPC API (例)**: `CreateExam`, `GetExam`, `UpdateExam`, `PublishExam`
-*   **DB (例)**: `exams`, `questions`, `exam_metadata`, `exam_stats`
-*   **Kafka**: `content.lifecycle`（`ExamCreated`, `ExamUpdated`）をPublishし、`ai.results`をSubscribeしてAI処理結果を反映します。
-*   **備考**: コンテンツの構造は厳格なスキーマで管理します。
+*   **DB (例)**: `exams`, `questions`, `sub_questions`, `keywords`, `exam_stats`, `exam_metadata`
+*   **Kafka**: `gateway.jobs`をSubscribeして試験作成イベントに反応し、`content.lifecycle`（`ExamCreated`, `ExamUpdated`, `ExamDeleted`, `ExamCompleted`）をPublishします。また、`ai.results`をSubscribeしてAI処理結果を反映します。
+*   **備考**: 
+    *   ジョブ管理テーブル（`exam_creation_jobs`, `extraction_jobs`, `outbox`等）は削除され、edumintGatewayに移行しました。
+    *   コンテンツの構造は厳格なスキーマで管理します。
+    *   edumintContentは「試験データの正データを管理するサービス」であり、ジョブのオーケストレーションはedumintGatewayが担当します。
 
 #### **E. edumintAiWorker**
 
@@ -206,14 +213,18 @@
 
 ## **4. Kafkaトピック表（主要イベント一覧）**
 
-*   `auth.events`: `UserLoggedIn`, `UserSignedUpViaSSO`
-*   `content.jobs`: `FileUploaded`
-*   `ai.results`: `AIProcessingCompleted`, `AIProcessingFailed`
-*   `content.lifecycle`: `ExamCreated`, `ExamUpdated`, `ExamDeleted`
-*   `content.feedback`: `ExamLiked`, `ExamViewed`
-*   `user.events`: `UserCreated`, `UserUpdated`
-*   `moderation.events`: `ContentActionTaken`
-*   `monetization.transactions`: `CoinAwarded`, `CoinSpent`
+| トピック | Producer | Consumer | イベント |
+|---------|----------|----------|---------|
+| `auth.events` | edumintAuth | 各サービス | `UserLoggedIn`, `UserSignedUpViaSSO` |
+| `gateway.jobs` | edumintGateway | edumintContent, edumintFile, edumintSearch | `job.created` |
+| `content.jobs` | edumintFile | edumintContent | `FileUploaded` |
+| `content.lifecycle` | edumintContent | edumintGateway, edumintSearch, edumintAiWorker | `ExamCreated`, `ExamUpdated`, `ExamDeleted`, `ExamCompleted` |
+| `ai.results` | edumintAiWorker | edumintContent | `AIProcessingCompleted`, `AIProcessingFailed` |
+| `gateway.job_status` | 各ドメインサービス | edumintGateway | `job_completed`, `job_failed` |
+| `content.feedback` | edumintSocial | edumintSearch, edumintNotify | `ExamLiked`, `ExamViewed` |
+| `user.events` | edumintUserProfile | 各サービス | `UserCreated`, `UserUpdated` |
+| `moderation.events` | edumintModeration | 各サービス | `ContentActionTaken` |
+| `monetization.transactions` | edumintMonetizeWallet | edumintRevenue | `CoinAwarded`, `CoinSpent` |
 
 ---
 
@@ -223,6 +234,71 @@
 *   **参照方式**: 他サービスはAPI呼び出しかイベント購読を通じてデータを参照し、安易にデータを複製しません。
 *   **最終整合性**: サービス間のデータ同期はKafkaを介したイベント駆動で行い、結果整合性（Eventual Consistency）を基本とします。
 *   **強整合性**: ウォレットの残高更新など、即時性と正確性が求められる処理は、データベースのトランザクション内で完結させ、強整合性を保証します。
+
+### ジョブ管理の責務分離（重要な設計原則）
+
+**edumintGateway がジョブ管理を集約する理由:**
+
+| 設計原則 | 説明 | メリット |
+|---------|------|---------|
+| **Single Responsibility Principle** | edumintGateway = ジョブオーケストレーション<br>edumintContent = 試験データのドメインロジック | ジョブシステムの変更がドメインサービスに影響しない |
+| **将来の拡張性** | 汎用ジョブテーブルで全てのジョブタイプを統一管理 | 新しいジョブタイプの追加が容易（車輪の再発明を防ぐ） |
+| **CQRS + Event Sourcing 整合性** | Command: edumintGateway（ジョブ作成）<br>Query: edumintContent（正データ管理） | イベント駆動アーキテクチャとの自然な整合 |
+| **スケーラビリティ** | ジョブ管理とドメインロジックを独立してスケール可能 | 高負荷時に柔軟な対応が可能 |
+| **テスタビリティ** | ドメインサービスのテストでジョブ管理のモックが不要 | テストがシンプルで保守しやすい |
+
+**edumintContent の新しい責務:**
+
+```go
+// ✅ イベント駆動アーキテクチャ
+func (uc *ExamUseCase) OnJobCreated(ctx context.Context, event JobCreatedEvent) error {
+  // 1. Kafka イベントからペイロードを取得
+  examData := event.Payload
+  
+  // 2. ドメインロジックを実行（バリデーション、ビジネスルール）
+  exam, err := domain.NewExam(examData)
+  if err != nil {
+    // エラーを Kafka に返す
+    uc.kafkaProducer.Publish("content.exam_failed", ExamFailedEvent{
+      JobID: event.JobID,
+      Error: err.Error(),
+    })
+    return err
+  }
+  
+  // 3. DBに保存（トランザクション）
+  err = uc.examRepo.Save(ctx, exam)
+  if err != nil {
+    return err
+  }
+  
+  // 4. 成功を Kafka に通知
+  uc.kafkaProducer.Publish("content.exam_created", ExamCreatedEvent{
+    JobID:  event.JobID,
+    ExamID: exam.ID(),
+  })
+  
+  return nil
+}
+```
+
+**補償トランザクション（Saga パターン）:**
+
+```
+[成功ケース]
+  1. edumintGateway: jobs.status='pending'
+  2. edumintContent: exams 作成成功 → content.exam_created
+  3. edumintGateway: jobs.status='processing', resource_id=exam_id
+  4. edumintAiWorker: AI処理成功 → ai.processing_completed
+  5. edumintContent: questions 作成成功 → content.exam_completed
+  6. edumintGateway: jobs.status='completed'
+
+[失敗ケース]
+  1. edumintGateway: jobs.status='pending'
+  2. edumintContent: exams 作成失敗 → content.exam_failed
+  3. edumintGateway: jobs.status='failed', error_message設定
+  → クライアントは GET /v1/jobs/:id で "failed" を確認
+```
 
 ---
 
