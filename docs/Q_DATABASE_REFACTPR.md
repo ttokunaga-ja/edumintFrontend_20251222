@@ -30,12 +30,218 @@
 *   **最終整合性**: ドメインサービス間のデータ同期は結果整合性（Eventual Consistency）を基本とする。ただし金銭取引（ウォレット）は強整合性を維持。
 *   **単一オーナーシップ**: 各テーブルの書き込み権限は、当該サービスのみ。他サービスは API または Kafka イベント経由で参照・反映。
 *   **外部API非依存**: 全てのマスタデータは自前のDBで管理し、外部APIへの依存を排除（コスト・レイテンシ削減）。
+*   **ENUM型の積極採用**: 固定値の管理はPostgreSQL ENUM型を使用し、型安全性・パフォーマンス・可読性を向上させる。
+*   **グローバル対応**: 学問分野はUNESCO ISCED-F 2013（11大分類）に準拠し、国際標準に沿った設計とする。
 
 ### デプロイ段階
 
 *   **Phase 1 (MVP)**: edumintGateway, edumintAuth, edumintUserProfile, edumintFile, edumintContent, edumintAiWorker, edumintSearch
 *   **Phase 2 (製品版)**: + edumintMonetizeWallet, edumintRevenue, edumintSocial, edumintModeration
 *   **Phase 3 (拡張版)**: + 多言語・推薦等
+
+### ENUM型定義
+
+EduMintでは固定値の管理にPostgreSQL ENUM型を採用します。これにより型安全性が向上し、フロントエンドとの連携が明確になります。
+
+#### **1.1. 問題・試験関連ENUM**
+
+```sql
+-- 問題タイプ
+CREATE TYPE question_type_enum AS ENUM (
+  'single_choice',      -- 単一選択
+  'multiple_choice',    -- 複数選択
+  'true_false',         -- 正誤判定
+  'matching',           -- 組み合わせ
+  'ordering',           -- 順序並べ替え
+  'essay',              -- 記述式
+  'proof',              -- 証明問題
+  'coding',             -- コード記述
+  'translation',        -- 翻訳
+  'calculation'         -- 数値計算
+);
+
+-- 難易度レベル
+CREATE TYPE difficulty_level_enum AS ENUM (
+  'basic',              -- 基礎
+  'standard',           -- 標準
+  'advanced'            -- 発展
+);
+
+-- 試験タイプ
+CREATE TYPE exam_type_enum AS ENUM (
+  'regular',            -- 定期試験
+  'class',              -- 授業内試験
+  'quiz'                -- 小テスト
+);
+
+-- 学期
+CREATE TYPE semester_enum AS ENUM (
+  'spring',             -- 春学期
+  'fall',               -- 秋学期
+  'summer',             -- 夏季集中
+  'winter',             -- 冬季集中
+  'full_year',          -- 通年
+  'quarter_1',          -- 第1クォーター
+  'quarter_2',          -- 第2クォーター
+  'quarter_3',          -- 第3クォーター
+  'quarter_4'           -- 第4クォーター
+);
+
+-- 文理区分
+CREATE TYPE academic_track_enum AS ENUM (
+  'science',            -- 理系
+  'humanities'          -- 文系
+);
+
+-- 試験ステータス
+CREATE TYPE exam_status_enum AS ENUM (
+  'draft',              -- 下書き
+  'pending',            -- 承認待ち
+  'active',             -- 公開中
+  'archived',           -- アーカイブ
+  'deleted'             -- 削除済み
+);
+```
+
+#### **1.2. 教育機関関連ENUM**
+
+```sql
+-- 機関タイプ
+CREATE TYPE institution_type_enum AS ENUM (
+  'university',                 -- 大学（学部）
+  'graduate_school',            -- 大学院
+  'junior_college',             -- 短期大学
+  'technical_college',          -- 高等専門学校（本科）
+  'technical_college_advanced', -- 高等専門学校（専攻科）
+  'high_school',                -- 高等学校
+  'vocational_school'           -- 専門学校
+);
+```
+
+#### **1.3. 学問分野ENUM（UNESCO ISCED-F 2013準拠）**
+
+```sql
+-- 学問分野（UNESCO ISCED-F 2013 11大分類）
+CREATE TYPE academic_field_enum AS ENUM (
+  'generic_programmes',  -- 00: 汎用プログラム・資格
+  'education',           -- 01: 教育
+  'arts_and_humanities', -- 02: 芸術・人文科学
+  'social_sciences',     -- 03: 社会科学・ジャーナリズム・情報
+  'business_and_law',    -- 04: ビジネス・経営・法律
+  'natural_sciences',    -- 05: 自然科学・数学・統計
+  'ict',                 -- 06: 情報通信技術
+  'engineering',         -- 07: 工学・製造・建設
+  'agriculture',         -- 08: 農林水産・獣医
+  'health_and_welfare',  -- 09: 保健・福祉
+  'services'             -- 10: サービス
+);
+```
+
+#### **1.4. ユーザー・認証関連ENUM**
+
+```sql
+-- 言語
+CREATE TYPE language_enum AS ENUM (
+  'ja',                 -- 日本語
+  'en',                 -- 英語
+  'zh',                 -- 中国語
+  'ko',                 -- 韓国語
+  'other'               -- その他
+);
+
+-- ユーザーロール
+CREATE TYPE user_role_enum AS ENUM (
+  'user',               -- 一般ユーザー
+  'premium',            -- プレミアムユーザー
+  'moderator',          -- モデレーター
+  'admin',              -- 管理者
+  'system'              -- システム
+);
+
+-- ユーザーステータス
+CREATE TYPE user_status_enum AS ENUM (
+  'active',             -- アクティブ
+  'inactive',           -- 非アクティブ
+  'suspended',          -- 一時停止
+  'banned',             -- 永久停止
+  'deleted'             -- 削除済み
+);
+
+-- 認証イベント
+CREATE TYPE auth_event_enum AS ENUM (
+  'login_success',      -- ログイン成功
+  'login_failed',       -- ログイン失敗
+  'logout',             -- ログアウト
+  'token_issued',       -- トークン発行
+  'token_refreshed',    -- トークン更新
+  'token_revoked',      -- トークン無効化
+  'password_changed',   -- パスワード変更
+  'mfa_enabled',        -- 多要素認証有効化
+  'account_locked'      -- アカウントロック
+);
+```
+
+#### **1.5. ジョブ・通報関連ENUM**
+
+```sql
+-- ジョブステータス
+CREATE TYPE job_status_enum AS ENUM (
+  'pending',            -- 待機中
+  'queued',             -- キュー登録済み
+  'processing',         -- 処理中
+  'completed',          -- 完了
+  'failed',             -- 失敗
+  'retrying',           -- リトライ中
+  'cancelled'           -- キャンセル
+);
+
+-- ジョブタイプ
+CREATE TYPE job_type_enum AS ENUM (
+  'exam_creation',      -- 試験作成
+  'file_upload',        -- ファイルアップロード
+  'ocr_processing',     -- OCR処理
+  'ai_generation',      -- AI生成
+  'search_indexing',    -- 検索インデックス作成
+  'term_generation',    -- 用語生成
+  'revenue_calculation',-- 収益計算
+  'data_sync'           -- データ同期
+);
+
+-- 通報ステータス
+CREATE TYPE report_status_enum AS ENUM (
+  'pending',            -- 未対応
+  'assigned',           -- 担当者割当済み
+  'investigating',      -- 調査中
+  'resolved',           -- 解決済み
+  'ignored'             -- 無視
+);
+```
+
+#### **1.6. 経済・通知関連ENUM**
+
+```sql
+-- トランザクションタイプ
+CREATE TYPE transaction_type_enum AS ENUM (
+  'earn_upload',        -- アップロード報酬
+  'earn_ad_view',       -- 広告視聴報酬
+  'earn_referral',      -- 紹介報酬
+  'spend_unlock',       -- コンテンツ解除
+  'spend_tip',          -- 投げ銭
+  'refund',             -- 返金
+  'admin_adjustment'    -- 管理者調整
+);
+
+-- 通知タイプ
+CREATE TYPE notification_type_enum AS ENUM (
+  'exam_liked',         -- 試験いいね
+  'exam_commented',     -- 試験コメント
+  'user_followed',      -- フォロー通知
+  'coin_earned',        -- コイン獲得
+  'report_resolved',    -- 通報解決
+  'system_notice',      -- システム通知
+  'moderation_action'   -- モデレーション通知
+);
+```
 
 ---
 
@@ -44,10 +250,10 @@
 | サービス | 役割 | 所有テーブル | イベント発行 | Kafka購読 |
 | :--- | :--- | :--- | :--- | :--- |
 | **edumintGateway** | ジョブオーケストレーション | `jobs` | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
-| **edumintAuth** | SSO・認証 | `oauth_clients`, `oauth_tokens`, `idp_links` | `auth.events` | - |
+| **edumintAuth** | SSO・認証 | `oauth_clients`, `oauth_tokens`, `idp_links`, `auth_logs` | `auth.events` | - |
 | **edumintUserProfile** | ユーザー管理・フォロー・通知 | `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications` | `user.events` | `auth.events` |
 | **edumintFile** | ファイル管理 | `file_inputs`, `file_upload_jobs` | `content.jobs` (FileUploaded) | `gateway.jobs` |
-| **edumintContent** | 試験・問題データ (Source of Truth) | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `academic_fields`, `exams`, `questions`, `sub_questions`, `question_types`, etc. | `content.lifecycle` | `gateway.jobs`, `ai.results` |
+| **edumintContent** | 試験・問題データ (Source of Truth) | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `academic_field_metadata`, `exams`, `questions`, `sub_questions`, etc. | `content.lifecycle` | `gateway.jobs`, `ai.results` |
 | **edumintSearch** | 検索・インデックス | `*_terms` (subject, institution, faculty, teacher), `term_generation_jobs`, `term_generation_candidates`, Elasticsearch索引、Qdrant索引 | `search.indexed`, `search.term_generation` | `content.lifecycle` |
 | **edumintAiWorker** | AI処理（ステートレス） | （通常DBなし）*キャッシュ・ジョブログのみ | `ai.results` | `gateway.jobs`, `content.jobs`, `search.term_generation` |
 | **edumintSocial** | SNS機能（コメント・いいね） | `exam_likes`, `exam_bads`, `exam_comments`, `exam_views` | `content.feedback` | - |
@@ -151,15 +357,8 @@ CREATE TABLE institutions (
   -- 主キー
   id SERIAL PRIMARY KEY,
   
-  -- 機関種別
-  institution_type VARCHAR(20) NOT NULL,
-  -- 'university': 大学（学部）
-  -- 'graduate_school': 大学院
-  -- 'junior_college': 短期大学
-  -- 'technical_college': 高等専門学校（本科）
-  -- 'technical_college_advanced': 高等専門学校（専攻科）
-  -- 'high_school': 高等学校
-  -- 'vocational_school': 専門学校
+  -- 機関種別（ENUM型）
+  institution_type institution_type_enum NOT NULL,
   
   -- 親機関（大学院→大学の紐付け）
   parent_institution_id INTEGER REFERENCES institutions(id),
@@ -240,7 +439,7 @@ CREATE TABLE faculties (
   
   established_year INTEGER,
   total_enrollment_capacity INTEGER DEFAULT 0,
-  academic_field_id INTEGER REFERENCES academic_fields(id),
+  academic_field academic_field_enum,
   
   is_active BOOLEAN DEFAULT TRUE,
   popularity_score INTEGER DEFAULT 0,
@@ -256,7 +455,7 @@ CREATE INDEX idx_faculties_institution ON faculties(institution_id);
 CREATE INDEX idx_faculties_kana ON faculties(name_kana);
 CREATE INDEX idx_faculties_active ON faculties(is_active);
 CREATE INDEX idx_faculties_popularity ON faculties(popularity_score DESC);
-CREATE INDEX idx_faculties_field ON faculties(academic_field_id);
+CREATE INDEX idx_faculties_field ON faculties(academic_field);
 ```
 
 **イベント:** `content.lifecycle` → `FacultyCreated`, `FacultyUpdated`
@@ -294,7 +493,7 @@ CREATE TABLE departments (
   
   established_year INTEGER,
   enrollment_capacity INTEGER DEFAULT 0,
-  academic_field_id INTEGER REFERENCES academic_fields(id),
+  academic_field academic_field_enum,
   
   is_active BOOLEAN DEFAULT TRUE,
   popularity_score INTEGER DEFAULT 0,
@@ -310,7 +509,7 @@ CREATE INDEX idx_departments_faculty ON departments(faculty_id);
 CREATE INDEX idx_departments_kana ON departments(name_kana);
 CREATE INDEX idx_departments_active ON departments(is_active);
 CREATE INDEX idx_departments_popularity ON departments(popularity_score DESC);
-CREATE INDEX idx_departments_field ON departments(academic_field_id);
+CREATE INDEX idx_departments_field ON departments(academic_field);
 ```
 
 **イベント:** `content.lifecycle` → `DepartmentCreated`, `DepartmentUpdated`
@@ -368,62 +567,109 @@ CREATE INDEX idx_teachers_popularity ON teachers(popularity_score DESC);
 
 ---
 
-### **3.5. `academic_fields` テーブル**
+### **3.5. `academic_field_metadata` テーブル**
 
-学問分野の分類（30分類）。
+学問分野のメタデータ管理（UNESCO ISCED-F 2013準拠 11大分類）。
+
+**設計方針:**
+- 日本独自の学問分類を廃止し、UNESCO ISCED-F 2013の国際標準分類を採用
+- ENUM型 (`academic_field_enum`) を主キーとして使用
+- 多言語対応・i18n対応のためのメタデータを保持
+- 静的マスタとして扱い、Kafkaイベントは発行しない
 
 ```sql
-CREATE TABLE academic_fields (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE academic_field_metadata (
+  -- 主キー（ENUM型）
+  field_code academic_field_enum PRIMARY KEY,
   
-  field_name VARCHAR(100) NOT NULL UNIQUE,
-  field_name_english VARCHAR(100),
-  field_type VARCHAR(50) NOT NULL, -- 'science', 'humanities', 'interdisciplinary'
+  -- ISCED-F公式コード
+  isced_code VARCHAR(2) NOT NULL UNIQUE,  -- '00' to '10'
   
-  parent_field_id BIGINT REFERENCES academic_fields(id),
-  description TEXT,
-  sort_order INTEGER DEFAULT 0,
+  -- 多言語名称（i18nキーで管理、ここはフォールバック用）
+  field_name_en VARCHAR(100) NOT NULL,
+  field_name_ja VARCHAR(100) NOT NULL,
+  
+  -- 文理区分（日本市場向け互換性）
+  academic_track VARCHAR(20) NOT NULL,
+  -- 'humanities': 文系
+  -- 'science': 理系
+  -- 'interdisciplinary': 学際
+  
+  -- 表示順序
+  sort_order INTEGER NOT NULL,
+  
+  -- i18nキー（フロントエンドで使用）
+  i18n_key VARCHAR(100) NOT NULL,
+  
+  -- 説明
+  description_en TEXT,
+  description_ja TEXT,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- インデックス
+CREATE INDEX idx_academic_field_meta_track ON academic_field_metadata(academic_track);
+CREATE INDEX idx_academic_field_meta_order ON academic_field_metadata(sort_order);
 ```
 
-**サンプルデータ:**
+**サンプルデータ（UNESCO ISCED-F 2013 11大分類）:**
 
 ```sql
-INSERT INTO academic_fields (id, field_name, field_name_english, field_type) VALUES
-(1, '情報系', 'Computer Science', 'science'),
-(2, '電気電子系', 'Electrical Engineering', 'science'),
-(3, '機械系', 'Mechanical Engineering', 'science'),
-(4, '化学系', 'Chemistry', 'science'),
-(5, '生物・生命科学系', 'Biology & Life Science', 'science'),
-(6, '物理学系', 'Physics', 'science'),
-(7, '数学系', 'Mathematics', 'science'),
-(8, '建築・土木系', 'Architecture & Civil Engineering', 'science'),
-(9, '材料工学系', 'Materials Engineering', 'science'),
-(10, '航空宇宙系', 'Aerospace Engineering', 'science'),
-(11, '経済・経営学系', 'Economics & Business', 'humanities'),
-(12, '法学系', 'Law', 'humanities'),
-(13, '文学系', 'Literature', 'humanities'),
-(14, '教育学系', 'Education', 'humanities'),
-(15, '心理学系', 'Psychology', 'humanities'),
-(16, '社会学系', 'Sociology', 'humanities'),
-(17, '語学系', 'Language Studies', 'humanities'),
-(18, '歴史学系', 'History', 'humanities'),
-(19, '哲学系', 'Philosophy', 'humanities'),
-(20, '芸術・デザイン系', 'Arts & Design', 'humanities'),
-(21, '医学系', 'Medicine', 'science'),
-(22, '歯学系', 'Dentistry', 'science'),
-(23, '薬学系', 'Pharmacy', 'science'),
-(24, '看護・保健系', 'Nursing & Health', 'science'),
-(25, '農学系', 'Agriculture', 'science'),
-(26, '環境科学系', 'Environmental Science', 'interdisciplinary'),
-(27, '情報科学（文理融合）', 'Information Science', 'interdisciplinary'),
-(28, 'スポーツ科学系', 'Sports Science', 'interdisciplinary'),
-(29, '国際関係学系', 'International Relations', 'interdisciplinary'),
-(30, 'その他', 'Others', 'interdisciplinary');
+INSERT INTO academic_field_metadata (field_code, isced_code, field_name_en, field_name_ja, academic_track, sort_order, i18n_key, description_en, description_ja) VALUES
+('generic_programmes', '00', 'Generic programmes and qualifications', '汎用プログラム・資格', 'interdisciplinary', 1, 'enum.academic_field.generic_programmes', 
+ 'Not further defined or interdisciplinary programmes', '特定分野に属さない汎用的なプログラムや資格'),
+
+('education', '01', 'Education', '教育', 'humanities', 2, 'enum.academic_field.education',
+ 'Teacher training and education science', '教員養成および教育学'),
+
+('arts_and_humanities', '02', 'Arts and humanities', '芸術・人文科学', 'humanities', 3, 'enum.academic_field.arts_and_humanities',
+ 'Arts, humanities, languages, history, philosophy', '芸術、人文科学、言語、歴史、哲学'),
+
+('social_sciences', '03', 'Social sciences, journalism and information', '社会科学・ジャーナリズム・情報', 'humanities', 4, 'enum.academic_field.social_sciences',
+ 'Social and behavioural sciences, journalism and information', '社会科学、行動科学、ジャーナリズム、情報学'),
+
+('business_and_law', '04', 'Business, administration and law', 'ビジネス・経営・法律', 'humanities', 5, 'enum.academic_field.business_and_law',
+ 'Business, administration, law', 'ビジネス、経営管理、法学'),
+
+('natural_sciences', '05', 'Natural sciences, mathematics and statistics', '自然科学・数学・統計', 'science', 6, 'enum.academic_field.natural_sciences',
+ 'Physical sciences, biological sciences, mathematics and statistics', '物理科学、生物科学、数学、統計学'),
+
+('ict', '06', 'Information and Communication Technologies', '情報通信技術', 'science', 7, 'enum.academic_field.ict',
+ 'Computer science, IT, software and applications development', 'コンピュータサイエンス、IT、ソフトウェア開発'),
+
+('engineering', '07', 'Engineering, manufacturing and construction', '工学・製造・建設', 'science', 8, 'enum.academic_field.engineering',
+ 'Engineering, manufacturing, construction, architecture', '工学、製造、建設、建築'),
+
+('agriculture', '08', 'Agriculture, forestry, fisheries and veterinary', '農林水産・獣医', 'science', 9, 'enum.academic_field.agriculture',
+ 'Agriculture, forestry, fisheries, veterinary', '農業、林業、水産業、獣医学'),
+
+('health_and_welfare', '09', 'Health and welfare', '保健・福祉', 'science', 10, 'enum.academic_field.health_and_welfare',
+ 'Health, medicine, nursing, welfare, social services', '保健、医学、看護、福祉、社会サービス'),
+
+('services', '10', 'Services', 'サービス', 'interdisciplinary', 11, 'enum.academic_field.services',
+ 'Personal services, transport services, environmental protection, security services', 'パーソナルサービス、運輸、環境保護、保安サービス');
 ```
+
+**日本独自分類との対応例:**
+
+旧分類（日本独自27分類） → 新分類（UNESCO ISCED-F 11大分類）へのマッピング:
+
+| 旧分類 | 新分類 |
+|--------|--------|
+| 情報系、情報科学 | `ict` または `natural_sciences` |
+| 電気電子系、機械系、建築土木系 | `engineering` |
+| 化学系、物理学系、数学系、生物系 | `natural_sciences` |
+| 医学系、歯学系、薬学系、看護系 | `health_and_welfare` |
+| 農学系 | `agriculture` |
+| 経済・経営学系 | `business_and_law` |
+| 法学系 | `business_and_law` |
+| 文学系、語学系、歴史学系、哲学系 | `arts_and_humanities` |
+| 教育学系 | `education` |
+| 心理学系、社会学系 | `social_sciences` |
+| 芸術・デザイン系 | `arts_and_humanities` |
+| 環境科学系、スポーツ科学系、国際関係学系 | `social_sciences` または `interdisciplinary` |
 
 ---
 
@@ -640,23 +886,23 @@ CREATE TABLE users (
   institution_id INTEGER NOT NULL REFERENCES institutions(id),
   faculty_id INTEGER NOT NULL REFERENCES faculties(id),
   department_id INTEGER NOT NULL REFERENCES departments(id),
-  academic_field_id INTEGER REFERENCES academic_fields(id),
+  academic_field academic_field_enum,
   
   -- 学年情報
-  major_type INTEGER NOT NULL, -- 0: 理系, 1: 文系
+  academic_track academic_track_enum NOT NULL,
   enrollment_year INTEGER,
   graduation_year INTEGER,
   
   -- プロフィール
-  role VARCHAR(50) DEFAULT 'user',
-  status VARCHAR(50) DEFAULT 'active',
+  role user_role_enum DEFAULT 'user',
+  status user_status_enum DEFAULT 'active',
   deleted_at TIMESTAMP,
   display_name VARCHAR(255),
   bio TEXT,
   avatar_url VARCHAR(500),
   
   -- 設定
-  language VARCHAR(10) DEFAULT 'ja',
+  language language_enum DEFAULT 'ja',
   country VARCHAR(100),
   timezone VARCHAR(50) DEFAULT 'Asia/Tokyo',
   
@@ -680,8 +926,10 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_institution ON users(institution_id);
 CREATE INDEX idx_users_faculty_dept ON users(faculty_id, department_id);
-CREATE INDEX idx_users_academic_field ON users(academic_field_id);
+CREATE INDEX idx_users_academic_field ON users(academic_field);
 CREATE INDEX idx_users_enrollment_year ON users(enrollment_year);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_status ON users(status);
 ```
 
 **イベント:** `user.events` → `UserCreated`, `UserUpdated`, `UserDeleted`
@@ -752,7 +1000,7 @@ CREATE TABLE notifications (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_id VARCHAR(255) NOT NULL REFERENCES users(id),
   
-  type VARCHAR(50) NOT NULL,
+  type notification_type_enum NOT NULL,
   title VARCHAR(255) NOT NULL,
   content TEXT NOT NULL,
   link_url TEXT,
@@ -763,6 +1011,7 @@ CREATE TABLE notifications (
 );
 
 CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at DESC);
+CREATE INDEX idx_notifications_type ON notifications(type);
 ```
 
 ---
@@ -778,8 +1027,8 @@ CREATE TABLE jobs (
   id VARCHAR(36) PRIMARY KEY,
   client_request_id VARCHAR(36) UNIQUE,
   
-  type VARCHAR(50) NOT NULL,
-  status VARCHAR(50) NOT NULL,
+  type job_type_enum NOT NULL,
+  status job_status_enum NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   
   payload JSONB NOT NULL,
@@ -797,6 +1046,7 @@ CREATE TABLE jobs (
 
 CREATE INDEX idx_jobs_user ON jobs(user_id);
 CREATE INDEX idx_jobs_status ON jobs(status);
+CREATE INDEX idx_jobs_type ON jobs(type);
 CREATE INDEX idx_jobs_created ON jobs(created_at DESC);
 ```
 
@@ -859,7 +1109,7 @@ CREATE TABLE file_upload_jobs (
 CREATE TABLE exams (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   title VARCHAR(255) NOT NULL,
-  exam_type INT DEFAULT 0,
+  exam_type exam_type_enum NOT NULL DEFAULT 'regular',
   
   -- 所属情報（必須）
   institution_id INTEGER NOT NULL REFERENCES institutions(id),
@@ -871,18 +1121,18 @@ CREATE TABLE exams (
   
   -- 試験情報
   exam_year INT NOT NULL,
-  exam_semester INT,
+  semester semester_enum,
   duration_minutes INT,
   
-  academic_field_id BIGINT REFERENCES academic_fields(id),
-  academic_track INT DEFAULT 0,
+  academic_field academic_field_enum,
+  academic_track academic_track_enum,
   
   -- 作成者
   user_id VARCHAR(255) NOT NULL REFERENCES users(id),
   
   -- ステータス
   is_public BOOLEAN DEFAULT TRUE,
-  status VARCHAR(20) DEFAULT 'active',
+  status exam_status_enum DEFAULT 'active',
   
   -- ソーシャル指標（キャッシュ）
   comment_count INT DEFAULT 0,
@@ -898,9 +1148,10 @@ CREATE TABLE exams (
 -- インデックス
 CREATE INDEX idx_exams_institution ON exams(institution_id);
 CREATE INDEX idx_exams_faculty_dept ON exams(faculty_id, department_id);
-CREATE INDEX idx_exams_subject_field ON exams(subject_id, academic_field_id);
-CREATE INDEX idx_exams_year_semester ON exams(exam_year, exam_semester);
+CREATE INDEX idx_exams_subject_field ON exams(subject_id, academic_field);
+CREATE INDEX idx_exams_year_semester ON exams(exam_year, semester);
 CREATE INDEX idx_exams_user ON exams(user_id);
+CREATE INDEX idx_exams_status ON exams(status);
 CREATE INDEX idx_exams_created ON exams(created_at DESC);
 ```
 
@@ -916,7 +1167,7 @@ CREATE TABLE questions (
   exam_id BIGINT NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
   
   question_number INT NOT NULL,
-  level INT DEFAULT 0,
+  difficulty_level difficulty_level_enum DEFAULT 'standard',
   content TEXT NOT NULL,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -924,6 +1175,7 @@ CREATE TABLE questions (
 );
 
 CREATE INDEX idx_questions_exam ON questions(exam_id);
+CREATE INDEX idx_questions_level ON questions(difficulty_level);
 ```
 
 ---
@@ -936,7 +1188,7 @@ CREATE TABLE sub_questions (
   question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
   
   sub_number INT NOT NULL,
-  question_type_id INT NOT NULL REFERENCES question_types(id),
+  question_type question_type_enum NOT NULL,
   
   content TEXT NOT NULL,
   answer_explanation TEXT NOT NULL,
@@ -947,30 +1199,12 @@ CREATE TABLE sub_questions (
 );
 
 CREATE INDEX idx_sub_questions_question ON sub_questions(question_id);
+CREATE INDEX idx_sub_questions_type ON sub_questions(question_type);
 ```
 
+**注記:** `question_types` テーブルは廃止され、`question_type_enum` に置き換えられました。
+
 ---
-
-### **6.4. `question_types` テーブル**
-
-```sql
-CREATE TABLE question_types (
-  id INT PRIMARY KEY,
-  type_name VARCHAR(50) NOT NULL UNIQUE,
-  description TEXT
-);
-
-INSERT INTO question_types (id, type_name, description) VALUES
-(1, '単一選択', 'ラジオボタン'),
-(2, '複数選択', 'チェックボックス'),
-(3, '正誤判定', 'True/False'),
-(4, '組み合わせ', 'ペアリング'),
-(5, '順序並べ替え', '順序付け'),
-(10, '記述式', '自由記述'),
-(11, '証明問題', '論理証明'),
-(12, 'コード記述', 'プログラミング'),
-(13, '翻訳', '言語翻訳'),
-(14, '数値計算', '計算問題');
 ```
 
 ---
@@ -1198,13 +1432,16 @@ CREATE TABLE wallet_transactions (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   wallet_id BIGINT NOT NULL REFERENCES wallets(id),
   amount BIGINT NOT NULL,
-  type VARCHAR(50) NOT NULL,
+  type transaction_type_enum NOT NULL,
   reference_type VARCHAR(50),
   reference_id VARCHAR(255),
   description TEXT,
   status VARCHAR(20) DEFAULT 'completed',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_wallet_transactions_wallet ON wallet_transactions(wallet_id);
+CREATE INDEX idx_wallet_transactions_type ON wallet_transactions(type);
 ```
 
 **イベント発行:** `monetization.transactions` → `CoinAwarded`, `CoinSpent`
@@ -1270,13 +1507,16 @@ CREATE TABLE content_reports (
   content_id BIGINT NOT NULL,
   reason_id INT NOT NULL REFERENCES content_report_reasons(id),
   details TEXT,
-  status VARCHAR(50) DEFAULT 'pending',
+  status report_status_enum DEFAULT 'pending',
   moderator_id VARCHAR(255),
   action_taken VARCHAR(50),
   resolved_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_content_reports_status ON content_reports(status);
+CREATE INDEX idx_content_reports_reporter ON content_reports(reporter_user_id);
 
 -- コンテンツ通報理由
 CREATE TABLE content_report_reasons (
@@ -1303,13 +1543,16 @@ CREATE TABLE user_reports (
   content_id VARCHAR(255),
   reason_id INT NOT NULL REFERENCES user_report_reasons(id),
   details TEXT,
-  status VARCHAR(50) DEFAULT 'pending',
+  status report_status_enum DEFAULT 'pending',
   moderator_id VARCHAR(255),
   action_taken VARCHAR(50),
   resolved_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_user_reports_status ON user_reports(status);
+CREATE INDEX idx_user_reports_reporter ON user_reports(reporter_user_id);
 
 -- ユーザー通報理由
 CREATE TABLE user_report_reasons (
@@ -1406,9 +1649,252 @@ CREATE TABLE report_files (
 
 ---
 
+## **11.3. マイグレーション計画**
+
+ENUM型の導入とUNESCO ISCED-F 2013への移行は、以下の3フェーズで実施します。
+
+### **Phase 1: ENUM型定義とメタデータ投入**
+
+**目的:** 新しいENUM型を定義し、academic_field_metadataテーブルを作成
+
+```sql
+-- 1. 全ENUM型の作成（セクション1参照）
+CREATE TYPE question_type_enum AS ENUM (...);
+CREATE TYPE difficulty_level_enum AS ENUM (...);
+-- ... 他14個のENUM型
+
+-- 2. academic_field_metadataテーブル作成
+CREATE TABLE academic_field_metadata (...);
+
+-- 3. UNESCO ISCED-F 2013データ投入（11件）
+INSERT INTO academic_field_metadata VALUES (...);
+```
+
+**実施タイミング:** メンテナンスウィンドウ（ダウンタイム不要）
+
+**ロールバック:** DROP TYPE/TABLE文で元に戻す
+
+### **Phase 2: データ移行**
+
+**目的:** 既存データをINT/VARCHARからENUM値に変換
+
+```sql
+-- 1. 新カラム追加（ENUM型）
+ALTER TABLE exams ADD COLUMN exam_type_new exam_type_enum;
+ALTER TABLE exams ADD COLUMN semester_new semester_enum;
+ALTER TABLE exams ADD COLUMN academic_track_new academic_track_enum;
+ALTER TABLE exams ADD COLUMN status_new exam_status_enum;
+ALTER TABLE exams ADD COLUMN academic_field_new academic_field_enum;
+
+-- 2. データ変換マッピング
+UPDATE exams SET exam_type_new = 
+  CASE exam_type
+    WHEN 0 THEN 'regular'::exam_type_enum
+    WHEN 1 THEN 'class'::exam_type_enum
+    WHEN 2 THEN 'quiz'::exam_type_enum
+  END;
+
+UPDATE exams SET semester_new = 
+  CASE exam_semester
+    WHEN 1 THEN 'spring'::semester_enum
+    WHEN 2 THEN 'fall'::semester_enum
+    WHEN 3 THEN 'summer'::semester_enum
+    WHEN 4 THEN 'winter'::semester_enum
+    WHEN 5 THEN 'full_year'::semester_enum
+  END;
+
+UPDATE exams SET academic_track_new = 
+  CASE academic_track
+    WHEN 0 THEN 'science'::academic_track_enum
+    WHEN 1 THEN 'humanities'::academic_track_enum
+  END;
+
+UPDATE exams SET status_new = 
+  CASE status
+    WHEN 'draft' THEN 'draft'::exam_status_enum
+    WHEN 'active' THEN 'active'::exam_status_enum
+    WHEN 'archived' THEN 'archived'::exam_status_enum
+    ELSE 'deleted'::exam_status_enum
+  END;
+
+-- 3. 学問分野の変換（academic_field_id → academic_field）
+-- 日本独自27分類 → UNESCO ISCED-F 11大分類へのマッピング
+UPDATE exams e SET academic_field_new = 
+  CASE af.id
+    WHEN 1 THEN 'ict'::academic_field_enum  -- 情報系
+    WHEN 2 THEN 'engineering'::academic_field_enum  -- 電気電子系
+    WHEN 3 THEN 'engineering'::academic_field_enum  -- 機械系
+    WHEN 4 THEN 'natural_sciences'::academic_field_enum  -- 化学系
+    WHEN 5 THEN 'natural_sciences'::academic_field_enum  -- 生物・生命科学系
+    WHEN 6 THEN 'natural_sciences'::academic_field_enum  -- 物理学系
+    WHEN 7 THEN 'natural_sciences'::academic_field_enum  -- 数学系
+    WHEN 8 THEN 'engineering'::academic_field_enum  -- 建築・土木系
+    WHEN 9 THEN 'engineering'::academic_field_enum  -- 材料工学系
+    WHEN 10 THEN 'engineering'::academic_field_enum  -- 航空宇宙系
+    WHEN 11 THEN 'business_and_law'::academic_field_enum  -- 経済・経営学系
+    WHEN 12 THEN 'business_and_law'::academic_field_enum  -- 法学系
+    WHEN 13 THEN 'arts_and_humanities'::academic_field_enum  -- 文学系
+    WHEN 14 THEN 'education'::academic_field_enum  -- 教育学系
+    WHEN 15 THEN 'social_sciences'::academic_field_enum  -- 心理学系
+    WHEN 16 THEN 'social_sciences'::academic_field_enum  -- 社会学系
+    WHEN 17 THEN 'arts_and_humanities'::academic_field_enum  -- 語学系
+    WHEN 18 THEN 'arts_and_humanities'::academic_field_enum  -- 歴史学系
+    WHEN 19 THEN 'arts_and_humanities'::academic_field_enum  -- 哲学系
+    WHEN 20 THEN 'arts_and_humanities'::academic_field_enum  -- 芸術・デザイン系
+    WHEN 21 THEN 'health_and_welfare'::academic_field_enum  -- 医学系
+    WHEN 22 THEN 'health_and_welfare'::academic_field_enum  -- 歯学系
+    WHEN 23 THEN 'health_and_welfare'::academic_field_enum  -- 薬学系
+    WHEN 24 THEN 'health_and_welfare'::academic_field_enum  -- 看護・保健系
+    WHEN 25 THEN 'agriculture'::academic_field_enum  -- 農学系
+    WHEN 26 THEN 'natural_sciences'::academic_field_enum  -- 環境科学系
+    WHEN 27 THEN 'ict'::academic_field_enum  -- 情報科学（文理融合）
+    WHEN 28 THEN 'health_and_welfare'::academic_field_enum  -- スポーツ科学系
+    WHEN 29 THEN 'social_sciences'::academic_field_enum  -- 国際関係学系
+    WHEN 30 THEN 'generic_programmes'::academic_field_enum  -- その他
+  END
+FROM academic_fields af
+WHERE e.academic_field_id = af.id;
+
+-- 4. 同様の変換を他のテーブルにも適用
+-- questions, sub_questions, users, jobs, notifications, など
+
+-- 5. NOT NULL制約の追加（必要な場合）
+ALTER TABLE exams ALTER COLUMN exam_type_new SET NOT NULL;
+```
+
+**実施タイミング:** メンテナンスウィンドウ（読み取り可能、書き込み一時停止）
+
+**検証:** 変換後のデータ整合性チェック
+
+```sql
+-- 変換漏れチェック
+SELECT COUNT(*) FROM exams WHERE exam_type_new IS NULL AND exam_type IS NOT NULL;
+SELECT COUNT(*) FROM exams WHERE academic_field_new IS NULL AND academic_field_id IS NOT NULL;
+```
+
+### **Phase 3: 旧カラム削除とクリーンアップ**
+
+**目的:** 旧INT/VARCHARカラムを削除し、ENUMカラムにリネーム
+
+```sql
+-- 1. 外部キー制約の削除
+ALTER TABLE exams DROP CONSTRAINT IF EXISTS exams_academic_field_id_fkey;
+
+-- 2. 旧カラムの削除
+ALTER TABLE exams DROP COLUMN exam_type;
+ALTER TABLE exams DROP COLUMN exam_semester;
+ALTER TABLE exams DROP COLUMN academic_track;
+ALTER TABLE exams DROP COLUMN status;
+ALTER TABLE exams DROP COLUMN academic_field_id;
+
+-- 3. 新カラムのリネーム
+ALTER TABLE exams RENAME COLUMN exam_type_new TO exam_type;
+ALTER TABLE exams RENAME COLUMN semester_new TO semester;
+ALTER TABLE exams RENAME COLUMN academic_track_new TO academic_track;
+ALTER TABLE exams RENAME COLUMN status_new TO status;
+ALTER TABLE exams RENAME COLUMN academic_field_new TO academic_field;
+
+-- 4. インデックスの再作成
+CREATE INDEX idx_exams_type ON exams(exam_type);
+CREATE INDEX idx_exams_semester ON exams(semester);
+CREATE INDEX idx_exams_status ON exams(status);
+CREATE INDEX idx_exams_field ON exams(academic_field);
+
+-- 5. 旧テーブルの削除
+DROP TABLE IF EXISTS question_types CASCADE;
+DROP TABLE IF EXISTS academic_fields CASCADE;
+```
+
+**実施タイミング:** メンテナンスウィンドウ（ダウンタイム30分）
+
+**ロールバック:** Phase 2のバックアップから復元
+
+### **マイグレーション後の確認項目**
+
+1. ✅ 全ENUM型が正しく定義されている
+2. ✅ academic_field_metadataに11件のデータが存在する
+3. ✅ 全テーブルでENUM型が使用されている
+4. ✅ 旧テーブル（academic_fields, question_types）が削除されている
+5. ✅ フロントエンドのENUM値マッピングが更新されている
+6. ✅ APIレスポンスがENUM文字列を返している
+7. ✅ i18nファイルにENUM用の翻訳キーが追加されている
+
+---
+
 ## **12. データベース設計ガイドライン**
 
-### **12.1. インデックス戦略**
+### **12.1. ENUM型使用のベストプラクティス**
+
+#### **12.1.1. ENUM型を使用すべき場合**
+
+✅ **使用推奨:**
+- 値の種類が10個以下で固定的
+- 値が頻繁に変更されない（年に1-2回程度）
+- 型安全性が重要（例: ステータス、タイプ）
+- フロントエンドとのインターフェースが明確
+- 多言語対応が必要（i18nキーとマッピング）
+
+❌ **使用非推奨:**
+- 値の種類が頻繁に変更される（月次以上）
+- ユーザー定義可能な値
+- 階層構造を持つ値
+- 複雑な関連データを持つ値
+
+#### **12.1.2. ENUM値の追加・変更手順**
+
+**追加の場合:**
+```sql
+ALTER TYPE exam_type_enum ADD VALUE 'final_exam' AFTER 'quiz';
+```
+
+**注意事項:**
+- トランザクション内で実行不可
+- 値の削除は不可（新ENUM型を作成して移行が必要）
+- 追加後はアプリケーション・i18nファイルも更新
+
+**変更の場合（推奨しない）:**
+```sql
+-- 1. 新ENUM型を作成
+CREATE TYPE exam_type_enum_new AS ENUM ('regular', 'class', 'quiz', 'final_exam');
+
+-- 2. カラムを変換
+ALTER TABLE exams 
+  ALTER COLUMN exam_type TYPE exam_type_enum_new 
+  USING exam_type::text::exam_type_enum_new;
+
+-- 3. 旧ENUM型を削除
+DROP TYPE exam_type_enum;
+
+-- 4. リネーム
+ALTER TYPE exam_type_enum_new RENAME TO exam_type_enum;
+```
+
+#### **12.1.3. グローバル展開時の拡張戦略**
+
+**UNESCO ISCED-F Narrow Fields（細分類）への対応:**
+
+現在は11大分類（Broad Fields）を採用していますが、将来的に細分類（Narrow Fields、約80分類）が必要になった場合:
+
+**Option 1: 別カラムで管理（推奨）**
+```sql
+ALTER TABLE exams ADD COLUMN academic_field_narrow VARCHAR(10);
+-- 例: '0611' (Computer use, '061' ICTの下位分類)
+```
+
+**Option 2: JSON拡張フィールド**
+```sql
+ALTER TABLE exams ADD COLUMN academic_field_detail JSONB;
+-- { "broad": "ict", "narrow": "0611", "detailed": "061101" }
+```
+
+**Option 3: 新ENUM型（非推奨、80個は多すぎる）**
+
+**推奨アプローチ:**
+- Broad Fields（11大分類）はENUM型で管理
+- Narrow Fields（細分類）は必要に応じてVARCHARまたはJSONBで追加
+- academic_field_metadataに細分類メタデータを追加
+
+### **12.2. インデックス戦略**
 
 前述の各テーブル定義に含まれるインデックスを参照。
 
@@ -1585,10 +2071,7 @@ CREATE INDEX idx_{table}_created ON {table}(created_at DESC);
 CREATE TABLE auth_logs (
   id BIGSERIAL PRIMARY KEY,
   
-  event_type VARCHAR(50) NOT NULL,
-  -- 'login_success', 'login_failed', 'logout', 'token_issued', 
-  -- 'token_refreshed', 'token_revoked', 'password_changed', 
-  -- 'mfa_enabled', 'account_locked'
+  event_type auth_event_enum NOT NULL,
   
   user_id VARCHAR(255),
   username VARCHAR(255),
@@ -1870,3 +2353,105 @@ DELETE FROM wallet_audit_logs WHERE created_at < NOW() - INTERVAL '2 years';
 - DB メトリクス: PostgreSQL Exporter → Prometheus → Grafana
 
 ---
+## **参考文献**
+
+### **UNESCO ISCED-F 2013**
+- [UNESCO ISCED Fields of Education and Training 2013 (ISCED-F 2013)](https://uis.unesco.org/sites/default/files/documents/isced-fields-of-education-and-training-2013-en.pdf)
+- [UNESCO Institute for Statistics - ISCED](https://uis.unesco.org/en/topic/international-standard-classification-education-isced)
+
+### **OECD 標準**
+- [OECD Frascati Manual 2015](https://www.oecd.org/en/publications/frascati-manual-2015_9789264239012-en.html)
+- OECD Education at a Glance
+
+### **PostgreSQL ENUM型**
+- [PostgreSQL Documentation - Enumerated Types](https://www.postgresql.org/docs/current/datatype-enum.html)
+- [PostgreSQL Documentation - ALTER TYPE](https://www.postgresql.org/docs/current/sql-altertype.html)
+
+### **データベース設計ベストプラクティス**
+- [Database Design Best Practices (Microsoft)](https://docs.microsoft.com/en-us/azure/architecture/best-practices/data-partitioning)
+- [PostgreSQL Performance Tuning](https://wiki.postgresql.org/wiki/Performance_Optimization)
+
+---
+
+## **設計判断の記録**
+
+### **日本独自分類を廃止した理由**
+
+**問題点:**
+1. **グローバル展開の障壁**: 日本国内でしか通用しない分類体系
+2. **標準化の欠如**: 文部科学省の分類は公式APIがなく、維持コストが高い
+3. **細分化の問題**: 27分類は細かすぎて、ユーザーが選択しづらい
+4. **国際比較の困難**: 海外の教育データとの互換性がない
+
+**UNESCO ISCED-F 2013採用の根拠:**
+1. **国際標準**: 世界200カ国以上で採用されている
+2. **11大分類の適切性**: 多すぎず少なすぎず、ユーザーにとって選択しやすい
+3. **拡張性**: Narrow Fields（細分類、約80分類）への拡張が可能
+4. **データ互換性**: OECD、Eurostat、各国政府機関との連携が容易
+5. **持続可能性**: UNESCO/OECDが継続的にメンテナンス
+
+### **ENUM型を積極採用した理由**
+
+**型安全性の向上:**
+- アプリケーション層でのバリデーション不要
+- データベースレベルで不正な値を防止
+- ORMとの親和性が高い（TypeScript、Go、Rust等）
+
+**パフォーマンスの向上:**
+- ENUM型は内部的に整数として格納されるため、VARCHAR比で高速
+- インデックスのサイズが小さい
+- JOIN時のパフォーマンス向上
+
+**可読性の向上:**
+- コード上でENUM文字列を使用できる（'active' vs 1）
+- SQLクエリが読みやすくなる
+- フロントエンドとのインターフェースが明確
+
+**保守性の向上:**
+- 値の追加がDDL文で管理される（Git履歴に残る）
+- データベースマイグレーションで一元管理
+- ドキュメント化が容易
+
+**デメリットと対策:**
+- ❌ 値の削除が困難 → 代わりに論理削除フラグを使用
+- ❌ 値の順序変更が困難 → sort_orderカラムで管理
+- ❌ 複雑な階層構造には不向き → 別テーブルで管理
+
+### **数値ID管理を廃止した判断**
+
+**旧設計の問題:**
+```sql
+-- 旧設計: INT型でマッピング
+exam_type INT -- 0: regular, 1: class, 2: quiz
+```
+
+**問題点:**
+1. マジックナンバーが散在
+2. フロントエンドで変換ロジックが必要
+3. ドキュメントとコードが乖離しやすい
+4. i18n対応時に2段階の変換が必要（INT→文字列→翻訳）
+
+**新設計:**
+```sql
+-- 新設計: ENUM型で直接管理
+exam_type exam_type_enum -- 'regular', 'class', 'quiz'
+```
+
+**メリット:**
+1. フロントエンドがそのままENUM文字列を使用できる
+2. APIレスポンスが自己文書化される
+3. i18nキーと直接マッピング可能（`enum.exam_type.regular`）
+4. 型安全性が向上
+
+---
+
+## **変更履歴**
+
+| 日付 | バージョン | 変更内容 |
+|------|----------|---------|
+| 2026-02-04 | 2.0.0 | ENUM型全面採用、UNESCO ISCED-F 2013準拠、academic_fields廃止 |
+| 2025-12-22 | 1.0.0 | 初版作成 |
+
+---
+
+**以上、EduMint統合データモデル設計書（ENUM型・グローバル対応版）**
