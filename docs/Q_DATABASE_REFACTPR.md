@@ -1,6 +1,12 @@
-# **EduMint 統合データモデル設計書（最終版）**
+# **EduMint 統合データモデル設計書 v5.0.0**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
+
+**v5.0.0 主要更新:**
+- PostgreSQL 18.1 + pgvector 0.8+ 採用、ベクトル検索機能の統合
+- Elasticsearch 9.2.4 への完全移行、Qdrant ベクトルDB 廃止
+- Debezium CDC によるリアルタイム差分同期
+- コンテンツベクトル埋め込みの一元管理
 
 ---
 
@@ -32,6 +38,14 @@
 *   **外部API非依存**: 全てのマスタデータは自前のDBで管理し、外部APIへの依存を排除（コスト・レイテンシ削減）。
 *   **ENUM型の積極採用**: 固定値の管理はPostgreSQL ENUM型を使用し、型安全性・パフォーマンス・可読性を向上させる。
 *   **グローバル対応**: 学問分野はUNESCO ISCED-F 2013（11大分類）に準拠し、国際標準に沿った設計とする。
+
+### 技術スタック（v5.0.0）
+
+*   **PostgreSQL 18.1**: 組み込みuuidv7()関数、パフォーマンス改善
+*   **pgvector 0.8+**: ベクトル検索拡張、HNSW インデックス対応
+*   **ベクトル次元**: 1536次元（gemini-embedding-001準拠、MRL互換）
+*   **Elasticsearch 9.2.4**: ベクトル検索統合（dense_vector）、Qdrantを完全置換
+*   **Debezium CDC**: PostgreSQL論理レプリケーションから移行、Kafka経由のリアルタイム差分同期
 
 ### デプロイ段階
 
@@ -116,6 +130,18 @@ CREATE TYPE institution_type_enum AS ENUM (
   'high_school',                -- 高等学校
   'vocational_school'           -- 専門学校
 );
+
+-- 都道府県（v5.0.0新規追加）
+CREATE TYPE prefecture_enum AS ENUM (
+  '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+  '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+  '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
+  '岐阜県', '静岡県', '愛知県', '三重県',
+  '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+  '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+  '徳島県', '香川県', '愛媛県', '高知県',
+  '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+);
 ```
 
 #### **1.3. 学問分野ENUM（UNESCO ISCED-F 2013準拠）**
@@ -140,15 +166,6 @@ CREATE TYPE academic_field_enum AS ENUM (
 #### **1.4. ユーザー・認証関連ENUM**
 
 ```sql
--- 言語
-CREATE TYPE language_enum AS ENUM (
-  'ja',                 -- 日本語
-  'en',                 -- 英語
-  'zh',                 -- 中国語
-  'ko',                 -- 韓国語
-  'other'               -- その他
-);
-
 -- ユーザーロール
 CREATE TYPE user_role_enum AS ENUM (
   'user',               -- 一般ユーザー
@@ -180,6 +197,8 @@ CREATE TYPE auth_event_enum AS ENUM (
   'account_locked'      -- アカウントロック
 );
 ```
+
+**注記:** `language_enum` は廃止され、`languages` マスタテーブル（セクション3.6）に置き換えられました。
 
 #### **1.5. ジョブ・通報関連ENUM**
 
@@ -376,8 +395,8 @@ CREATE TABLE institutions (
   total_enrollment_capacity INTEGER DEFAULT 0,
   popularity_score INTEGER DEFAULT 0,
   
-  -- 所在地（地域検索に使用）
-  prefecture VARCHAR(50), -- NULL 許容
+  -- 所在地（地域検索に使用、v5.0.0でENUM型に変更）
+  prefecture prefecture_enum NOT NULL,
   
   -- ステータス
   is_active BOOLEAN DEFAULT TRUE,
@@ -392,7 +411,7 @@ CREATE TABLE institutions (
 CREATE INDEX idx_institutions_type ON institutions(institution_type);
 CREATE INDEX idx_institutions_parent ON institutions(parent_institution_id);
 CREATE INDEX idx_institutions_kana ON institutions(name_kana);
-CREATE INDEX idx_institutions_prefecture ON institutions(prefecture) WHERE prefecture IS NOT NULL;
+CREATE INDEX idx_institutions_prefecture ON institutions(prefecture);
 CREATE INDEX idx_institutions_popularity ON institutions(popularity_score DESC);
 CREATE INDEX idx_institutions_active ON institutions(is_active) WHERE is_active = TRUE;
 CREATE UNIQUE INDEX idx_institutions_mext_code ON institutions(mext_code) WHERE mext_code IS NOT NULL;
@@ -532,36 +551,27 @@ INSERT INTO departments (faculty_id, name, name_kana) VALUES
 
 ### **3.4. `teachers` テーブル**
 
-教授情報を管理。
+教授情報を管理。v5.0.0で簡略化。
 
 ```sql
 CREATE TABLE teachers (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id VARCHAR(255) REFERENCES users(id),
   
   name VARCHAR(255) NOT NULL,
-  name_kana VARCHAR(255),
-  
-  institution_id INTEGER NOT NULL REFERENCES institutions(id),
-  faculty_id INTEGER REFERENCES faculties(id),
-  department_id INTEGER REFERENCES departments(id),
-  
-  title VARCHAR(50), -- 職位（教授、准教授、講師等）
-  research_keywords TEXT[], -- 研究キーワード配列
   
   is_active BOOLEAN DEFAULT TRUE,
-  popularity_score INTEGER DEFAULT 0,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- インデックス
-CREATE INDEX idx_teachers_institution ON teachers(institution_id);
-CREATE INDEX idx_teachers_faculty ON teachers(faculty_id);
-CREATE INDEX idx_teachers_department ON teachers(department_id);
-CREATE INDEX idx_teachers_kana ON teachers(name_kana);
-CREATE INDEX idx_teachers_popularity ON teachers(popularity_score DESC);
+CREATE INDEX idx_teachers_user ON teachers(user_id);
+CREATE INDEX idx_teachers_active ON teachers(is_active) WHERE is_active = TRUE;
 ```
+
+**v5.0.0変更点:** 冗長な `institution_id`, `faculty_id`, `department_id`, `title`, `research_keywords` カラムを削除。教員の所属情報は試験データから間接的に取得可能。
 
 **イベント:** `content.lifecycle` → `TeacherCreated`, `TeacherUpdated`
 
@@ -675,27 +685,71 @@ INSERT INTO academic_field_metadata (field_code, isced_code, field_name_en, fiel
 
 ### **3.6. `subjects` テーブル**
 
-科目マスタ。
+科目マスタ。v5.0.0で institution_id を追加（学部横断科目対応）。
 
 ```sql
 CREATE TABLE subjects (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  institution_id INTEGER NOT NULL REFERENCES institutions(id),
   
-  name VARCHAR(255) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
   name_kana VARCHAR(255),
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  UNIQUE(institution_id, name)
 );
+
+CREATE INDEX idx_subjects_institution ON subjects(institution_id);
+CREATE INDEX idx_subjects_kana ON subjects(name_kana);
 ```
 
 **イベント:** `content.lifecycle` → `SubjectCreated`, `SubjectUpdated`
 
 ---
 
-### **3.7. 階層ラベルの動的解決**
+### **3.7. `languages` テーブル（v5.0.0新規追加）**
 
-#### **3.7.1. `institution_hierarchy_configs` テーブル**
+言語マスタテーブル。`language_enum` を置き換え、BCP 47準拠の言語コード管理。
+
+```sql
+CREATE TABLE languages (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(10) NOT NULL UNIQUE, -- BCP 47 compliant (e.g., 'ja', 'en', 'zh-CN')
+  name VARCHAR(100) NOT NULL, -- Display name (e.g., '日本語', 'English', '简体中文')
+  native_name VARCHAR(100), -- Native script name
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_languages_code ON languages(code);
+CREATE INDEX idx_languages_active ON languages(is_active) WHERE is_active = TRUE;
+```
+
+**サンプルデータ:**
+
+```sql
+INSERT INTO languages (code, name, native_name, is_active, sort_order) VALUES
+('ja', '日本語', '日本語', TRUE, 1),
+('en', 'English', 'English', TRUE, 2),
+('zh-CN', '中国語（簡体字）', '简体中文', TRUE, 3),
+('zh-TW', '中国語（繁体字）', '繁體中文', TRUE, 4),
+('ko', '韓国語', '한국어', TRUE, 5),
+('es', 'Spanish', 'Español', TRUE, 6),
+('fr', 'French', 'Français', TRUE, 7),
+('de', 'German', 'Deutsch', TRUE, 8);
+```
+
+**イベント:** `content.lifecycle` → `LanguageCreated`, `LanguageUpdated`
+
+---
+
+### **3.8. 階層ラベルの動的解決**
+
+#### **3.8.1. `institution_hierarchy_configs` テーブル**
 
 機関種別ごとの階層ラベルを管理。
 
@@ -737,7 +791,7 @@ VALUES
 
 ---
 
-### **3.8. クライアント参照ルール**
+### **3.9. クライアント参照ルール**
 
 #### **3.8.1. ユーザー登録フロー**
 
@@ -1141,6 +1195,9 @@ CREATE TABLE exams (
   view_count INT DEFAULT 0,
   ad_count INT DEFAULT 0,
   
+  -- ベクトル埋め込み（v5.0.0新規追加）
+  exam_name_embedding_gemini vector(1536),
+  
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -1153,6 +1210,9 @@ CREATE INDEX idx_exams_year_semester ON exams(exam_year, semester);
 CREATE INDEX idx_exams_user ON exams(user_id);
 CREATE INDEX idx_exams_status ON exams(status);
 CREATE INDEX idx_exams_created ON exams(created_at DESC);
+
+-- ベクトルインデックス（開発・フォールバック用。本番検索はedumintSearchのElasticsearchで実行）
+CREATE INDEX idx_exams_name_embedding_hnsw ON exams USING hnsw (exam_name_embedding_gemini vector_cosine_ops);
 ```
 
 **イベント発行:** `content.lifecycle` → `ExamCreated`, `ExamUpdated`, `ExamDeleted`, `ExamCompleted`
@@ -1170,12 +1230,18 @@ CREATE TABLE questions (
   difficulty_level difficulty_level_enum DEFAULT 'standard',
   content TEXT NOT NULL,
   
+  -- ベクトル埋め込み（v5.0.0新規追加）
+  question_content_embedding_gemini vector(1536),
+  
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_questions_exam ON questions(exam_id);
 CREATE INDEX idx_questions_level ON questions(difficulty_level);
+
+-- ベクトルインデックス（開発・フォールバック用。本番検索はedumintSearchのElasticsearchで実行）
+CREATE INDEX idx_questions_content_embedding_hnsw ON questions USING hnsw (question_content_embedding_gemini vector_cosine_ops);
 ```
 
 ---
@@ -1191,8 +1257,16 @@ CREATE TABLE sub_questions (
   question_type question_type_enum NOT NULL,
   
   content TEXT NOT NULL,
-  answer_explanation TEXT NOT NULL,
+  
+  -- v5.0.0: answer_explanationをanswerとexplanationに分離
+  answer TEXT NOT NULL,
+  explanation TEXT,
+  
   execution_options JSONB,
+  
+  -- ベクトル埋め込み（v5.0.0新規追加）
+  sub_content_embedding_gemini vector(1536),
+  explanation_embedding_gemini vector(1536),
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1200,6 +1274,10 @@ CREATE TABLE sub_questions (
 
 CREATE INDEX idx_sub_questions_question ON sub_questions(question_id);
 CREATE INDEX idx_sub_questions_type ON sub_questions(question_type);
+
+-- ベクトルインデックス（開発・フォールバック用。本番検索はedumintSearchのElasticsearchで実行）
+CREATE INDEX idx_sub_questions_content_embedding_hnsw ON sub_questions USING hnsw (sub_content_embedding_gemini vector_cosine_ops);
+CREATE INDEX idx_sub_questions_explanation_embedding_hnsw ON sub_questions USING hnsw (explanation_embedding_gemini vector_cosine_ops);
 ```
 
 **注記:** `question_types` テーブルは廃止され、`question_type_enum` に置き換えられました。
@@ -1218,6 +1296,7 @@ CREATE TABLE sub_question_selection (
   sub_question_id BIGINT NOT NULL REFERENCES sub_questions(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   is_correct BOOLEAN DEFAULT FALSE,
+  is_shufflable BOOLEAN DEFAULT TRUE, -- v5.0.0新規追加
   sort_order INT DEFAULT 0
 );
 
@@ -1241,35 +1320,45 @@ CREATE TABLE sub_question_ordering (
 
 ---
 
-### **6.8-6.10. キーワード管理**
+### **6.8. キーワード管理（v5.0.0統合版）**
 
 ```sql
--- キーワードマスタ
+-- キーワードマスタ（v5.0.0: keywordカラムをnameに変更、ベクトル埋め込み追加）
 CREATE TABLE keywords (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  keyword VARCHAR(100) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  
+  -- ベクトル埋め込み（v5.0.0新規追加）
+  name_embedding_gemini vector(1536),
+  
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 大問キーワード
-CREATE TABLE question_keywords (
+CREATE INDEX idx_keywords_name ON keywords(name);
+
+-- ベクトルインデックス（開発・フォールバック用。本番検索はedumintSearchのElasticsearchで実行）
+CREATE INDEX idx_keywords_name_embedding_hnsw ON keywords USING hnsw (name_embedding_gemini vector_cosine_ops);
+
+-- 統合キーワード管理（v5.0.0: question_keywordsとsub_question_keywordsを統合）
+CREATE TABLE content_keywords (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+  content_type VARCHAR(20) NOT NULL, -- 'question' or 'sub_question'
+  content_id BIGINT NOT NULL,
   keyword_id BIGINT NOT NULL REFERENCES keywords(id),
   relevance_score FLOAT,
-  UNIQUE(question_id, keyword_id)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(content_type, content_id, keyword_id)
 );
 
--- 小問キーワード
-CREATE TABLE sub_question_keywords (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  sub_question_id BIGINT NOT NULL REFERENCES sub_questions(id) ON DELETE CASCADE,
-  keyword_id BIGINT NOT NULL REFERENCES keywords(id),
-  relevance_score FLOAT,
-  UNIQUE(sub_question_id, keyword_id)
-);
+CREATE INDEX idx_content_keywords_content ON content_keywords(content_type, content_id);
+CREATE INDEX idx_content_keywords_keyword ON content_keywords(keyword_id);
 ```
+
+**v5.0.0変更点:**
+- `keywords.keyword` → `keywords.name` に変更（一貫性向上）
+- `question_keywords` と `sub_question_keywords` を `content_keywords` に統合
+- ベクトル埋め込みカラムとHNSWインデックスを追加
 
 ---
 
@@ -1277,91 +1366,329 @@ CREATE TABLE sub_question_keywords (
 
 ### 管理サービス: **edumintSearch**
 
-### **7.1. 検索用語テーブル**
+### **7.0. アーキテクチャ概要（v5.0.0大幅変更）**
 
-#### **7.1.1. `institution_terms` テーブル**
+#### **重要な設計変更:**
 
-```sql
-CREATE TABLE institution_terms (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  institution_id INTEGER NOT NULL REFERENCES institutions(id),
-  
-  term VARCHAR(255) NOT NULL,
-  hiragana VARCHAR(255),
-  katakana VARCHAR(255),
-  romaji VARCHAR(255),
-  english_name VARCHAR(255),
-  phonetic_key VARCHAR(255),
-  normalized_term VARCHAR(255) NOT NULL,
-  
-  language VARCHAR(10) DEFAULT 'ja',
-  variant_type VARCHAR(50) DEFAULT 'alias',
-  confidence_score DECIMAL(3,2) DEFAULT 0.80,
-  usage_count INT DEFAULT 0,
-  is_primary BOOLEAN DEFAULT FALSE,
-  
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  UNIQUE(institution_id, normalized_term)
-);
+1. **Qdrantベクトルデータベースの廃止**
+   - Elasticsearch 9.2.4の`dense_vector`フィールドに完全移行
+   - ベクトル検索とテキスト検索を単一クエリで実行可能
 
-CREATE INDEX idx_institution_terms_normalized ON institution_terms(normalized_term);
-CREATE INDEX idx_institution_terms_usage ON institution_terms(usage_count DESC);
-CREATE INDEX idx_institution_terms_inst ON institution_terms(institution_id);
-```
+2. **PostgreSQL論理レプリケーションからDebezium CDCへ移行**
+   - Kafka経由のリアルタイム差分検知・配信
+   - スキーマ変更への自動対応
+   - 複数下流システムへの柔軟な配信
 
-#### **7.1.2-7.1.4. その他の *_terms テーブル**
+3. **edumintSearchのテーブル構成**
+   - **独立テーブルは`search_query_logs`のみ**
+   - `*_terms`テーブル群を廃止（Elasticsearchに集約）
+   - edumintContentからの**読み取り専用レプリカ**として動作
 
-同様の構造で `faculty_terms`, `subject_terms`, `teacher_terms` を定義。
+4. **データフロー**
+   ```
+   [edumintContent PostgreSQL]
+         ↓
+   [Debezium CDC Connector]
+         ↓
+   [Kafka Topics]
+         ↓
+   [Kafka Connect Elasticsearch Sink]
+         ↓
+   [Elasticsearch 9.2.4 Indexes]
+         ↓
+   [edumintSearch API]
+   ```
 
 ---
 
-### **7.2. LLM連携（用語候補自動生成）**
+### **7.1. Elasticsearch インデックス設計**
 
-#### **7.2.1. `term_generation_jobs` テーブル**
+#### **7.1.1. `exams` インデックス**
 
-```sql
-CREATE TABLE term_generation_jobs (
-  id BIGSERIAL PRIMARY KEY,
-  entity_type VARCHAR(30) NOT NULL,
-  entity_id BIGINT NOT NULL,
-  status VARCHAR(20) DEFAULT 'pending',
-  trigger_type VARCHAR(30) DEFAULT 'system',
-  requested_by VARCHAR(255),
-  llm_model VARCHAR(50) DEFAULT 'gemini-1.5-pro-latest',
-  prompt_payload JSONB NOT NULL,
-  response_raw JSONB,
-  retry_count INT DEFAULT 0,
-  error_message TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+```json
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "long" },
+      "title": { "type": "text", "analyzer": "kuromoji" },
+      "exam_type": { "type": "keyword" },
+      "institution_id": { "type": "integer" },
+      "faculty_id": { "type": "integer" },
+      "department_id": { "type": "integer" },
+      "subject_id": { "type": "long" },
+      "exam_year": { "type": "integer" },
+      "semester": { "type": "keyword" },
+      "academic_field": { "type": "keyword" },
+      "academic_track": { "type": "keyword" },
+      "exam_name_embedding": {
+        "type": "dense_vector",
+        "dims": 1536,
+        "similarity": "cosine"
+      },
+      "created_at": { "type": "date" },
+      "updated_at": { "type": "date" }
+    }
+  }
+}
 ```
 
-#### **7.2.2. `term_generation_candidates` テーブル**
+#### **7.1.2. `questions` インデックス**
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "long" },
+      "exam_id": { "type": "long" },
+      "question_number": { "type": "integer" },
+      "difficulty_level": { "type": "keyword" },
+      "content": { "type": "text", "analyzer": "kuromoji" },
+      "question_content_embedding": {
+        "type": "dense_vector",
+        "dims": 1536,
+        "similarity": "cosine"
+      },
+      "created_at": { "type": "date" },
+      "updated_at": { "type": "date" }
+    }
+  }
+}
+```
+
+#### **7.1.3. `sub_questions` インデックス**
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "long" },
+      "question_id": { "type": "long" },
+      "sub_number": { "type": "integer" },
+      "question_type": { "type": "keyword" },
+      "content": { "type": "text", "analyzer": "kuromoji" },
+      "answer": { "type": "text", "analyzer": "kuromoji" },
+      "explanation": { "type": "text", "analyzer": "kuromoji" },
+      "sub_content_embedding": {
+        "type": "dense_vector",
+        "dims": 1536,
+        "similarity": "cosine"
+      },
+      "explanation_embedding": {
+        "type": "dense_vector",
+        "dims": 1536,
+        "similarity": "cosine"
+      },
+      "created_at": { "type": "date" },
+      "updated_at": { "type": "date" }
+    }
+  }
+}
+```
+
+#### **7.1.4. `keywords` インデックス**
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "long" },
+      "name": { "type": "text", "analyzer": "kuromoji" },
+      "name_embedding": {
+        "type": "dense_vector",
+        "dims": 1536,
+        "similarity": "cosine"
+      },
+      "created_at": { "type": "date" },
+      "updated_at": { "type": "date" }
+    }
+  }
+}
+```
+
+---
+
+### **7.2. Debezium CDC Kafka トピック**
+
+Debezium PostgreSQLコネクタが以下のKafkaトピックにCDCイベントを配信：
+
+```
+edumint.content.exams
+edumint.content.questions
+edumint.content.sub_questions
+edumint.content.keywords
+edumint.content.content_keywords
+edumint.content.institutions
+edumint.content.faculties
+edumint.content.departments
+edumint.content.subjects
+```
+
+**トピック命名規則:** `{サーバー名}.{データベース名}.{テーブル名}`
+
+**イベント形式（例）:**
+```json
+{
+  "before": null,
+  "after": {
+    "id": 12345,
+    "title": "微分積分学 期末試験",
+    "exam_type": "regular",
+    "institution_id": 1,
+    "faculty_id": 10,
+    "department_id": 100,
+    "exam_name_embedding": [0.123, 0.456, ...],
+    "created_at": "2026-02-04T10:00:00Z"
+  },
+  "source": {
+    "version": "2.5.0.Final",
+    "connector": "postgresql",
+    "name": "edumint",
+    "ts_ms": 1707040800000,
+    "snapshot": "false",
+    "db": "content",
+    "sequence": "[\"12345678\",\"12345679\"]",
+    "schema": "public",
+    "table": "exams",
+    "txId": 987654,
+    "lsn": 12345678,
+    "xmin": null
+  },
+  "op": "c",
+  "ts_ms": 1707040800001
+}
+```
+
+---
+
+### **7.3. PostgreSQL テーブル（edumintSearch）**
+
+#### **7.3.1. `search_query_logs` テーブル（唯一の独立テーブル）**
 
 ```sql
-CREATE TABLE term_generation_candidates (
+CREATE TABLE search_query_logs (
   id BIGSERIAL PRIMARY KEY,
-  job_id BIGINT NOT NULL REFERENCES term_generation_jobs(id),
-  entity_type VARCHAR(30) NOT NULL,
-  entity_id BIGINT NOT NULL,
-  suggested_term VARCHAR(255) NOT NULL,
-  hiragana VARCHAR(255),
-  katakana VARCHAR(255),
-  romaji VARCHAR(255),
-  english_name VARCHAR(255),
-  normalized_term VARCHAR(255) NOT NULL,
-  phonetic_key VARCHAR(255),
-  variant_type VARCHAR(50) DEFAULT 'llm_alias',
-  confidence_score DECIMAL(3,2) DEFAULT 0.75,
-  auto_adopted BOOLEAN DEFAULT FALSE,
-  adopted_term_id BIGINT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  user_id VARCHAR(255),
+  query_text TEXT NOT NULL,
+  filters JSONB,
+  result_count INT,
+  clicked_result_ids BIGINT[],
+  search_duration_ms INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_search_logs_user ON search_query_logs(user_id);
+CREATE INDEX idx_search_logs_created ON search_query_logs(created_at DESC);
 ```
+
+**用途:**
+- 検索クエリログの収集
+- 検索品質改善のための分析
+- ユーザー行動追跡
+- A/Bテストデータ
+
+---
+
+### **7.4. ハイブリッド検索クエリ例**
+
+#### **7.4.1. ベクトル検索 + テキスト検索 + フィルタ**
+
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "script_score": {
+            "query": { "match_all": {} },
+            "script": {
+              "source": "cosineSimilarity(params.query_vector, 'exam_name_embedding') + 1.0",
+              "params": {
+                "query_vector": [0.123, 0.456, ...]
+              }
+            }
+          }
+        },
+        {
+          "multi_match": {
+            "query": "微分積分",
+            "fields": ["title^2", "content"]
+          }
+        }
+      ],
+      "filter": [
+        { "term": { "institution_id": 1 } },
+        { "term": { "academic_field": "natural_sciences" } },
+        { "range": { "exam_year": { "gte": 2020 } } }
+      ]
+    }
+  },
+  "size": 20
+}
+```
+
+---
+
+### **7.5. データ整合性保証**
+
+#### **7.5.1. Debezium CDC設定**
+
+```properties
+# Debezium PostgreSQL Connector設定
+name=edumint-content-source
+connector.class=io.debezium.connector.postgresql.PostgresConnector
+database.hostname=edumint-content-db
+database.port=5432
+database.user=debezium_user
+database.password=***
+database.dbname=content
+database.server.name=edumint
+
+# トランザクショナルメタデータ
+publication.name=edumint_publication
+slot.name=edumint_slot
+
+# スナップショットモード
+snapshot.mode=initial
+
+# トランスフォーム（SMT）
+transforms=unwrap,route
+transforms.unwrap.type=io.debezium.transforms.ExtractNewRecordState
+transforms.route.type=org.apache.kafka.connect.transforms.RegexRouter
+```
+
+#### **7.5.2. Elasticsearch Sink設定**
+
+```properties
+# Kafka Connect Elasticsearch Sink設定
+name=edumint-search-sink
+connector.class=io.confluent.connect.elasticsearch.ElasticsearchSinkConnector
+topics=edumint.content.exams,edumint.content.questions,edumint.content.sub_questions,edumint.content.keywords
+connection.url=http://elasticsearch:9200
+type.name=_doc
+key.ignore=false
+schema.ignore=true
+
+# トランスフォーム
+transforms=extractId,excludeFields
+transforms.extractId.type=org.apache.kafka.connect.transforms.ExtractField$Key
+transforms.extractId.field=id
+transforms.excludeFields.type=org.apache.kafka.connect.transforms.ReplaceField$Value
+transforms.excludeFields.blacklist=__deleted
+```
+
+---
+
+### **7.6. イベント購読とインデックス更新**
+
+**データフロー:**
+
+1. **edumintContent**: PostgreSQLにデータ書き込み
+2. **Debezium**: WALからCDCイベント抽出 → Kafkaに配信
+3. **Kafka Connect**: Kafkaトピックから消費 → Elasticsearchに投入
+4. **Elasticsearch**: インデックス自動更新
+5. **edumintSearch API**: Elasticsearchから検索結果取得
+
+**遅延:** 通常100-500ms（準リアルタイム）
 
 ---
 
@@ -2363,9 +2690,30 @@ DELETE FROM wallet_audit_logs WHERE created_at < NOW() - INTERVAL '2 years';
 - [OECD Frascati Manual 2015](https://www.oecd.org/en/publications/frascati-manual-2015_9789264239012-en.html)
 - OECD Education at a Glance
 
-### **PostgreSQL ENUM型**
-- [PostgreSQL Documentation - Enumerated Types](https://www.postgresql.org/docs/current/datatype-enum.html)
-- [PostgreSQL Documentation - ALTER TYPE](https://www.postgresql.org/docs/current/sql-altertype.html)
+### **PostgreSQL 18.1**
+- [PostgreSQL 18.1 Documentation](https://www.postgresql.org/docs/18/)
+- [PostgreSQL Documentation - Enumerated Types](https://www.postgresql.org/docs/18/datatype-enum.html)
+- [PostgreSQL Documentation - ALTER TYPE](https://www.postgresql.org/docs/18/sql-altertype.html)
+- [PostgreSQL 18.1 Release Notes](https://www.postgresql.org/docs/18/release-18-1.html)
+
+### **pgvector 0.8+**
+- [pgvector GitHub Repository](https://github.com/pgvector/pgvector)
+- [pgvector Documentation - HNSW Index](https://github.com/pgvector/pgvector#hnsw)
+- [Vector Similarity Search in PostgreSQL](https://github.com/pgvector/pgvector#getting-started)
+
+### **Elasticsearch 9.2.4**
+- [Elasticsearch 9.2.4 Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/9.2/)
+- [Dense Vector Field Type](https://www.elastic.co/guide/en/elasticsearch/reference/9.2/dense-vector.html)
+- [Elasticsearch Vector Search](https://www.elastic.co/guide/en/elasticsearch/reference/9.2/knn-search.html)
+
+### **Debezium CDC**
+- [Debezium Documentation](https://debezium.io/documentation/)
+- [Debezium PostgreSQL Connector](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
+- [Debezium Transformations (SMT)](https://debezium.io/documentation/reference/stable/transformations/index.html)
+
+### **Kafka Connect**
+- [Kafka Connect Documentation](https://kafka.apache.org/documentation/#connect)
+- [Confluent Elasticsearch Sink Connector](https://docs.confluent.io/kafka-connect-elasticsearch/current/)
 
 ### **データベース設計ベストプラクティス**
 - [Database Design Best Practices (Microsoft)](https://docs.microsoft.com/en-us/azure/architecture/best-practices/data-partitioning)
@@ -2445,13 +2793,107 @@ exam_type exam_type_enum -- 'regular', 'class', 'quiz'
 
 ---
 
+### **ベクトルDB（Qdrant）を廃止した理由（v5.0.0）**
+
+**問題点:**
+1. **追加のインフラ管理コスト**: Qdrantクラスタの独立した運用・保守が必要
+2. **データ同期の複雑性**: PostgreSQL → Qdrantへの同期処理の実装・監視
+3. **Elasticsearchとの二重管理**: ベクトル検索とテキスト検索で別システムを管理
+4. **スケーリングの複雑性**: 複数のベクトル検索システムを個別にスケーリング
+
+**Elasticsearch 9.2.4 採用の根拠:**
+1. **dense_vectorフィールド対応**: 1536次元ベクトルの完全サポート、cosine類似度計算
+2. **ハイブリッド検索**: テキスト検索とベクトル検索を単一クエリで実行可能
+3. **既存インフラ活用**: 新規システム追加不要、運用コスト削減
+4. **統一されたAPIと管理**: 検索機能を単一システムで提供
+5. **成熟したエコシステム**: 監視、バックアップ、レプリケーションツールが豊富
+
+---
+
+### **PostgreSQL論理レプリケーションからDebezium CDCへの移行理由（v5.0.0）**
+
+**PostgreSQL論理レプリケーションの問題:**
+1. **スキーマ変更時の複雑な対応**: DDL変更時にレプリケーションスロットの再作成が必要
+2. **フィルタリングの柔軟性が低い**: publication/subscriptionでのカラム単位の細かい制御が困難
+3. **トランスフォーム処理が困難**: データ変換をアプリケーション層で実装する必要
+4. **エラーハンドリングが難しい**: 障害時の自動リトライやDead Letter Queue機能がない
+5. **下流システムへの配信**: 複数の下流システムへの配信に個別の実装が必要
+
+**Debezium CDC採用の根拠:**
+1. **リアルタイム差分検知**: PostgreSQLのWAL（Write-Ahead Log）からCDCイベントを自動抽出
+2. **Kafka経由のスケーラブル配信**: Kafkaトピックを経由することで複数の下流システムへ並行配信
+3. **スキーマ変更への自動対応**: DDL変更を自動検知し、スキーマレジストリで管理
+4. **豊富なトランスフォーム機能（SMT）**: Single Message Transformsで柔軟なデータ変換
+5. **成熟したエコシステム**: Kafka Connect、監視ツール、エラーハンドリング機構が充実
+6. **複数シンク対応**: Elasticsearch、MongoDB、S3など多様なシンクへの同時配信
+
+**アーキテクチャ比較:**
+```
+[旧アーキテクチャ]
+PostgreSQL → 論理レプリケーション → 読み取り専用レプリカ → アプリ層変換 → Elasticsearch
+
+[新アーキテクチャ（v5.0.0）]
+PostgreSQL → Debezium CDC → Kafka → Kafka Connect → Elasticsearch
+                                  └→ 他のシンク（将来拡張）
+```
+
+---
+
+### **edumintContentにベクトルカラムを保持する理由（v5.0.0）**
+
+**設計判断:**
+- edumintContentのPostgreSQLテーブルに`vector(1536)`カラムを保持
+- pgvector拡張を使用してHNSWインデックスを作成
+- 本番検索はedumintSearchのElasticsearch 9.2.4で実行
+
+**理由:**
+
+1. **データの一元管理**
+   - コンテンツと埋め込みベクトルを同一トランザクションで管理
+   - データ整合性が保証される（ACID特性）
+   - バックアップ・リストアが単純化
+
+2. **開発・フォールバック**
+   - Elasticsearchダウン時のフォールバック検索
+   - 開発環境でのシンプルな検索機能提供
+   - ローカル開発時に外部サービス不要
+
+3. **整合性保証**
+   - ベクトルとコンテンツが常に同期
+   - 孤立データ（orphaned data）の発生を防止
+   - トランザクショナルな更新が可能
+
+4. **シンプルな運用**
+   - 別システムへのデータ同期が不要（Debeziumが自動処理）
+   - データソースが単一（Single Source of Truth）
+   - 複雑な同期ロジックの排除
+
+**本番検索の実行場所:**
+- **本番**: edumintSearchのElasticsearch 9.2.4
+  - 大規模データセットでの高速検索
+  - ハイブリッド検索（テキスト+ベクトル）
+  - 水平スケーリング対応
+  
+- **開発・フォールバック**: edumintContentのPostgreSQL + pgvector
+  - ローカル開発環境
+  - Elasticsearchメンテナンス中の代替手段
+  - 小規模データセットでのテスト
+
+**注意事項:**
+- PostgreSQLのHNSWインデックスは開発・フォールバック用途のみ
+- 本番環境の検索トラフィックは必ずElasticsearchに向ける
+- PostgreSQLでの大規模ベクトル検索はパフォーマンス劣化の可能性
+
+---
+
 ## **変更履歴**
 
 | 日付 | バージョン | 変更内容 |
 |------|----------|---------|
+| 2026-02-04 | 5.0.0 | PostgreSQL 18.1 + pgvector 0.8+採用、ベクトルカラム追加、Qdrant廃止してElasticsearch 9.2.4統合、Debezium CDC採用、prefecture ENUM化、languages マスタテーブル追加、キーワード管理統合 |
 | 2026-02-04 | 2.0.0 | ENUM型全面採用、UNESCO ISCED-F 2013準拠、academic_fields廃止 |
 | 2025-12-22 | 1.0.0 | 初版作成 |
 
 ---
 
-**以上、EduMint統合データモデル設計書（ENUM型・グローバル対応版）**
+**以上、EduMint統合データモデル設計書 v5.0.0（PostgreSQL 18.1 + pgvector + Elasticsearch 9.2.4 + Debezium CDC統合版）**
