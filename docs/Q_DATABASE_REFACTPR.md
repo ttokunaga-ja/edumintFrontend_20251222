@@ -388,11 +388,11 @@ institutions (第1階層)
   - Python スクリプトで Excel → CSV 変換
      ↓
 [DB インポート]
-  INSERT INTO institutions (mext_code, name, prefecture, ...)
+  INSERT INTO institutions (public_id, name_main, prefecture, ...)
      ↓
 [データ補完]
-  - name_kana: 形態素解析で自動生成
-  - abbreviation: ルールベースで生成
+  - name_sub2 (読み仮名): 形態素解析で自動生成
+  - name_sub3 (略称): ルールベースで生成
 ```
 
 **年次更新:**
@@ -401,7 +401,7 @@ institutions (第1階層)
      ↓
 [差分検出] 新設・廃止・名称変更
      ↓
-[DB 更新] UPDATE institutions WHERE mext_code = ...
+[DB 更新] UPDATE institutions WHERE public_id = ...
      ↓
 [Kafka イベント発行] content.lifecycle → InstitutionUpdated
      ↓
@@ -778,28 +778,28 @@ INSERT INTO institutions (
 
 -- 早稲田大学（学部）
 INSERT INTO institutions (
-  id, institution_type, parent_institution_id, prefecture,
+  public_id, institution_type, prefecture,
   name_main, name_main_language,
   name_sub1, name_sub1_language,
   name_sub2, name_sub2_language,
   name_sub3, name_sub3_language
 ) VALUES (
-  3, 'university', NULL, '東京都',
+  'Waseda001', 'university', '東京都',
   'Waseda University', 'en',
   '早稲田大学', 'ja',
   'わせだだいがく', 'ja-Hira',
   '早稲田', 'ja'
 );
 
--- 早稲田大学大学院
+-- 早稲田大学大学院（独立機関として登録）
 INSERT INTO institutions (
-  id, institution_type, parent_institution_id, prefecture,
+  public_id, institution_type, prefecture,
   name_main, name_main_language,
   name_sub1, name_sub1_language,
   name_sub2, name_sub2_language,
   name_sub3, name_sub3_language
 ) VALUES (
-  4, 'graduate_school', 3, '東京都',
+  'WasedaGrad001', 'graduate_school', '東京都',
   'Waseda University Graduate School', 'en',
   '早稲田大学大学院', 'ja',
   'わせだだいがくだいがくいん', 'ja-Hira',
@@ -808,7 +808,7 @@ INSERT INTO institutions (
 
 -- 北京大学の例（Phase 2以降: 中国語対応）
 INSERT INTO institutions (
-  id, institution_type, parent_institution_id, prefecture,
+  public_id, institution_type, prefecture,
   name_main, name_main_language,
   name_sub1, name_sub1_language,
   name_sub2, name_sub2_language,
@@ -1586,9 +1586,9 @@ CREATE TABLE users (
   is_email_verified BOOLEAN DEFAULT FALSE,
   
   -- 所属情報（必須）
-  institution_id INTEGER NOT NULL REFERENCES institutions(id),
-  faculty_id INTEGER NOT NULL REFERENCES faculties(id),
-  department_id INTEGER NOT NULL REFERENCES departments(id),
+  institution_id UUID NOT NULL REFERENCES institutions(id),
+  faculty_id UUID NOT NULL REFERENCES faculties(id),
+  department_id UUID NOT NULL REFERENCES departments(id),
   academic_field academic_field_enum,
   
   -- 学年情報
@@ -1597,7 +1597,7 @@ CREATE TABLE users (
   graduation_year INTEGER,
   
   -- プロフィール
-  role user_role_enum DEFAULT 'user',
+  role user_role_enum DEFAULT 'free',  -- v7.0.0: デフォルトを'free'に変更
   status user_status_enum DEFAULT 'active',
   deleted_at TIMESTAMP,
   display_name VARCHAR(255),
@@ -1804,7 +1804,7 @@ CREATE INDEX idx_file_inputs_user ON file_inputs(user_id);
 CREATE TABLE file_upload_jobs (
   id VARCHAR(36) PRIMARY KEY,
   gateway_job_id VARCHAR(36) UNIQUE,
-  file_input_id BIGINT REFERENCES file_inputs(id),
+  file_input_id UUID REFERENCES file_inputs(id),
   
   status VARCHAR(50) DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
