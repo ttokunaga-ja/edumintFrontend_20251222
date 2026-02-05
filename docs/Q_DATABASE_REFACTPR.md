@@ -1,6 +1,32 @@
-# **EduMint 統合データモデル設計書 v7.0.0**
+# **EduMint 統合データモデル設計書 v7.0.1**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
+
+## **Document Policy / ドキュメントポリシー**
+
+**Language Convention for Code and Technical Content:**
+
+All technical elements must be written in **English** to maximize reproducibility, international collaboration, and compatibility with AI/CodingAgent tools:
+- Schema definitions (table names, column names, constraints)
+- Code examples (Go, SQL, HCL, YAML)
+- Type names, enum values, function names
+- Technical comments in code blocks
+- Configuration files
+
+**Japanese may be used for:**
+- Explanatory text for non-developer stakeholders
+- Business context descriptions
+- Literal values/enums that represent Japanese-specific business concepts (e.g., `大学`, `高校`)
+
+This policy ensures that all database schemas, migrations, queries, and generated code can be reviewed, maintained, and extended by international teams and automated tools without language barriers.
+
+---
+
+**v7.0.1 主要更新 (2026-02-05):**
+- Go Integration Patterns (Section 15.11) 追加
+- CodingAgent Collaboration Patterns (Section 15.12) 追加
+- Atlas移行ツール専用化（golang-migrate削除）
+- 英語コード規約の明文化
 
 **v7.0.0 主要更新:**
 - 全主キーをUUID + NanoID構成に変更（SERIAL/AUTO_INCREMENT廃止）
@@ -2225,9 +2251,908 @@ PostgreSQL 18.1での実測値（参考）：
 - **既存テーブル**: 次回のメジャーバージョンアップ時に移行を検討
 - **セキュリティトークン**: `gen_random_uuid()`または`gen_random_bytes()`を継続使用
 
-### 15.11 データ整合性
+### 15.11 Go Integration Patterns (Go 1.25.6, sqlc, pgx, Atlas)
 
-#### **CHECK制約**
+EduMintのバックエンドサービスは、**Atlas HCL**をスキーマの単一真実源（Single Source of Truth）とし、**sqlc**でタイプセーフなクエリコード生成、**pgx/pgxpool**でPostgreSQLへの接続を行います。Go 1.25.6のイテレータパターン（`iter.Seq2`）を活用した大量データ処理もサポートします。
+
+#### **技術スタック**
+
+- **Atlas 0.30+**: Schema-as-code (HCL) + マイグレーション管理
+- **sqlc 1.28+**: HCL/SQLからのGoコード生成
+- **pgx/v5**: PostgreSQL driver (prepared statements, binary protocol)
+- **pgxpool**: Connection pooling
+- **Go 1.25.6**: Iterators (`iter.Seq2`), improved performance
+
+#### **Atlas HCL Schema Example**
+
+```hcl
+// schema.hcl - Atlas Schema Definition
+schema "public" {
+  comment = "EduMint Public Schema"
+}
+
+// Enum definitions
+enum "user_role_enum" {
+  schema = schema.public
+  values = ["free", "system", "admin", "premium"]
+}
+
+enum "exam_status_enum" {
+  schema = schema.public
+  values = ["draft", "active", "archived"]
+}
+
+// Table with UUID primary key
+table "users" {
+  schema = schema.public
+  
+  column "id" {
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  
+  column "public_id" {
+    type = varchar(8)
+    null = false
+  }
+  
+  column "email" {
+    type = varchar(255)
+    null = false
+  }
+  
+  column "role" {
+    type = enum.user_role_enum
+    null = false
+    default = sql("'free'")
+  }
+  
+  column "created_at" {
+    type    = timestamptz
+    default = sql("CURRENT_TIMESTAMP")
+  }
+  
+  column "updated_at" {
+    type    = timestamptz
+    default = sql("CURRENT_TIMESTAMP")
+  }
+  
+  primary_key {
+    columns = [column.id]
+  }
+  
+  unique {
+    columns = [column.public_id]
+  }
+  
+  unique {
+    columns = [column.email]
+  }
+  
+  index "idx_users_role" {
+    columns = [column.role]
+  }
+}
+
+// Table with composite primary key (UUID + NanoID)
+table "exams" {
+  schema = schema.public
+  
+  column "id" {
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  
+  column "public_id" {
+    type = varchar(8)
+    null = false
+  }
+  
+  column "title" {
+    type = text
+    null = false
+  }
+  
+  column "status" {
+    type = enum.exam_status_enum
+    null = false
+    default = sql("'draft'")
+  }
+  
+  column "created_at" {
+    type    = timestamptz
+    default = sql("CURRENT_TIMESTAMP")
+  }
+  
+  primary_key {
+    columns = [column.id, column.public_id]
+  }
+  
+  index "idx_exams_status" {
+    columns = [column.status]
+  }
+}
+
+// Vector search support (pgvector)
+table "embeddings" {
+  schema = schema.public
+  
+  column "id" {
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  
+  column "content_id" {
+    type = uuid
+    null = false
+  }
+  
+  column "embedding_vector" {
+    type = sql("vector(1536)")  // gemini-embedding-001
+    null = false
+  }
+  
+  column "created_at" {
+    type    = timestamptz
+    default = sql("CURRENT_TIMESTAMP")
+  }
+  
+  primary_key {
+    columns = [column.id]
+  }
+  
+  index "idx_embeddings_vector_hnsw" {
+    type = HNSW
+    columns = [column.embedding_vector]
+    on {
+      m = 16
+      ef_construction = 64
+    }
+  }
+}
+```
+
+#### **sqlc Configuration (sqlc.yaml)**
+
+```yaml
+# sqlc.yaml
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "queries/"
+    schema: 
+      - "atlas://edumint_schema"  # Reference Atlas HCL directly
+    gen:
+      go:
+        package: "db"
+        out: "internal/db"
+        emit_json_tags: true
+        emit_prepared_queries: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        overrides:
+          # UUID type mapping
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+          
+          # Vector type mapping (pgvector)
+          - db_type: "vector"
+            go_type: "github.com/pgvector/pgvector-go.Vector"
+          
+          # Timestamp with timezone
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          
+          # PostgreSQL enums -> Go enums
+          - db_type: "user_role_enum"
+            go_type: "UserRole"
+          
+          - db_type: "exam_status_enum"
+            go_type: "ExamStatus"
+```
+
+#### **Go Type Mappings**
+
+sqlcが生成するGo型の例：
+
+```go
+// Generated by sqlc from Atlas HCL
+
+package db
+
+import (
+    "time"
+    "github.com/google/uuid"
+    "github.com/pgvector/pgvector-go"
+)
+
+// Enum: user_role_enum
+type UserRole string
+
+const (
+    UserRoleFree    UserRole = "free"
+    UserRoleSystem  UserRole = "system"
+    UserRoleAdmin   UserRole = "admin"
+    UserRolePremium UserRole = "premium"
+)
+
+func (e UserRole) Valid() bool {
+    switch e {
+    case UserRoleFree, UserRoleSystem, UserRoleAdmin, UserRolePremium:
+        return true
+    }
+    return false
+}
+
+// Enum: exam_status_enum
+type ExamStatus string
+
+const (
+    ExamStatusDraft    ExamStatus = "draft"
+    ExamStatusActive   ExamStatus = "active"
+    ExamStatusArchived ExamStatus = "archived"
+)
+
+// Table: users
+type User struct {
+    ID        uuid.UUID `json:"id"`
+    PublicID  string    `json:"public_id"`
+    Email     string    `json:"email"`
+    Role      UserRole  `json:"role"`
+    CreatedAt time.Time `json:"created_at"`
+    UpdatedAt time.Time `json:"updated_at"`
+}
+
+// Table: exams (composite primary key)
+type Exam struct {
+    ID        uuid.UUID  `json:"id"`
+    PublicID  string     `json:"public_id"`
+    Title     string     `json:"title"`
+    Status    ExamStatus `json:"status"`
+    CreatedAt time.Time  `json:"created_at"`
+}
+
+// Table: embeddings (vector support)
+type Embedding struct {
+    ID              uuid.UUID       `json:"id"`
+    ContentID       uuid.UUID       `json:"content_id"`
+    EmbeddingVector pgvector.Vector `json:"embedding_vector"`
+    CreatedAt       time.Time       `json:"created_at"`
+}
+```
+
+#### **Composite Primary Key Usage**
+
+複合主キー（UUID + NanoID）を持つテーブルでは、両方のキーを指定してクエリを実行：
+
+```go
+// queries/exams.sql
+-- name: GetExamByKeys :one
+SELECT * FROM exams
+WHERE id = $1 AND public_id = $2;
+
+-- name: UpdateExamStatus :exec
+UPDATE exams
+SET status = $3, updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND public_id = $2;
+```
+
+```go
+// Generated Go code usage
+exam, err := queries.GetExamByKeys(ctx, db.GetExamByKeysParams{
+    ID:       examUUID,
+    PublicID: examNanoID,
+})
+
+err = queries.UpdateExamStatus(ctx, db.UpdateExamStatusParams{
+    ID:       examUUID,
+    PublicID: examNanoID,
+    Status:   db.ExamStatusActive,
+})
+```
+
+#### **Iterator/Streaming Pattern (Go 1.25.6)**
+
+Go 1.25.6の`iter.Seq2`を使用した大量データのストリーミング処理：
+
+```go
+package db
+
+import (
+    "context"
+    "iter"
+    "github.com/google/uuid"
+    "github.com/jackc/pgx/v5"
+)
+
+// StreamExamsBatch returns an iterator for processing large exam datasets
+// Uses Go 1.25.6 iter.Seq2 for memory-efficient streaming
+func (q *Queries) StreamExamsBatch(
+    ctx context.Context,
+    status ExamStatus,
+    batchSize int,
+) iter.Seq2[Exam, error] {
+    return func(yield func(Exam, error) bool) {
+        query := `
+            SELECT id, public_id, title, status, created_at
+            FROM exams
+            WHERE status = $1
+            ORDER BY created_at
+        `
+        
+        rows, err := q.db.Query(ctx, query, status)
+        if err != nil {
+            yield(Exam{}, err)
+            return
+        }
+        defer rows.Close()
+        
+        for rows.Next() {
+            var exam Exam
+            err := rows.Scan(
+                &exam.ID,
+                &exam.PublicID,
+                &exam.Title,
+                &exam.Status,
+                &exam.CreatedAt,
+            )
+            
+            if !yield(exam, err) {
+                return  // Consumer stopped iteration
+            }
+        }
+        
+        if err := rows.Err(); err != nil {
+            yield(Exam{}, err)
+        }
+    }
+}
+
+// Usage example: Process 1 million exams with minimal memory
+func ProcessAllActiveExams(ctx context.Context, q *db.Queries) error {
+    count := 0
+    
+    for exam, err := range q.StreamExamsBatch(ctx, db.ExamStatusActive, 1000) {
+        if err != nil {
+            return fmt.Errorf("stream error: %w", err)
+        }
+        
+        // Process exam (e.g., generate embeddings, send events)
+        if err := ProcessExam(ctx, exam); err != nil {
+            log.Printf("failed to process exam %s: %v", exam.PublicID, err)
+            continue
+        }
+        
+        count++
+        if count%10000 == 0 {
+            log.Printf("processed %d exams", count)
+        }
+    }
+    
+    log.Printf("total processed: %d exams", count)
+    return nil
+}
+```
+
+#### **pgxpool Setup Template**
+
+```go
+package database
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/jackc/pgx/v5/pgxpool"
+)
+
+type Config struct {
+    Host            string
+    Port            int
+    User            string
+    Password        string
+    Database        string
+    MaxConns        int32
+    MinConns        int32
+    MaxConnLifetime time.Duration
+    MaxConnIdleTime time.Duration
+}
+
+func NewPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
+    dsn := fmt.Sprintf(
+        "postgres://%s:%s@%s:%d/%s?sslmode=require",
+        cfg.User,
+        cfg.Password,
+        cfg.Host,
+        cfg.Port,
+        cfg.Database,
+    )
+    
+    poolConfig, err := pgxpool.ParseConfig(dsn)
+    if err != nil {
+        return nil, fmt.Errorf("parse pool config: %w", err)
+    }
+    
+    // Connection pool settings
+    poolConfig.MaxConns = cfg.MaxConns                       // Default: 10
+    poolConfig.MinConns = cfg.MinConns                       // Default: 2
+    poolConfig.MaxConnLifetime = cfg.MaxConnLifetime         // Default: 1h
+    poolConfig.MaxConnIdleTime = cfg.MaxConnIdleTime         // Default: 30m
+    poolConfig.HealthCheckPeriod = 1 * time.Minute
+    
+    // pgx connection settings
+    poolConfig.ConnConfig.ConnectTimeout = 5 * time.Second
+    poolConfig.ConnConfig.RuntimeParams["application_name"] = "edumint-service"
+    
+    pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+    if err != nil {
+        return nil, fmt.Errorf("create pool: %w", err)
+    }
+    
+    // Verify connection
+    if err := pool.Ping(ctx); err != nil {
+        pool.Close()
+        return nil, fmt.Errorf("ping database: %w", err)
+    }
+    
+    return pool, nil
+}
+
+// Usage in service initialization
+func InitializeDatabase(ctx context.Context) (*pgxpool.Pool, error) {
+    cfg := Config{
+        Host:            getEnv("DB_HOST", "localhost"),
+        Port:            getEnvInt("DB_PORT", 5432),
+        User:            getEnv("DB_USER", "edumint"),
+        Password:        getEnv("DB_PASSWORD", ""),
+        Database:        getEnv("DB_NAME", "edumint_auth"),
+        MaxConns:        int32(getEnvInt("DB_MAX_CONNS", 10)),
+        MinConns:        int32(getEnvInt("DB_MIN_CONNS", 2)),
+        MaxConnLifetime: time.Hour,
+        MaxConnIdleTime: 30 * time.Minute,
+    }
+    
+    return NewPool(ctx, cfg)
+}
+```
+
+#### **Transaction Pattern with defer**
+
+Go標準のトランザクションパターン（`defer tx.Rollback(ctx)`で安全性担保）：
+
+```go
+package service
+
+import (
+    "context"
+    "fmt"
+    
+    "github.com/jackc/pgx/v5"
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/google/uuid"
+)
+
+// CreateUserWithWallet creates a user and initializes their wallet atomically
+func (s *Service) CreateUserWithWallet(
+    ctx context.Context,
+    email string,
+    publicID string,
+) (*User, error) {
+    tx, err := s.pool.Begin(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("begin transaction: %w", err)
+    }
+    
+    // Rollback if not committed (safe even if already committed/rolled back)
+    defer tx.Rollback(ctx)
+    
+    // Create user
+    userID := uuid.New()
+    user, err := s.queries.WithTx(tx).CreateUser(ctx, CreateUserParams{
+        ID:       userID,
+        PublicID: publicID,
+        Email:    email,
+        Role:     UserRoleFree,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("create user: %w", err)
+    }
+    
+    // Initialize wallet (in different microservice DB, handle via event)
+    // For same-DB transaction:
+    _, err = s.queries.WithTx(tx).CreateWallet(ctx, CreateWalletParams{
+        UserID:  userID,
+        Balance: 0,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("create wallet: %w", err)
+    }
+    
+    // Commit transaction
+    if err := tx.Commit(ctx); err != nil {
+        return nil, fmt.Errorf("commit transaction: %w", err)
+    }
+    
+    return user, nil
+}
+
+// Transfer example with row-level locking
+func (s *Service) TransferFunds(
+    ctx context.Context,
+    fromUserID, toUserID uuid.UUID,
+    amount int64,
+) error {
+    tx, err := s.pool.Begin(ctx)
+    if err != nil {
+        return fmt.Errorf("begin transaction: %w", err)
+    }
+    defer tx.Rollback(ctx)
+    
+    // Lock source wallet (FOR UPDATE prevents concurrent modifications)
+    fromWallet, err := s.queries.WithTx(tx).GetWalletForUpdate(ctx, fromUserID)
+    if err != nil {
+        return fmt.Errorf("get source wallet: %w", err)
+    }
+    
+    if fromWallet.Balance < amount {
+        return fmt.Errorf("insufficient balance: have %d, need %d", fromWallet.Balance, amount)
+    }
+    
+    // Lock destination wallet
+    toWallet, err := s.queries.WithTx(tx).GetWalletForUpdate(ctx, toUserID)
+    if err != nil {
+        return fmt.Errorf("get destination wallet: %w", err)
+    }
+    
+    // Update balances
+    if err := s.queries.WithTx(tx).UpdateWalletBalance(ctx, UpdateWalletBalanceParams{
+        UserID:  fromUserID,
+        Balance: fromWallet.Balance - amount,
+    }); err != nil {
+        return fmt.Errorf("debit source: %w", err)
+    }
+    
+    if err := s.queries.WithTx(tx).UpdateWalletBalance(ctx, UpdateWalletBalanceParams{
+        UserID:  toUserID,
+        Balance: toWallet.Balance + amount,
+    }); err != nil {
+        return fmt.Errorf("credit destination: %w", err)
+    }
+    
+    // Log transaction
+    if err := s.queries.WithTx(tx).CreateWalletLog(ctx, CreateWalletLogParams{
+        FromUserID: fromUserID,
+        ToUserID:   toUserID,
+        Amount:     amount,
+    }); err != nil {
+        return fmt.Errorf("log transaction: %w", err)
+    }
+    
+    if err := tx.Commit(ctx); err != nil {
+        return fmt.Errorf("commit transaction: %w", err)
+    }
+    
+    return nil
+}
+```
+
+**Key Points:**
+- Always use `defer tx.Rollback(ctx)` immediately after `Begin()`
+- `tx.Rollback()` is safe to call even after `tx.Commit()` (idempotent)
+- Use `FOR UPDATE` for row-level locking in financial transactions
+- Wrap queries with `s.queries.WithTx(tx)` to execute within transaction context
+
+#### **Migration Workflow with Atlas**
+
+```bash
+# 1. Define schema in HCL (schema.hcl)
+# 2. Generate migration
+atlas migrate diff create_users \
+  --env local \
+  --to file://schema.hcl
+
+# 3. Review generated SQL in migrations/
+cat migrations/20260205_create_users.sql
+
+# 4. Apply migration
+atlas migrate apply \
+  --env local \
+  --url "postgres://user:pass@localhost:5432/edumint_auth?sslmode=disable"
+
+# 5. Generate sqlc code
+sqlc generate
+
+# 6. Verify in Go tests
+go test ./internal/db/...
+```
+
+**No hand-written SQL migrations.** All schema changes flow through Atlas HCL → SQL → sqlc → Go.
+
+### 15.12 CodingAgent Collaboration Patterns
+
+このセクションは、AI/CodingAgentとの協働を最大化するための、プロンプトテンプレート、レビューチェックリスト、デバッグサポートパターンを提供します。
+
+#### **Command Prompts for Schema/Query Tasks**
+
+**Atlas Schema Generation Request:**
+```
+Create an Atlas HCL schema for [table_name] with the following requirements:
+- Primary key: UUID (uuidv7) + NanoID (8 chars) composite key
+- Columns: [list columns with types]
+- Enums: [enum_name] with values [value1, value2, ...]
+- Indexes: [describe indexes needed]
+- Foreign keys: references to [other_table(column)]
+- Follow EduMint conventions (timestamptz, NOT NULL where appropriate)
+
+Output in Atlas HCL format compatible with PostgreSQL 18.1.
+```
+
+**sqlc Query Generation Request:**
+```
+Generate sqlc queries for [table_name]:
+1. CRUD operations (Create, Read, Update, Delete)
+2. List with pagination (LIMIT/OFFSET)
+3. Find by [specific_field]
+4. Batch insert for [scenario]
+5. Transaction-safe update with FOR UPDATE
+
+Include:
+- Proper parameter naming (:one, :many, :exec)
+- Composite primary key handling where applicable
+- Error-safe NULL handling
+```
+
+**Migration Review Request:**
+```
+Review this Atlas migration for:
+1. Breaking changes (column drops, type changes)
+2. Index performance impact (CONCURRENTLY flag usage)
+3. Data integrity (NOT NULL additions with DEFAULT values)
+4. Backward compatibility with running services
+5. Rollback safety
+
+Migration file: [paste SQL or HCL here]
+```
+
+**Go Code Generation Request:**
+```
+Generate Go service layer code for [feature] using:
+- sqlc-generated queries from package db
+- pgxpool for connection management
+- context.Context for cancellation
+- Proper error wrapping with fmt.Errorf
+- Transaction pattern with defer tx.Rollback(ctx)
+- Logging with structured fields (slog or zerolog)
+
+Requirements: [describe business logic]
+```
+
+#### **Review Checklists**
+
+**Atlas HCL Schema Review Checklist:**
+- [ ] All table names in snake_case (lowercase, underscores)
+- [ ] Primary key uses `uuidv7()` for UUID columns
+- [ ] Composite keys (UUID + NanoID) properly defined in `primary_key` block
+- [ ] Enum types defined in separate `enum` blocks before table usage
+- [ ] Foreign keys reference correct tables with ON DELETE/ON UPDATE clauses
+- [ ] All timestamps use `timestamptz` (not `timestamp`)
+- [ ] Required fields have `null = false`
+- [ ] Indexes created for foreign keys and frequently queried columns
+- [ ] CHECK constraints for business rules (e.g., `balance >= 0`)
+- [ ] UNIQUE constraints for natural keys (email, public_id)
+- [ ] Comments added for complex business logic
+
+**sqlc Query Review Checklist:**
+- [ ] Query names follow convention: `GetX`, `ListX`, `CreateX`, `UpdateX`, `DeleteX`
+- [ ] Return types annotated: `:one`, `:many`, `:exec`, `:execrows`
+- [ ] Parameters use positional placeholders: `$1`, `$2`, `$3`
+- [ ] Composite primary keys handled: `WHERE id = $1 AND public_id = $2`
+- [ ] Pagination queries include `LIMIT` and `OFFSET`
+- [ ] Write operations update `updated_at` timestamp
+- [ ] FOR UPDATE used in transactions for row locking
+- [ ] SQL injection safe (no string concatenation)
+- [ ] NULL handling explicit in queries (COALESCE, IS NULL checks)
+- [ ] Joins use table aliases for clarity
+
+**Go Code Review Checklist:**
+- [ ] Context passed as first argument to all functions
+- [ ] Errors wrapped with descriptive context: `fmt.Errorf("operation failed: %w", err)`
+- [ ] Transactions use `defer tx.Rollback(ctx)` immediately after `Begin()`
+- [ ] Database queries check for `pgx.ErrNoRows` explicitly
+- [ ] UUIDs validated before queries: `uuid.Validate()`
+- [ ] Enum values validated: `role.Valid()`
+- [ ] Connection pool acquired from pgxpool, not created per-request
+- [ ] Prepared statements used via sqlc-generated code
+- [ ] Large result sets use streaming/pagination (not SELECT *)
+- [ ] Logging includes request ID, user ID, operation context
+- [ ] Timeouts set on context: `ctx, cancel := context.WithTimeout(ctx, 5*time.Second)`
+- [ ] Panics recovered in HTTP handlers
+
+#### **Error Debug Support Prompts**
+
+**Database Connection Issues:**
+```
+Debug PostgreSQL connection error:
+
+Error message: [paste error]
+Connection string: postgres://[user]@[host]:[port]/[database]
+
+Check:
+1. Database server running? (pg_isready)
+2. Credentials correct? (psql test)
+3. Firewall/network rules allow connection?
+4. SSL mode correct? (sslmode=require/disable)
+5. Connection pool exhausted? (check MaxConns)
+6. Database exists? (SELECT datname FROM pg_database)
+
+Provide diagnostic commands for [OS/environment].
+```
+
+**Query Performance Issues:**
+```
+Analyze slow query performance:
+
+Query: [paste SQL query]
+Execution time: [X seconds]
+Expected time: [Y seconds]
+Table size: [N rows]
+
+Run:
+1. EXPLAIN ANALYZE [query]
+2. Check indexes: \d [table_name]
+3. Check table statistics: ANALYZE [table_name]
+4. Verify index usage in execution plan
+5. Suggest index additions or query rewrites
+
+Context: [describe data access pattern]
+```
+
+**Migration Failure:**
+```
+Atlas migration failed with error:
+
+Error: [paste error message]
+Migration file: [filename]
+Database state: [current version]
+
+Diagnose:
+1. Check schema lock: SELECT * FROM atlas_schema_revisions
+2. Verify database user permissions: \du
+3. Check for conflicting schema changes
+4. Review migration SQL for syntax errors
+5. Test migration in isolated transaction: BEGIN; [SQL]; ROLLBACK;
+
+Provide rollback strategy if needed.
+```
+
+**Type Conversion Issues:**
+```
+Go type mismatch with PostgreSQL:
+
+Go type: [type]
+PostgreSQL type: [type]
+Error: [paste error]
+
+sqlc overrides configuration:
+[paste current sqlc.yaml overrides section]
+
+Fix:
+1. Verify correct override in sqlc.yaml
+2. Check import path for custom types (uuid, pgvector)
+3. Regenerate sqlc: sqlc generate
+4. Confirm PostgreSQL extension loaded: \dx
+```
+
+**Transaction Deadlock:**
+```
+Transaction deadlock detected:
+
+Error: deadlock detected
+Service: [service_name]
+Operations: [describe concurrent operations]
+
+Analyze:
+1. Identify locking order in code
+2. Check FOR UPDATE usage
+3. Review transaction isolation level
+4. Suggest lock acquisition ordering
+5. Recommend retry strategy with exponential backoff
+
+Provide refactored transaction code.
+```
+
+#### **AI-Assisted Code Review Workflow**
+
+1. **Pre-commit Check:**
+   ```bash
+   # Run before committing database changes
+   atlas migrate lint \
+     --env local \
+     --latest 1
+   
+   sqlc vet
+   
+   go test ./internal/db/...
+   ```
+
+2. **Request Review:**
+   ```
+   Review my database changes:
+   
+   Changes:
+   - [List files modified: schema.hcl, queries/*.sql, migrations/*.sql]
+   
+   Context: [Describe feature or bug fix]
+   
+   Check for:
+   - Schema consistency with EduMint conventions
+   - Query safety (SQL injection, N+1)
+   - Go code error handling
+   - Transaction correctness
+   ```
+
+3. **Iterate on Feedback:**
+   ```
+   Address review comment: [paste comment]
+   
+   Current code: [paste code block]
+   
+   Propose fix following:
+   - Error handling pattern from Section 15.11
+   - Transaction pattern with defer
+   - Logging best practices
+   ```
+
+#### **Integration Testing Prompts**
+
+```
+Generate integration test for [feature]:
+
+Setup:
+- Docker Compose with PostgreSQL 18.1
+- Atlas schema migration
+- Test data fixtures
+
+Test cases:
+1. Happy path: [describe expected behavior]
+2. Error cases: [list edge cases]
+3. Concurrent operations: [describe race conditions]
+4. Transaction rollback: [describe failure scenarios]
+
+Use testcontainers-go and assert library.
+Include cleanup in t.Cleanup().
+```
+
+#### **Documentation Generation**
+
+```
+Generate API documentation for database layer:
+
+Package: internal/db
+Generated by: sqlc from [schema.hcl]
+
+Include:
+- Table relationships (ER diagram in Mermaid)
+- Enum values and descriptions
+- Query examples with expected inputs/outputs
+- Transaction patterns for multi-step operations
+- Performance characteristics (index usage)
+
+Format: Markdown for docs/ directory
+```
+
+**Best Practices:**
+- Always specify EduMint context (PostgreSQL 18.1, Atlas, sqlc, pgx)
+- Include relevant section references from this document
+- Provide example code/schema for AI to match style
+- Request structured output (checklist, table, code block)
+- Iterate with specific feedback rather than vague requests
+
+### 15.13 データ整合性
 
 ```sql
 balance DECIMAL(15,2) CHECK (balance >= 0)
@@ -2251,7 +3176,7 @@ user_id UUID NOT NULL
 status exam_status_enum NOT NULL
 ```
 
-### 15.12 セキュリティ
+### 15.14 セキュリティ
 
 #### **パスワードハッシュ**
 
@@ -2271,7 +3196,7 @@ client_secret_hash VARCHAR(255) NOT NULL
 - Email, IPアドレス等は暗号化を検討
 - ログテーブルへのアクセスは厳格に制限
 
-### 15.13 パフォーマンスチューニング
+### 15.15 パフォーマンスチューニング
 
 #### **EXPLAIN ANALYZE**
 
@@ -2296,7 +3221,50 @@ SELECT * FROM exams WHERE status = 'active' ORDER BY created_at DESC LIMIT 20;
 
 **本ドキュメントの終わり**
 
-**v7.0.0 更新日**: 2025-01-15
+## **Revision Log / 改訂履歴**
+
+### **v7.0.1** (2026-02-05)
+
+**Structural/Documentary Changes:**
+
+1. **Document Policy Addition**: Added English/Internationalization notice at document head, clarifying that all code, schemas, and technical conventions must be in English for maximum reproducibility and AI/CodingAgent compatibility.
+
+2. **Section 15.11 - Go Integration Patterns**: New major section added covering:
+   - Atlas HCL schema examples (enums, UUID, composite keys, pgvector)
+   - sqlc.yaml configuration referencing Atlas HCL directly
+   - Go type mappings (UUID, vector, TIMESTAMPTZ)
+   - Generated Go enum examples from PostgreSQL/Atlas enums
+   - Composite primary key usage patterns (UUID + NanoID)
+   - Iterator/streaming pattern via Go 1.25.6 `iter.Seq2` for large datasets
+   - pgxpool connection pool setup template
+   - Transaction patterns with `defer tx.Rollback(ctx)`
+   - Migration workflow using Atlas exclusively
+
+3. **Section 15.12 - CodingAgent Collaboration Patterns**: New major section added covering:
+   - Command prompt templates for Atlas schema generation, sqlc query generation, migration reviews, and Go code generation
+   - Review/validation checklists for Atlas HCL schemas, sqlc queries, and Go code
+   - Error debug support prompt outlines (connection issues, query performance, migration failures, type conversions, deadlocks)
+   - AI-assisted code review workflow
+   - Integration testing and documentation generation prompts
+
+4. **Migration Tool Standardization**: Removed all references to golang-migrate/migrate. Atlas is now the **only approved migration tool** for schema changes. All migration-related sections explicitly state that hand-written imperative SQL migrations are not used.
+
+5. **Migration Pattern Update**: All migration and integration-related sections now follow the canonical pattern:
+   - Write Atlas HCL schema as single source of truth
+   - Generate/validate SQL using `atlas migrate diff/apply` only
+   - Use sqlc to consume Atlas schemas
+   - No hand-written SQL migration files
+
+6. **Section Renumbering**: 
+   - Previous Section 15.11 (データ整合性) → Section 15.13
+   - Previous Section 15.12 (セキュリティ) → Section 15.14
+   - Previous Section 15.13 (パフォーマンスチューニング) → Section 15.15
+
+7. **Code Example Language**: Verified all code examples (Go, SQL, HCL, YAML) use English for technical elements (table names, column names, comments) as per new document policy.
+
+---
+
+### **v7.0.0** (2025-01-15)
 
 **主要変更点のまとめ:**
 1. UUID + NanoID主キー設計への全面移行
@@ -2307,4 +3275,6 @@ SELECT * FROM exams WHERE status = 'active' ORDER BY created_at DESC LIMIT 20;
 6. edumintAiWorkerの物理DB削除（ステートレス化）
 7. マイグレーション関連の完全削除
 
-この設計書は、EduMintのプレリリース前の初期DB構築を前提としています。本番稼働後の変更は、適切なマイグレーション戦略と共に実施してください。
+---
+
+この設計書は、EduMintのプレリリース前の初期DB構築を前提としています。本番稼働後の変更は、適切なマイグレーション戦略（Atlas経由）と共に実施してください。
