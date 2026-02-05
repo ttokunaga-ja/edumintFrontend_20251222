@@ -1,17 +1,6 @@
-# **EduMint 統合データモデル設計書 v6.2.0**
+# **EduMint 統合データモデル設計書 v6.0.0**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
-
-**v6.2.0 主要更新:**
-- YouTube方式の言語と地域の分離管理を採用
-- `regions`テーブル完全再設計（ISO 3166-1 alpha-2準拠、多言語名称カラム削除）
-- `languages`テーブル完全再設計（BCP 47主キー、多言語名称カラム削除）
-- 全テーブルで`region_id` → `region_code`に変更
-- `users`テーブルで`language` → `language_code`、`country` → `region_code`に変更
-- 表示名はi18n-iso-countries/languagesライブラリから動的取得
-- 地域拡張BCP 47サポート（`ja-JP`, `en-US`, `zh-Hans-CN`等）
-- Elasticsearchインデックスに`regions`と`languages`を追加
-- バックエンド実装ガイド拡充（多言語名称解決、ロケールコンテキスト構築）
 
 **v6.0.0 主要更新:**
 - `_type` → `_language`変更（BCP 47準拠言語コード採用）
@@ -59,17 +48,13 @@
 *   **ENUM型の積極採用**: 固定値の管理はPostgreSQL ENUM型を使用し、型安全性・パフォーマンス・可読性を向上させる。
 *   **グローバル対応**: 学問分野はUNESCO ISCED-F 2013（11大分類）に準拠し、国際標準に沿った設計とする。
 
-### 技術スタック（v6.2.0）
+### 技術スタック（v5.0.0）
 
 *   **PostgreSQL 18.1**: 組み込みuuidv7()関数、パフォーマンス改善
 *   **pgvector 0.8+**: ベクトル検索拡張、HNSW インデックス対応
 *   **ベクトル次元**: 1536次元（gemini-embedding-001準拠、MRL互換）
 *   **Elasticsearch 9.2.4**: ベクトル検索統合（dense_vector）、Qdrantを完全置換
 *   **Debezium CDC**: PostgreSQL論理レプリケーションから移行、Kafka経由のリアルタイム差分同期
-*   **i18n-iso-countries**: 地域名の多言語表示（194ヶ国、70言語対応）
-*   **i18n-iso-languages**: 言語名の多言語表示（184言語、100言語対応）
-*   **ISO 3166-1 alpha-2**: 地域コードの国際標準（2文字コード）
-*   **BCP 47 (RFC 5646)**: 言語タグの国際標準（地域拡張サポート）
 
 ### デプロイ段階
 
@@ -762,28 +747,25 @@ CREATE TABLE institutions (
   
   -- 多言語対応（MVP: Main + Sub1-3、Phase 2以降: Sub4-10）
   name_main VARCHAR(255) NOT NULL,        -- 英語正式名（API基準）
-  name_main_language VARCHAR(20) DEFAULT 'en' REFERENCES languages(code),
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語正式名
-  name_sub1_language VARCHAR(20) REFERENCES languages(code),
+  name_sub1_language VARCHAR(10) REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名（検索・ソート用）
-  name_sub2_language VARCHAR(20) REFERENCES languages(code),
+  name_sub2_language VARCHAR(10) REFERENCES languages(code),
   
   name_sub3 VARCHAR(100),                 -- 略称
-  name_sub3_language VARCHAR(20) REFERENCES languages(code),
+  name_sub3_language VARCHAR(10) REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(20) REFERENCES languages(code),  -- 中国語簡体字
-  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(20) REFERENCES languages(code),  -- 中国語繁体字
-  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(20) REFERENCES languages(code),  -- 韓国語
-  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(20) REFERENCES languages(code),  -- ローマ字
-  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(20) REFERENCES languages(code),  -- 予備
-  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(20) REFERENCES languages(code),  -- 予備
-  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(20) REFERENCES languages(code), -- 予備
-  
-  -- 地域情報（v6.2.0追加）
-  region_code CHAR(2) REFERENCES regions(iso_code),
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語簡体字
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 中国語繁体字
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(10) REFERENCES languages(code),  -- ローマ字
+  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(10) REFERENCES languages(code), -- 予備
   
   -- 定員・人気度（検索ソート順位に使用）
   total_enrollment_capacity INTEGER DEFAULT 0,
@@ -914,29 +896,25 @@ CREATE TABLE faculties (
   
   -- 多言語対応（MVP: Main + Sub1-3、Phase 2以降: Sub4-10）
   name_main VARCHAR(255) NOT NULL,        -- 英語正式名（API基準）
-  name_main_language VARCHAR(20) DEFAULT 'en' REFERENCES languages(code),
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語正式名
-  name_sub1_language VARCHAR(20) DEFAULT 'ja' REFERENCES languages(code),
+  name_sub1_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名（検索・ソート用）
-  name_sub2_language VARCHAR(20) DEFAULT 'ja-Hira' REFERENCES languages(code),
+  name_sub2_language VARCHAR(10) DEFAULT 'ja-Hira' REFERENCES languages(code),
   
   name_sub3 VARCHAR(100),                 -- 略称
-  name_sub3_language VARCHAR(20) DEFAULT 'ja' REFERENCES languages(code),
+  name_sub3_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(20) REFERENCES languages(code),  -- 中国語簡体字
-  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(20) REFERENCES languages(code),  -- 中国語繁体字
-  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(20) REFERENCES languages(code),  -- 韓国語
-  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(20) REFERENCES languages(code),  -- ローマ字
-  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(20) REFERENCES languages(code),  -- 予備
-  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(20) REFERENCES languages(code),  -- 予備
-  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(20) REFERENCES languages(code), -- 予備
-  
-  -- 地域情報（v6.2.0追加）
-  region_code CHAR(2) REFERENCES regions(iso_code),
-  
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語簡体字
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 中国語繁体字
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(10) REFERENCES languages(code),  -- ローマ字
+  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(10) REFERENCES languages(code), -- 予備  
   established_year INTEGER,
   total_enrollment_capacity INTEGER DEFAULT 0,
   academic_field academic_field_enum,
@@ -995,29 +973,25 @@ CREATE TABLE departments (
   
   -- 多言語対応（MVP: Main + Sub1-3、Phase 2以降: Sub4-10）
   name_main VARCHAR(255) NOT NULL,        -- 英語正式名（API基準）
-  name_main_language VARCHAR(20) DEFAULT 'en' REFERENCES languages(code),
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語正式名
-  name_sub1_language VARCHAR(20) DEFAULT 'ja' REFERENCES languages(code),
+  name_sub1_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名（検索・ソート用）
-  name_sub2_language VARCHAR(20) DEFAULT 'ja-Hira' REFERENCES languages(code),
+  name_sub2_language VARCHAR(10) DEFAULT 'ja-Hira' REFERENCES languages(code),
   
   name_sub3 VARCHAR(100),                 -- 略称
-  name_sub3_language VARCHAR(20) DEFAULT 'ja' REFERENCES languages(code),
+  name_sub3_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(20) REFERENCES languages(code),  -- 中国語簡体字
-  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(20) REFERENCES languages(code),  -- 中国語繁体字
-  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(20) REFERENCES languages(code),  -- 韓国語
-  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(20) REFERENCES languages(code),  -- ローマ字
-  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(20) REFERENCES languages(code),  -- 予備
-  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(20) REFERENCES languages(code),  -- 予備
-  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(20) REFERENCES languages(code), -- 予備
-  
-  -- 地域情報（v6.2.0追加）
-  region_code CHAR(2) REFERENCES regions(iso_code),
-  
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語簡体字
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 中国語繁体字
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(10) REFERENCES languages(code),  -- ローマ字
+  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(10) REFERENCES languages(code), -- 予備  
   established_year INTEGER,
   enrollment_capacity INTEGER DEFAULT 0,
   academic_field academic_field_enum,
@@ -1074,25 +1048,21 @@ CREATE TABLE teachers (
   
   -- 多言語対応（教員名）
   name_main VARCHAR(255) NOT NULL,        -- 英語表記名（ローマ字またはアルファベット名）
-  name_main_language VARCHAR(20) DEFAULT 'en' REFERENCES languages(code),
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語氏名（漢字）
-  name_sub1_language VARCHAR(20) DEFAULT 'ja' REFERENCES languages(code),
+  name_sub1_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名（ひらがな）
-  name_sub2_language VARCHAR(20) DEFAULT 'ja-Hira' REFERENCES languages(code),
+  name_sub2_language VARCHAR(10) DEFAULT 'ja-Hira' REFERENCES languages(code),
   
   name_sub3 VARCHAR(255),                 -- カタカナ表記
-  name_sub3_language VARCHAR(20) DEFAULT 'ja-Kana' REFERENCES languages(code),
+  name_sub3_language VARCHAR(10) DEFAULT 'ja-Kana' REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(20) REFERENCES languages(code),  -- 中国語
-  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(20) REFERENCES languages(code),  -- 韓国語
-  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(20) REFERENCES languages(code),  -- 予備
-  
-  -- 地域情報（v6.2.0追加）
-  region_code CHAR(2) REFERENCES regions(iso_code),
-  
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 予備  
   is_active BOOLEAN DEFAULT TRUE,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1230,29 +1200,25 @@ CREATE TABLE subjects (
   
   -- 多言語対応（科目名）
   name_main VARCHAR(255) NOT NULL,        -- 英語科目名（API基準）
-  name_main_language VARCHAR(20) DEFAULT 'en' REFERENCES languages(code),
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語科目名
-  name_sub1_language VARCHAR(20) DEFAULT 'ja' REFERENCES languages(code),
+  name_sub1_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名
-  name_sub2_language VARCHAR(20) DEFAULT 'ja-Hira' REFERENCES languages(code),
+  name_sub2_language VARCHAR(10) DEFAULT 'ja-Hira' REFERENCES languages(code),
   
   name_sub3 VARCHAR(100),                 -- 略称
-  name_sub3_language VARCHAR(20) DEFAULT 'ja' REFERENCES languages(code),
+  name_sub3_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(20) REFERENCES languages(code),  -- 中国語簡体字
-  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(20) REFERENCES languages(code),  -- 中国語繁体字
-  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(20) REFERENCES languages(code),  -- 韓国語
-  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(20) REFERENCES languages(code),  -- ローマ字
-  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(20) REFERENCES languages(code),  -- 予備
-  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(20) REFERENCES languages(code),  -- 予備
-  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(20) REFERENCES languages(code), -- 予備
-  
-  -- 地域情報（v6.2.0追加）
-  region_code CHAR(2) REFERENCES regions(iso_code),
-  
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語簡体字
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 中国語繁体字
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(10) REFERENCES languages(code),  -- ローマ字
+  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(10) REFERENCES languages(code), -- 予備  
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -1267,282 +1233,53 @@ CREATE INDEX idx_subjects_name_sub2 ON subjects(name_sub2);
 
 ---
 
-### **3.7. `languages` テーブル（v6.2.0完全再設計）**
+### **3.7. `languages` テーブル（v6.0.0拡張）**
 
-言語マスタテーブル。BCP 47言語タグを主キーとし、言語属性のみを管理。表示名はi18n-iso-languagesライブラリから動的取得。
-
-**設計原則:**
-- 主キーはBCP 47言語タグ（地域拡張対応: `ja-JP`, `en-US`, `zh-Hans-CN`等）
-- 多言語名称カラム（`name`, `native_name`）を完全削除
-- 言語属性に特化: ISO規格コード、文字体系、テキスト方向、優先度
-- 表示名の取得: フロントエンド/バックエンドでi18n-iso-languagesを使用
+言語マスタテーブル。`language_enum` を置き換え、BCP 47準拠の言語コード管理。v6.0.0で`script`列追加、拡張タグ対応。
 
 ```sql
 CREATE TABLE languages (
-  code VARCHAR(20) PRIMARY KEY,                -- BCP 47言語タグ（例: ja, en-US, zh-Hans-CN）
-  iso_639_1 CHAR(2),                           -- ISO 639-1コード（2文字、例: ja, en, zh）
-  iso_639_3 CHAR(3),                           -- ISO 639-3コード（3文字、例: jpn, eng, zho）
-  script VARCHAR(10),                          -- 文字体系（ISO 15924: Latn, Jpan, Hans, Hant, Kore, Arab等）
-  region_code CHAR(2),                         -- 地域コード（ISO 3166-1 alpha-2、地域拡張用）
-  text_direction VARCHAR(3) DEFAULT 'ltr',     -- テキスト方向（ltr, rtl）
-  priority INTEGER DEFAULT 0,                  -- 表示優先度（数値が大きいほど優先）
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(20) NOT NULL UNIQUE, -- BCP 47準拠（拡張タグ対応）
+  name VARCHAR(100) NOT NULL,
+  native_name VARCHAR(100),
+  script VARCHAR(50),               -- 表記体系（Latn, Jpan, Hans, Hant, Kore等）
   is_active BOOLEAN DEFAULT TRUE,
+  sort_order INT DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  FOREIGN KEY (region_code) REFERENCES regions(iso_code)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_languages_iso639_1 ON languages(iso_639_1);
-CREATE INDEX idx_languages_script ON languages(script);
-CREATE INDEX idx_languages_region ON languages(region_code);
+CREATE INDEX idx_languages_code ON languages(code);
 CREATE INDEX idx_languages_active ON languages(is_active) WHERE is_active = TRUE;
-CREATE INDEX idx_languages_priority ON languages(priority DESC);
 ```
 
-**サンプルデータ（v6.2.0）:**
+**サンプルデータ:**
 
 ```sql
--- 基本言語（地域指定なし）
-INSERT INTO languages (code, iso_639_1, iso_639_3, script, region_code, text_direction, priority, is_active) VALUES
-('ja', 'ja', 'jpn', 'Jpan', NULL, 'ltr', 100, TRUE),
-('en', 'en', 'eng', 'Latn', NULL, 'ltr', 90, TRUE),
-('zh', 'zh', 'zho', 'Hans', NULL, 'ltr', 80, TRUE),
-('ko', 'ko', 'kor', 'Kore', NULL, 'ltr', 70, TRUE),
-('ar', 'ar', 'ara', 'Arab', NULL, 'rtl', 60, TRUE),
-
--- 地域拡張言語（YouTube方式）
-('ja-JP', 'ja', 'jpn', 'Jpan', 'JP', 'ltr', 95, TRUE),
-('en-US', 'en', 'eng', 'Latn', 'US', 'ltr', 85, TRUE),
-('en-GB', 'en', 'eng', 'Latn', 'GB', 'ltr', 84, TRUE),
-('en-AU', 'en', 'eng', 'Latn', 'AU', 'ltr', 83, TRUE),
-('zh-CN', 'zh', 'zho', 'Hans', 'CN', 'ltr', 75, TRUE),
-('zh-TW', 'zh', 'zho', 'Hant', 'TW', 'ltr', 74, TRUE),
-('zh-HK', 'zh', 'zho', 'Hant', 'HK', 'ltr', 73, TRUE),
-('ko-KR', 'ko', 'kor', 'Kore', 'KR', 'ltr', 65, TRUE),
-
--- 文字体系バリエーション（日本語）
-('ja-Kana', 'ja', 'jpn', 'Kana', NULL, 'ltr', 50, TRUE),
-('ja-Hira', 'ja', 'jpn', 'Hira', NULL, 'ltr', 49, TRUE),
-('ja-Latn', 'ja', 'jpn', 'Latn', NULL, 'ltr', 48, TRUE),
-
--- 文字体系バリエーション（中国語）
-('zh-Hans', 'zh', 'zho', 'Hans', NULL, 'ltr', 45, TRUE),
-('zh-Hant', 'zh', 'zho', 'Hant', NULL, 'ltr', 44, TRUE),
-('zh-Latn-pinyin', 'zh', 'zho', 'Latn', NULL, 'ltr', 43, TRUE),
-('zh-Hans-CN', 'zh', 'zho', 'Hans', 'CN', 'ltr', 42, TRUE),
-('zh-Hant-TW', 'zh', 'zho', 'Hant', 'TW', 'ltr', 41, TRUE),
-
--- 韓国語バリエーション
-('ko-Hang', 'ko', 'kor', 'Hang', NULL, 'ltr', 40, TRUE),
-('ko-Latn', 'ko', 'kor', 'Latn', NULL, 'ltr', 39, TRUE),
-
--- アラビア語地域拡張
-('ar-SA', 'ar', 'ara', 'Arab', 'SA', 'rtl', 55, TRUE),
-('ar-EG', 'ar', 'ara', 'Arab', 'EG', 'rtl', 54, TRUE),
-('ar-AE', 'ar', 'ara', 'Arab', 'AE', 'rtl', 53, TRUE);
-```
-
-**表示名の取得方法（v6.2.0）:**
-
-バックエンド/フロントエンドで`i18n-iso-languages`ライブラリを使用:
-
-```javascript
-// Node.js/フロントエンド例
-const languages = require('i18n-iso-languages');
-languages.registerLocale(require('i18n-iso-languages/langs/ja.json'));
-
-// 言語コードから表示名を取得
-const displayName = languages.getName('ja', 'ja'); // "日本語"
-const nativeName = languages.getNativeName('ja'); // "日本語"
+INSERT INTO languages (code, name, native_name, script, is_active, sort_order) VALUES
+('ja', '日本語', '日本語', 'Jpan', TRUE, 1),
+('en', 'English', 'English', 'Latn', TRUE, 2),
+('zh-CN', '中国語（簡体字）', '简体中文', 'Hans', TRUE, 3),
+('zh-TW', '中国語（繁体字）', '繁體中文', 'Hant', TRUE, 4),
+('ko', '韓国語', '한국어', 'Kore', TRUE, 5),
+('ja-Kana', '日本語（カタカナ）', 'カタカナ', 'Kana', TRUE, 6),
+('ja-Hira', '日本語（ひらがな）', 'ひらがな', 'Hira', TRUE, 7),
+('ja-Latn', '日本語（ローマ字）', 'Rōmaji', 'Latn', TRUE, 8),
+('zh-Hans', '中国語簡体字', '简体字', 'Hans', TRUE, 9),
+('zh-Hant', '中国語繁体字', '繁體字', 'Hant', TRUE, 10),
+('zh-Latn-pinyin', '中国語（ピンイン）', 'Pīnyīn', 'Latn', TRUE, 11),
+('ko-Hang', '韓国語（ハングル）', '한글', 'Hang', TRUE, 12),
+('ko-Latn', '韓国語（ローマ字）', 'Romaja', 'Latn', TRUE, 13);
 ```
 
 **イベント:** `content.lifecycle` → `LanguageCreated`, `LanguageUpdated`
 
 ---
 
-### **3.8. `regions` テーブル（v6.2.0新規追加）**
+### **3.8. 階層ラベルの動的解決**
 
-地域マスタテーブル。ISO 3166-1 alpha-2コードを主キーとし、ビジネスロジックに必要な属性のみを管理。表示名はi18n-iso-countriesライブラリから動的取得。
-
-**設計原則（YouTube方式）:**
-- 主キーはISO 3166-1 alpha-2コード（2文字: `JP`, `US`, `CN`等）
-- 多言語名称カラムを完全削除（DB負荷削減、保守性向上）
-- ビジネスロジックに特化: 有効化状態、地域グループ、税率、GDPR/CCPA、通貨、電話コード
-- 表示名の取得: フロントエンド/バックエンドでi18n-iso-countriesを使用
-
-```sql
-CREATE TABLE regions (
-  iso_code CHAR(2) PRIMARY KEY,                -- ISO 3166-1 alpha-2コード
-  is_enabled BOOLEAN DEFAULT TRUE,             -- この地域を有効化するか
-  region_group VARCHAR(50),                    -- 地域グループ（例: EU, ASEAN, NAFTA）
-  tax_rate DECIMAL(5,2) DEFAULT 0.00,          -- 標準税率（%）
-  has_gdpr BOOLEAN DEFAULT FALSE,              -- GDPR準拠が必要か
-  has_ccpa BOOLEAN DEFAULT FALSE,              -- CCPA準拠が必要か
-  default_currency CHAR(3),                    -- デフォルト通貨（ISO 4217: JPY, USD, EUR等）
-  phone_code VARCHAR(10),                      -- 電話番号国番号（例: +81, +1, +86）
-  default_timezone VARCHAR(50),                -- デフォルトタイムゾーン（例: Asia/Tokyo）
-  priority INTEGER DEFAULT 0,                  -- 表示優先度（数値が大きいほど優先）
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_regions_enabled ON regions(is_enabled) WHERE is_enabled = TRUE;
-CREATE INDEX idx_regions_group ON regions(region_group);
-CREATE INDEX idx_regions_priority ON regions(priority DESC);
-```
-
-**サンプルデータ（v6.2.0）:**
-
-```sql
-INSERT INTO regions (iso_code, is_enabled, region_group, tax_rate, has_gdpr, has_ccpa, default_currency, phone_code, default_timezone, priority) VALUES
--- アジア太平洋
-('JP', TRUE, 'APAC', 10.00, FALSE, FALSE, 'JPY', '+81', 'Asia/Tokyo', 100),
-('CN', TRUE, 'APAC', 13.00, FALSE, FALSE, 'CNY', '+86', 'Asia/Shanghai', 90),
-('KR', TRUE, 'APAC', 10.00, FALSE, FALSE, 'KRW', '+82', 'Asia/Seoul', 85),
-('TW', TRUE, 'APAC', 5.00, FALSE, FALSE, 'TWD', '+886', 'Asia/Taipei', 80),
-('SG', TRUE, 'APAC', 8.00, FALSE, FALSE, 'SGD', '+65', 'Asia/Singapore', 75),
-('AU', TRUE, 'APAC', 10.00, FALSE, FALSE, 'AUD', '+61', 'Australia/Sydney', 70),
-
--- 北米
-('US', TRUE, 'NAFTA', 0.00, FALSE, TRUE, 'USD', '+1', 'America/New_York', 95),
-('CA', TRUE, 'NAFTA', 5.00, FALSE, FALSE, 'CAD', '+1', 'America/Toronto', 88),
-('MX', TRUE, 'NAFTA', 16.00, FALSE, FALSE, 'MXN', '+52', 'America/Mexico_City', 65),
-
--- ヨーロッパ
-('GB', TRUE, 'EU', 20.00, TRUE, FALSE, 'GBP', '+44', 'Europe/London', 92),
-('DE', TRUE, 'EU', 19.00, TRUE, FALSE, 'EUR', '+49', 'Europe/Berlin', 89),
-('FR', TRUE, 'EU', 20.00, TRUE, FALSE, 'EUR', '+33', 'Europe/Paris', 87),
-('IT', TRUE, 'EU', 22.00, TRUE, FALSE, 'EUR', '+39', 'Europe/Rome', 78),
-('ES', TRUE, 'EU', 21.00, TRUE, FALSE, 'EUR', '+34', 'Europe/Madrid', 76),
-
--- 中東
-('SA', TRUE, 'MENA', 15.00, FALSE, FALSE, 'SAR', '+966', 'Asia/Riyadh', 60),
-('AE', TRUE, 'MENA', 5.00, FALSE, FALSE, 'AED', '+971', 'Asia/Dubai', 72),
-
--- その他
-('IN', TRUE, 'APAC', 18.00, FALSE, FALSE, 'INR', '+91', 'Asia/Kolkata', 82),
-('BR', TRUE, 'LATAM', 17.00, FALSE, FALSE, 'BRL', '+55', 'America/Sao_Paulo', 68);
-```
-
-**表示名の取得方法（v6.2.0）:**
-
-バックエンド/フロントエンドで`i18n-iso-countries`ライブラリを使用:
-
-```javascript
-// Node.js/フロントエンド例
-const countries = require('i18n-iso-countries');
-countries.registerLocale(require('i18n-iso-countries/langs/ja.json'));
-
-// 地域コードから表示名を取得
-const displayName = countries.getName('JP', 'ja'); // "日本"
-const nativeName = countries.getName('US', 'en'); // "United States of America"
-```
-
-**イベント:** `content.lifecycle` → `RegionCreated`, `RegionUpdated`
-
----
-
-### **3.9. 言語と地域の連携フロー（YouTube方式）**
-
-**目的:** ユーザーの言語設定（UI言語）と地域設定（コンテンツロケール）を独立して管理し、高度なパーソナライゼーションを実現。
-
-**ユースケース例:**
-
-| ユーザー | language_code | region_code | UI言語 | 価格表示 | 広告 | 利用規約 |
-|---------|---------------|-------------|--------|----------|------|----------|
-| 米国在住の日本人 | `ja` | `US` | 日本語 | $9.99 USD | 米国向け | CCPA準拠 |
-| 日本在住の米国人 | `en` | `JP` | English | ¥1,200 JPY | 日本向け | 日本法準拠 |
-| 中国在住の中国人 | `zh-Hans` | `CN` | 简体中文 | ¥68 CNY | 中国向け | 中国法準拠 |
-| 英国在住の英国人 | `en-GB` | `GB` | English | £8.99 GBP | 英国向け | GDPR準拠 |
-
-**データフロー:**
-
-```
-[ユーザー設定]
-  users.language_code: 'ja'
-  users.region_code: 'US'
-     ↓
-[バックエンド処理]
-  1. languages テーブルから 'ja' の属性取得
-     - iso_639_1: 'ja'
-     - script: 'Jpan'
-     - text_direction: 'ltr'
-  
-  2. regions テーブルから 'US' の属性取得
-     - default_currency: 'USD'
-     - has_ccpa: TRUE
-     - tax_rate: 0.00
-     - default_timezone: 'America/New_York'
-  
-  3. BCP 47ロケール文字列を生成: 'ja-US'
-  
-  4. i18n-iso-countries で地域名を取得
-     - getName('US', 'ja') → "アメリカ合衆国"
-  
-  5. i18n-iso-languages で言語名を取得
-     - getName('ja', 'ja') → "日本語"
-     ↓
-[フロントエンド表示]
-  - UI言語: 日本語（ja）
-  - 価格表示: $9.99 USD
-  - 広告: 米国向けコンテンツ
-  - 利用規約: CCPA準拠版
-  - タイムゾーン: America/New_York
-```
-
-**バックエンドロケールコンテキスト構築例（Go）:**
-
-```go
-type UserLocaleContext struct {
-    UserID           string
-    LanguageCode     string  // 'ja'
-    RegionCode       string  // 'US'
-    LocaleString     string  // 'ja-US' (BCP 47)
-    Currency         string  // 'USD'
-    Timezone         string  // 'America/New_York'
-    TextDirection    string  // 'ltr'
-    RequiresGDPR     bool
-    RequiresCCPA     bool
-    TaxRate          float64
-}
-
-func BuildUserLocaleContext(userID string) (*UserLocaleContext, error) {
-    user, err := userRepo.FindByID(userID)
-    if err != nil {
-        return nil, err
-    }
-    
-    language, err := languageRepo.FindByCode(user.LanguageCode)
-    if err != nil {
-        return nil, err
-    }
-    
-    region, err := regionRepo.FindByCode(user.RegionCode)
-    if err != nil {
-        return nil, err
-    }
-    
-    return &UserLocaleContext{
-        UserID:        userID,
-        LanguageCode:  user.LanguageCode,
-        RegionCode:    user.RegionCode,
-        LocaleString:  fmt.Sprintf("%s-%s", user.LanguageCode, user.RegionCode),
-        Currency:      region.DefaultCurrency,
-        Timezone:      region.DefaultTimezone,
-        TextDirection: language.TextDirection,
-        RequiresGDPR:  region.HasGDPR,
-        RequiresCCPA:  region.HasCCPA,
-        TaxRate:       region.TaxRate,
-    }, nil
-}
-```
-
----
-
-### **3.10. 階層ラベルの動的解決**
-
-#### **3.10.1. `institution_hierarchy_configs` テーブル**
+#### **3.8.1. `institution_hierarchy_configs` テーブル**
 
 機関種別ごとの階層ラベルを管理。
 
@@ -1591,9 +1328,9 @@ VALUES
 
 ---
 
-### **3.11. クライアント参照ルール**
+### **3.9. クライアント参照ルール**
 
-#### **3.11.1. ユーザー登録フロー**
+#### **3.8.1. ユーザー登録フロー**
 
 ```
 Step 1: 機関種別を選択
@@ -1755,9 +1492,9 @@ CREATE TABLE users (
   bio TEXT,
   avatar_url VARCHAR(500),
   
-  -- 設定（v6.2.0: language_codeとregion_code分離）
-  language_code VARCHAR(20) DEFAULT 'ja' REFERENCES languages(code),
-  region_code CHAR(2) DEFAULT 'JP' REFERENCES regions(iso_code),
+  -- 設定
+  language language_enum DEFAULT 'ja',
+  country VARCHAR(100),
   timezone VARCHAR(50) DEFAULT 'Asia/Tokyo',
   
   -- サブスクリプション
@@ -1981,9 +1718,6 @@ CREATE TABLE exams (
   academic_field academic_field_enum,
   academic_track academic_track_enum,
   
-  -- 地域情報（v6.2.0追加）
-  region_code CHAR(2) REFERENCES regions(iso_code),
-  
   -- 作成者
   user_id VARCHAR(255) NOT NULL REFERENCES users(id),
   
@@ -2033,9 +1767,6 @@ CREATE TABLE questions (
   difficulty_level difficulty_level_enum DEFAULT 'standard',
   content TEXT NOT NULL,
   
-  -- 地域情報（v6.2.0追加）
-  region_code CHAR(2) REFERENCES regions(iso_code),
-  
   -- ベクトル埋め込み（v5.0.0新規追加）
   question_content_embedding_gemini vector(1536),
   
@@ -2063,9 +1794,6 @@ CREATE TABLE sub_questions (
   question_type question_type_enum NOT NULL,
   
   content TEXT NOT NULL,
-  
-  -- 地域情報（v6.2.0追加）
-  region_code CHAR(2) REFERENCES regions(iso_code),
   
   -- v5.0.0: answer_explanationをanswerとexplanationに分離
   answer TEXT NOT NULL,
@@ -2229,7 +1957,6 @@ CREATE INDEX idx_content_keywords_keyword ON content_keywords(keyword_id);
       "semester": { "type": "keyword" },
       "academic_field": { "type": "keyword" },
       "academic_track": { "type": "keyword" },
-      "region_code": { "type": "keyword" },
       "exam_name_embedding": {
         "type": "dense_vector",
         "dims": 1536,
@@ -2253,7 +1980,6 @@ CREATE INDEX idx_content_keywords_keyword ON content_keywords(keyword_id);
       "question_number": { "type": "integer" },
       "difficulty_level": { "type": "keyword" },
       "content": { "type": "text", "analyzer": "kuromoji" },
-      "region_code": { "type": "keyword" },
       "question_content_embedding": {
         "type": "dense_vector",
         "dims": 1536,
@@ -2279,7 +2005,6 @@ CREATE INDEX idx_content_keywords_keyword ON content_keywords(keyword_id);
       "content": { "type": "text", "analyzer": "kuromoji" },
       "answer": { "type": "text", "analyzer": "kuromoji" },
       "explanation": { "type": "text", "analyzer": "kuromoji" },
-      "region_code": { "type": "keyword" },
       "sub_content_embedding": {
         "type": "dense_vector",
         "dims": 1536,
@@ -2317,54 +2042,6 @@ CREATE INDEX idx_content_keywords_keyword ON content_keywords(keyword_id);
 }
 ```
 
-#### **7.1.5. `regions` インデックス（v6.2.0新規追加）**
-
-```json
-{
-  "mappings": {
-    "properties": {
-      "iso_code": { "type": "keyword" },
-      "is_enabled": { "type": "boolean" },
-      "region_group": { "type": "keyword" },
-      "tax_rate": { "type": "float" },
-      "has_gdpr": { "type": "boolean" },
-      "has_ccpa": { "type": "boolean" },
-      "default_currency": { "type": "keyword" },
-      "phone_code": { "type": "keyword" },
-      "default_timezone": { "type": "keyword" },
-      "priority": { "type": "integer" },
-      "created_at": { "type": "date" },
-      "updated_at": { "type": "date" }
-    }
-  }
-}
-```
-
-**注記:** 地域名（国名）はElasticsearchに保存せず、フロントエンド/バックエンドで`i18n-iso-countries`ライブラリから動的取得。
-
-#### **7.1.6. `languages` インデックス（v6.2.0新規追加）**
-
-```json
-{
-  "mappings": {
-    "properties": {
-      "code": { "type": "keyword" },
-      "iso_639_1": { "type": "keyword" },
-      "iso_639_3": { "type": "keyword" },
-      "script": { "type": "keyword" },
-      "region_code": { "type": "keyword" },
-      "text_direction": { "type": "keyword" },
-      "priority": { "type": "integer" },
-      "is_active": { "type": "boolean" },
-      "created_at": { "type": "date" },
-      "updated_at": { "type": "date" }
-    }
-  }
-}
-```
-
-**注記:** 言語名はElasticsearchに保存せず、フロントエンド/バックエンドで`i18n-iso-languages`ライブラリから動的取得。
-
 ---
 
 ### **7.2. Debezium CDC Kafka トピック**
@@ -2381,8 +2058,6 @@ edumint.content.institutions
 edumint.content.faculties
 edumint.content.departments
 edumint.content.subjects
-edumint.content.regions
-edumint.content.languages
 ```
 
 **トピック命名規則:** `{サーバー名}.{データベース名}.{テーブル名}`
@@ -3749,7 +3424,7 @@ PostgreSQL → Debezium CDC → Kafka → Kafka Connect → Elasticsearch
 
 ---
 
-## **13. フロントエンド多言語対応戦略（v6.2.0更新）**
+## **13. フロントエンド多言語対応戦略**
 
 ### **13.1. データ分類と管理方針**
 
@@ -3757,8 +3432,6 @@ PostgreSQL → Debezium CDC → Kafka → Kafka Connect → Elasticsearch
 |-----------|---------|-----|
 | 静的UI文言 | i18n | ボタンラベル、エラーメッセージ |
 | ENUM表示名 | i18n | `exam_type.regular` → "定期試験" |
-| 地域名（国名） | i18n-iso-countries | `JP` → "日本"、`US` → "アメリカ合衆国" |
-| 言語名 | i18n-iso-languages | `ja` → "日本語"、`en` → "English" |
 | 動的コンテンツ | API | 大学名、学部名、科目名 |
 
 ### **13.2. i18n管理対象**
@@ -3786,83 +3459,7 @@ PostgreSQL → Debezium CDC → Kafka → Kafka Connect → Elasticsearch
 }
 ```
 
-### **13.3. i18n-iso-countries/languages使用（v6.2.0新規）**
-
-**地域名（国名）の表示:**
-
-```typescript
-import countries from 'i18n-iso-countries';
-import jaLocale from 'i18n-iso-countries/langs/ja.json';
-import enLocale from 'i18n-iso-countries/langs/en.json';
-
-// ロケール登録（アプリ初期化時に一度だけ実行）
-countries.registerLocale(jaLocale);
-countries.registerLocale(enLocale);
-
-// 地域コードから表示名を取得
-const getRegionName = (regionCode: string, displayLang: string): string => {
-  return countries.getName(regionCode, displayLang) || regionCode;
-};
-
-// 使用例
-getRegionName('JP', 'ja'); // "日本"
-getRegionName('US', 'ja'); // "アメリカ合衆国"
-getRegionName('GB', 'en'); // "United Kingdom"
-```
-
-**言語名の表示:**
-
-```typescript
-import languages from 'i18n-iso-languages';
-import jaLocale from 'i18n-iso-languages/langs/ja.json';
-import enLocale from 'i18n-iso-languages/langs/en.json';
-
-// ロケール登録（アプリ初期化時に一度だけ実行）
-languages.registerLocale(jaLocale);
-languages.registerLocale(enLocale);
-
-// 言語コードから表示名を取得
-const getLanguageName = (langCode: string, displayLang: string): string => {
-  return languages.getName(langCode, displayLang) || langCode;
-};
-
-// 使用例
-getLanguageName('ja', 'ja'); // "日本語"
-getLanguageName('en', 'ja'); // "英語"
-getLanguageName('ja', 'en'); // "Japanese"
-getLanguageName('en', 'en'); // "English"
-```
-
-**ヘルパーフック:**
-
-```typescript
-import { useTranslation } from 'react-i18next';
-
-export function useRegionName(regionCode: string): string {
-  const { i18n } = useTranslation();
-  return countries.getName(regionCode, i18n.language) || regionCode;
-}
-
-export function useLanguageName(langCode: string): string {
-  const { i18n } = useTranslation();
-  return languages.getName(langCode, i18n.language) || langCode;
-}
-
-// コンポーネントでの使用
-function UserProfile({ user }) {
-  const regionName = useRegionName(user.region_code);
-  const languageName = useLanguageName(user.language_code);
-  
-  return (
-    <div>
-      <p>地域: {regionName}</p>
-      <p>言語: {languageName}</p>
-    </div>
-  );
-}
-```
-
-### **13.4. API動的取得対象**
+### **13.3. API動的取得対象**
 
 - 大学名・学部名・学科名（`institutions`, `faculties`, `departments`）
 - 科目名・教員名（`subjects`, `teachers`）
@@ -3890,7 +3487,7 @@ GET /api/v1/institutions/autocomplete?q={query}&lang={language_code}
 }
 ```
 
-### **13.5. フロントエンド実装例**
+### **13.4. フロントエンド実装例**
 
 **ENUMヘルパー関数:**
 
@@ -3943,7 +3540,7 @@ function InstitutionCard({ institutionId }: { institutionId: number }) {
 }
 ```
 
-### **13.6. 言語切り替え実装**
+### **13.5. 言語切り替え実装**
 
 ```typescript
 import { create } from 'zustand';
@@ -3963,7 +3560,7 @@ export const useLanguage = create((set) => ({
 
 ---
 
-## **14. バックエンド実装ガイド（v6.2.0拡充）**
+## **14. バックエンド実装ガイド**
 
 ### **14.1. 多言語名称解決ロジック（Go実装例）**
 
@@ -4037,218 +3634,12 @@ func (h *InstitutionHandler) GetInstitution(c *gin.Context) {
 }
 ```
 
-### **14.3. ユーザーロケールコンテキスト構築（v6.2.0新規）**
-
-**YouTube方式のロケールコンテキスト:**
-
-```go
-package locale
-
-import (
-    "fmt"
-    "strings"
-)
-
-// UserLocaleContext はユーザーのロケール設定を保持
-type UserLocaleContext struct {
-    UserID        string
-    LanguageCode  string  // BCP 47言語コード（例: 'ja', 'en-US'）
-    RegionCode    string  // ISO 3166-1 alpha-2コード（例: 'JP', 'US'）
-    LocaleString  string  // BCP 47ロケール文字列（例: 'ja-US'）
-    Currency      string  // ISO 4217通貨コード（例: 'JPY', 'USD'）
-    Timezone      string  // IANAタイムゾーン（例: 'Asia/Tokyo'）
-    TextDirection string  // テキスト方向（'ltr' or 'rtl'）
-    RequiresGDPR  bool    // GDPR準拠が必要か
-    RequiresCCPA  bool    // CCPA準拠が必要か
-    TaxRate       float64 // 税率
-}
-
-// BuildUserLocaleContext はユーザーIDからロケールコンテキストを構築
-func BuildUserLocaleContext(userID string, userRepo UserRepository, languageRepo LanguageRepository, regionRepo RegionRepository) (*UserLocaleContext, error) {
-    user, err := userRepo.FindByID(userID)
-    if err != nil {
-        return nil, fmt.Errorf("user not found: %w", err)
-    }
-    
-    language, err := languageRepo.FindByCode(user.LanguageCode)
-    if err != nil {
-        return nil, fmt.Errorf("language not found: %w", err)
-    }
-    
-    region, err := regionRepo.FindByCode(user.RegionCode)
-    if err != nil {
-        return nil, fmt.Errorf("region not found: %w", err)
-    }
-    
-    // BCP 47ロケール文字列を生成
-    localeString := user.LanguageCode
-    if user.RegionCode != "" {
-        localeString = fmt.Sprintf("%s-%s", user.LanguageCode, user.RegionCode)
-    }
-    
-    return &UserLocaleContext{
-        UserID:        userID,
-        LanguageCode:  user.LanguageCode,
-        RegionCode:    user.RegionCode,
-        LocaleString:  localeString,
-        Currency:      region.DefaultCurrency,
-        Timezone:      region.DefaultTimezone,
-        TextDirection: language.TextDirection,
-        RequiresGDPR:  region.HasGDPR,
-        RequiresCCPA:  region.HasCCPA,
-        TaxRate:       region.TaxRate,
-    }, nil
-}
-```
-
-### **14.4. 地域名・言語名の動的取得（v6.2.0新規）**
-
-**Go言語でのi18n-iso-countries/languages使用:**
-
-```go
-package i18n
-
-import (
-    "encoding/json"
-    "fmt"
-    "os"
-)
-
-// CountryNames は各言語での国名を保持
-type CountryNames map[string]map[string]string // [displayLang][countryCode]displayName
-
-// LoadCountryNames はi18n-iso-countriesのJSONファイルをロード
-func LoadCountryNames(langCode string) (map[string]string, error) {
-    filePath := fmt.Sprintf("./i18n-iso-countries/langs/%s.json", langCode)
-    data, err := os.ReadFile(filePath)
-    if err != nil {
-        return nil, err
-    }
-    
-    var result struct {
-        Countries map[string]string `json:"countries"`
-    }
-    
-    if err := json.Unmarshal(data, &result); err != nil {
-        return nil, err
-    }
-    
-    return result.Countries, nil
-}
-
-// GetRegionName は地域コードから表示名を取得
-func GetRegionName(regionCode string, displayLang string, cache CountryNames) string {
-    if names, ok := cache[displayLang]; ok {
-        if name, ok := names[regionCode]; ok {
-            return name
-        }
-    }
-    return regionCode // フォールバック
-}
-
-// 使用例
-func ExampleUsage() {
-    // 初期化時に各言語の国名をロード
-    jaNames, _ := LoadCountryNames("ja")
-    enNames, _ := LoadCountryNames("en")
-    
-    cache := CountryNames{
-        "ja": jaNames,
-        "en": enNames,
-    }
-    
-    // 表示名取得
-    fmt.Println(GetRegionName("JP", "ja", cache)) // "日本"
-    fmt.Println(GetRegionName("US", "ja", cache)) // "アメリカ合衆国"
-    fmt.Println(GetRegionName("GB", "en", cache)) // "United Kingdom"
-}
-```
-
-**言語名の取得も同様:**
-
-```go
-// LoadLanguageNames はi18n-iso-languagesのJSONファイルをロード
-func LoadLanguageNames(langCode string) (map[string]string, error) {
-    filePath := fmt.Sprintf("./i18n-iso-languages/langs/%s.json", langCode)
-    data, err := os.ReadFile(filePath)
-    if err != nil {
-        return nil, err
-    }
-    
-    var result struct {
-        Languages map[string]string `json:"languages"`
-    }
-    
-    if err := json.Unmarshal(data, &result); err != nil {
-        return nil, err
-    }
-    
-    return result.Languages, nil
-}
-
-// GetLanguageName は言語コードから表示名を取得
-func GetLanguageName(langCode string, displayLang string, cache map[string]map[string]string) string {
-    if names, ok := cache[displayLang]; ok {
-        if name, ok := names[langCode]; ok {
-            return name
-        }
-    }
-    return langCode // フォールバック
-}
-```
-
-### **14.5. APIレスポンスへの統合**
-
-```go
-type UserProfileResponse struct {
-    UserID           string  `json:"user_id"`
-    Username         string  `json:"username"`
-    LanguageCode     string  `json:"language_code"`
-    LanguageName     string  `json:"language_name"`     // 動的取得
-    RegionCode       string  `json:"region_code"`
-    RegionName       string  `json:"region_name"`       // 動的取得
-    Currency         string  `json:"currency"`
-    Timezone         string  `json:"timezone"`
-    LocaleString     string  `json:"locale_string"`
-}
-
-func (h *UserHandler) GetUserProfile(c *gin.Context) {
-    userID := c.Param("id")
-    displayLang := c.DefaultQuery("lang", "en")
-    
-    // ロケールコンテキスト構築
-    ctx, err := BuildUserLocaleContext(userID, h.userRepo, h.languageRepo, h.regionRepo)
-    if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-        return
-    }
-    
-    // 表示名を動的取得
-    regionName := GetRegionName(ctx.RegionCode, displayLang, h.countryCache)
-    languageName := GetLanguageName(ctx.LanguageCode, displayLang, h.languageCache)
-    
-    response := UserProfileResponse{
-        UserID:       ctx.UserID,
-        LanguageCode: ctx.LanguageCode,
-        LanguageName: languageName,
-        RegionCode:   ctx.RegionCode,
-        RegionName:   regionName,
-        Currency:     ctx.Currency,
-        Timezone:     ctx.Timezone,
-        LocaleString: ctx.LocaleString,
-    }
-    
-    c.JSON(http.StatusOK, response)
-}
-```
-
 ---
 
 ## **変更履歴**
 
 | 日付 | バージョン | 変更内容 |
 |------|----------|---------|
-| 2026-02-05 | 6.2.0 | YouTube方式の言語と地域分離管理採用、`regions`テーブル完全再設計（ISO 3166-1 alpha-2主キー、多言語名称カラム削除）、`languages`テーブル完全再設計（BCP 47主キー、多言語名称カラム削除）、全テーブルで`region_id`→`region_code`変更、`users`テーブルで`language`→`language_code`、`country`→`region_code`変更、表示名はi18n-iso-countries/languagesライブラリから動的取得、地域拡張BCP 47サポート、Elasticsearchに`regions`と`languages`インデックス追加、バックエンド実装ガイド拡充（ロケールコンテキスト構築、i18nライブラリ連携） |
 | 2026-02-04 | 6.0.0 | `_type` → `_language`変更、後方互換性カラム完全削除、BCP 47準拠の`languages`テーブル拡張、フロントエンド多言語対応戦略追加（i18n vs API動的取得）、バックエンド実装ガイド追加 |
 | 2026-02-04 | 5.1.0 | 多言語対応カラム追加（Main+Sub1-10）、段階的実装戦略追加（Phase 1-3）、Mainを英語に統一、institutions/faculties/departments/subjects/teachersテーブルに多言語フィールド追加、データ整備計画・フロントエンド実装ガイド・マイグレーション計画追加、既存カラムをDEPRECATEDとして保持（後方互換性） |
 | 2026-02-04 | 5.0.0 | PostgreSQL 18.1 + pgvector 0.8+採用、ベクトルカラム追加、Qdrant廃止してElasticsearch 9.2.4統合、Debezium CDC採用、prefecture ENUM化、languages マスタテーブル追加、キーワード管理統合 |
@@ -4257,4 +3648,4 @@ func (h *UserHandler) GetUserProfile(c *gin.Context) {
 
 ---
 
-**以上、EduMint統合データモデル設計書 v6.2.0（PostgreSQL 18.1 + pgvector + Elasticsearch 9.2.4 + Debezium CDC + BCP 47多言語対応 + YouTube方式言語・地域分離管理版）**
+**以上、EduMint統合データモデル設計書 v6.0.0（PostgreSQL 18.1 + pgvector + Elasticsearch 9.2.4 + Debezium CDC + BCP 47多言語対応版）**
