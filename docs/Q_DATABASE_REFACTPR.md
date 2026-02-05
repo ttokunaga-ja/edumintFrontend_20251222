@@ -1,14 +1,15 @@
-# **EduMint 統合データモデル設計書 v5.1.0**
+# **EduMint 統合データモデル設計書 v6.0.0**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
-**v5.1.0 主要更新:**
-- 多言語対応カラム追加（Main + Sub1-10構造）
-- 段階的実装戦略（Phase 1: MVP、Phase 2: 国際化、Phase 3: グローバル展開）
-- Mainフィールドを英語に統一（API基準）
-- institutions/faculties/departments/subjects/teachersテーブルに多言語フィールド追加
-- データ整備計画・フロントエンド実装ガイド・マイグレーション計画追加
-- 既存カラムをDEPRECATEDとして保持（後方互換性維持）
+**v6.0.0 主要更新:**
+- `_type` → `_language`変更（BCP 47準拠言語コード採用）
+- 後方互換性カラム完全削除（DEPRECATED廃止）
+- `languages`テーブル拡張（script列追加、サンプルデータ拡充）
+- 外部キー制約追加（languages.code参照）
+- フロントエンド多言語対応戦略追加（i18n vs API動的取得の分類）
+- バックエンド実装ガイド追加（Go言語サンプルコード）
+- マイグレーション計画更新（後方互換性なしの直接移行手順）
 
 **v5.0.0 主要更新:**
 - PostgreSQL 18.1 + pgvector 0.8+ 採用、ベクトル検索機能の統合
@@ -148,7 +149,7 @@ CREATE TYPE prefecture_enum AS ENUM (
   '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
   '鳥取県', '島根県', '岡山県', '広島県', '山口県',
   '徳島県', '香川県', '愛媛県', '高知県',
-  '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+  '福岡県', '佐賀県'
 );
 ```
 
@@ -512,29 +513,24 @@ export interface Institution {
   id: number;
   institutionType: string;
   nameMain: string;         // 英語（API基準）
-  nameMainType?: string;
+  nameMainLanguage?: string;
   nameSub1?: string;        // 日本語（漢字）
-  nameSub1Type?: string;
+  nameSub1Language?: string;
   nameSub2?: string;        // 読み仮名（ひらがな）
-  nameSub2Type?: string;
+  nameSub2Language?: string;
   nameSub3?: string;        // 略称
-  nameSub3Type?: string;
+  nameSub3Language?: string;
   nameSub4?: string;        // 中国語簡体字
-  nameSub4Type?: string;
+  nameSub4Language?: string;
   nameSub5?: string;        // 中国語繁体字
-  nameSub5Type?: string;
+  nameSub5Language?: string;
   nameSub6?: string;        // 韓国語
-  nameSub6Type?: string;
+  nameSub6Language?: string;
   nameSub7?: string;        // ローマ字
-  nameSub7Type?: string;
+  nameSub7Language?: string;
   // Sub8-10は将来の拡張用
   prefecture: string;
   isActive: boolean;
-  // 後方互換性のため維持（DEPRECATED）
-  name?: string;            // DEPRECATED: Use nameSub1
-  nameKana?: string;        // DEPRECATED: Use nameSub2
-  nameEnglish?: string;     // DEPRECATED: Use nameMain
-  abbreviation?: string;    // DEPRECATED: Use nameSub3
 }
 
 /**
@@ -643,64 +639,75 @@ function SearchFilter() {
 
 #### **3.0.7. マイグレーション計画**
 
-**既存データから新スキーマへの移行手順:**
+**新スキーマへの移行手順（後方互換性なし）:**
 
 ```sql
 -- ==========================================
--- Phase 1: 新カラムの追加（NULL許容で追加）
+-- Phase 1: 旧カラムの完全削除
 -- ==========================================
 
 -- institutions テーブル
 ALTER TABLE institutions
-  ADD COLUMN name_main VARCHAR(255),
-  ADD COLUMN name_main_type VARCHAR(20) DEFAULT 'official',
-  ADD COLUMN name_sub1 VARCHAR(255),
-  ADD COLUMN name_sub1_type VARCHAR(20) DEFAULT 'kanji',
-  ADD COLUMN name_sub2 VARCHAR(255),
-  ADD COLUMN name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
-  ADD COLUMN name_sub3 VARCHAR(100),
-  ADD COLUMN name_sub3_type VARCHAR(20) DEFAULT 'abbreviation',
-  -- 将来の拡張用（Phase 2以降）
-  ADD COLUMN name_sub4 VARCHAR(255),
-  ADD COLUMN name_sub4_type VARCHAR(20),
-  ADD COLUMN name_sub5 VARCHAR(255),
-  ADD COLUMN name_sub5_type VARCHAR(20),
-  ADD COLUMN name_sub6 VARCHAR(255),
-  ADD COLUMN name_sub6_type VARCHAR(20),
-  ADD COLUMN name_sub7 VARCHAR(255),
-  ADD COLUMN name_sub7_type VARCHAR(20),
-  ADD COLUMN name_sub8 VARCHAR(255),
-  ADD COLUMN name_sub8_type VARCHAR(20),
-  ADD COLUMN name_sub9 VARCHAR(255),
-  ADD COLUMN name_sub9_type VARCHAR(20),
-  ADD COLUMN name_sub10 VARCHAR(255),
-  ADD COLUMN name_sub10_type VARCHAR(20);
+  DROP COLUMN IF EXISTS name,
+  DROP COLUMN IF EXISTS name_kana,
+  DROP COLUMN IF EXISTS name_english,
+  DROP COLUMN IF EXISTS abbreviation;
+
+-- faculties テーブル
+ALTER TABLE faculties
+  DROP COLUMN IF EXISTS name,
+  DROP COLUMN IF EXISTS name_kana,
+  DROP COLUMN IF EXISTS name_english;
+
+-- departments テーブル
+ALTER TABLE departments
+  DROP COLUMN IF EXISTS name,
+  DROP COLUMN IF EXISTS name_kana,
+  DROP COLUMN IF EXISTS name_english;
+
+-- subjects テーブル
+ALTER TABLE subjects
+  DROP COLUMN IF EXISTS name,
+  DROP COLUMN IF EXISTS name_kana;
+
+-- teachers テーブル
+ALTER TABLE teachers
+  DROP COLUMN IF EXISTS name;
 
 -- ==========================================
--- Phase 2: 既存データを新カラムにコピー
+-- Phase 2: 新カラムの追加
 -- ==========================================
 
 -- institutions テーブル
-UPDATE institutions SET
-  name_main = COALESCE(name_english, name),
-  name_main_type = 'official',
-  name_sub1 = name,
-  name_sub1_type = 'kanji',
-  name_sub2 = name_kana,
-  name_sub2_type = 'hiragana',
-  name_sub3 = abbreviation,
-  name_sub3_type = 'abbreviation';
+ALTER TABLE institutions
+  ADD COLUMN name_main VARCHAR(255) NOT NULL DEFAULT 'Unnamed Institution',
+  ADD COLUMN name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
+  ADD COLUMN name_sub1 VARCHAR(255),
+  ADD COLUMN name_sub1_language VARCHAR(10) REFERENCES languages(code),
+  ADD COLUMN name_sub2 VARCHAR(255),
+  ADD COLUMN name_sub2_language VARCHAR(10) REFERENCES languages(code),
+  ADD COLUMN name_sub3 VARCHAR(100),
+  ADD COLUMN name_sub3_language VARCHAR(10) REFERENCES languages(code),
+  ADD COLUMN name_sub4 VARCHAR(255),
+  ADD COLUMN name_sub4_language VARCHAR(10) REFERENCES languages(code),
+  ADD COLUMN name_sub5 VARCHAR(255),
+  ADD COLUMN name_sub5_language VARCHAR(10) REFERENCES languages(code),
+  ADD COLUMN name_sub6 VARCHAR(255),
+  ADD COLUMN name_sub6_language VARCHAR(10) REFERENCES languages(code),
+  ADD COLUMN name_sub7 VARCHAR(255),
+  ADD COLUMN name_sub7_language VARCHAR(10) REFERENCES languages(code),
+  ADD COLUMN name_sub8 VARCHAR(255),
+  ADD COLUMN name_sub8_language VARCHAR(10) REFERENCES languages(code),
+  ADD COLUMN name_sub9 VARCHAR(255),
+  ADD COLUMN name_sub9_language VARCHAR(10) REFERENCES languages(code),
+  ADD COLUMN name_sub10 VARCHAR(255),
+  ADD COLUMN name_sub10_language VARCHAR(10) REFERENCES languages(code);
+
+-- 同様の手順を他のテーブルにも適用
+-- (faculties, departments, subjects, teachers)
 
 -- ==========================================
--- Phase 3: NOT NULL制約の追加
--- ==========================================
-
--- name_main は必須項目にする
-ALTER TABLE institutions 
-  ALTER COLUMN name_main SET NOT NULL;
-
--- ==========================================
--- Phase 4: インデックスの追加
+-- Phase 3: インデックスの追加
 -- ==========================================
 
 CREATE INDEX idx_institutions_name_main ON institutions(name_main);
@@ -708,158 +715,15 @@ CREATE INDEX idx_institutions_name_sub1 ON institutions(name_sub1);
 CREATE INDEX idx_institutions_name_sub2 ON institutions(name_sub2);
 CREATE INDEX idx_institutions_name_sub3 ON institutions(name_sub3);
 
--- ==========================================
--- Phase 5: 旧カラムを非推奨化（削除はしない）
--- ==========================================
-
-COMMENT ON COLUMN institutions.name IS 
-  'DEPRECATED: Use name_sub1 instead. Kept for backward compatibility.';
-COMMENT ON COLUMN institutions.name_kana IS 
-  'DEPRECATED: Use name_sub2 instead. Kept for backward compatibility.';
-COMMENT ON COLUMN institutions.name_english IS 
-  'DEPRECATED: Use name_main instead. Kept for backward compatibility.';
-COMMENT ON COLUMN institutions.abbreviation IS 
-  'DEPRECATED: Use name_sub3 instead. Kept for backward compatibility.';
-
--- ==========================================
--- 同様の手順を他のテーブルにも適用
--- ==========================================
-
--- faculties テーブル
-ALTER TABLE faculties
-  ADD COLUMN name_main VARCHAR(255),
-  ADD COLUMN name_main_type VARCHAR(20) DEFAULT 'official',
-  ADD COLUMN name_sub1 VARCHAR(255),
-  ADD COLUMN name_sub1_type VARCHAR(20) DEFAULT 'kanji',
-  ADD COLUMN name_sub2 VARCHAR(255),
-  ADD COLUMN name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
-  ADD COLUMN name_sub3 VARCHAR(100),
-  ADD COLUMN name_sub3_type VARCHAR(20) DEFAULT 'abbreviation',
-  ADD COLUMN name_sub4 VARCHAR(255), ADD COLUMN name_sub4_type VARCHAR(20),
-  ADD COLUMN name_sub5 VARCHAR(255), ADD COLUMN name_sub5_type VARCHAR(20),
-  ADD COLUMN name_sub6 VARCHAR(255), ADD COLUMN name_sub6_type VARCHAR(20),
-  ADD COLUMN name_sub7 VARCHAR(255), ADD COLUMN name_sub7_type VARCHAR(20),
-  ADD COLUMN name_sub8 VARCHAR(255), ADD COLUMN name_sub8_type VARCHAR(20),
-  ADD COLUMN name_sub9 VARCHAR(255), ADD COLUMN name_sub9_type VARCHAR(20),
-  ADD COLUMN name_sub10 VARCHAR(255), ADD COLUMN name_sub10_type VARCHAR(20);
-
-UPDATE faculties SET
-  name_main = COALESCE(name_english, name),
-  name_sub1 = name,
-  name_sub2 = name_kana;
-
-ALTER TABLE faculties ALTER COLUMN name_main SET NOT NULL;
-
-CREATE INDEX idx_faculties_name_main ON faculties(name_main);
-CREATE INDEX idx_faculties_name_sub1 ON faculties(name_sub1);
-CREATE INDEX idx_faculties_name_sub2 ON faculties(name_sub2);
-
-COMMENT ON COLUMN faculties.name IS 'DEPRECATED: Use name_sub1 instead.';
-COMMENT ON COLUMN faculties.name_kana IS 'DEPRECATED: Use name_sub2 instead.';
-COMMENT ON COLUMN faculties.name_english IS 'DEPRECATED: Use name_main instead.';
-
--- departments テーブル
-ALTER TABLE departments
-  ADD COLUMN name_main VARCHAR(255),
-  ADD COLUMN name_main_type VARCHAR(20) DEFAULT 'official',
-  ADD COLUMN name_sub1 VARCHAR(255),
-  ADD COLUMN name_sub1_type VARCHAR(20) DEFAULT 'kanji',
-  ADD COLUMN name_sub2 VARCHAR(255),
-  ADD COLUMN name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
-  ADD COLUMN name_sub3 VARCHAR(100),
-  ADD COLUMN name_sub3_type VARCHAR(20) DEFAULT 'abbreviation',
-  ADD COLUMN name_sub4 VARCHAR(255), ADD COLUMN name_sub4_type VARCHAR(20),
-  ADD COLUMN name_sub5 VARCHAR(255), ADD COLUMN name_sub5_type VARCHAR(20),
-  ADD COLUMN name_sub6 VARCHAR(255), ADD COLUMN name_sub6_type VARCHAR(20),
-  ADD COLUMN name_sub7 VARCHAR(255), ADD COLUMN name_sub7_type VARCHAR(20),
-  ADD COLUMN name_sub8 VARCHAR(255), ADD COLUMN name_sub8_type VARCHAR(20),
-  ADD COLUMN name_sub9 VARCHAR(255), ADD COLUMN name_sub9_type VARCHAR(20),
-  ADD COLUMN name_sub10 VARCHAR(255), ADD COLUMN name_sub10_type VARCHAR(20);
-
-UPDATE departments SET
-  name_main = COALESCE(name_english, name),
-  name_sub1 = name,
-  name_sub2 = name_kana;
-
-ALTER TABLE departments ALTER COLUMN name_main SET NOT NULL;
-
-CREATE INDEX idx_departments_name_main ON departments(name_main);
-CREATE INDEX idx_departments_name_sub1 ON departments(name_sub1);
-CREATE INDEX idx_departments_name_sub2 ON departments(name_sub2);
-
-COMMENT ON COLUMN departments.name IS 'DEPRECATED: Use name_sub1 instead.';
-COMMENT ON COLUMN departments.name_kana IS 'DEPRECATED: Use name_sub2 instead.';
-COMMENT ON COLUMN departments.name_english IS 'DEPRECATED: Use name_main instead.';
-
--- subjects テーブル
-ALTER TABLE subjects
-  ADD COLUMN name_main VARCHAR(255),
-  ADD COLUMN name_main_type VARCHAR(20) DEFAULT 'official',
-  ADD COLUMN name_sub1 VARCHAR(255),
-  ADD COLUMN name_sub1_type VARCHAR(20) DEFAULT 'kanji',
-  ADD COLUMN name_sub2 VARCHAR(255),
-  ADD COLUMN name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
-  ADD COLUMN name_sub3 VARCHAR(100),
-  ADD COLUMN name_sub3_type VARCHAR(20) DEFAULT 'abbreviation',
-  ADD COLUMN name_sub4 VARCHAR(255), ADD COLUMN name_sub4_type VARCHAR(20),
-  ADD COLUMN name_sub5 VARCHAR(255), ADD COLUMN name_sub5_type VARCHAR(20),
-  ADD COLUMN name_sub6 VARCHAR(255), ADD COLUMN name_sub6_type VARCHAR(20),
-  ADD COLUMN name_sub7 VARCHAR(255), ADD COLUMN name_sub7_type VARCHAR(20),
-  ADD COLUMN name_sub8 VARCHAR(255), ADD COLUMN name_sub8_type VARCHAR(20),
-  ADD COLUMN name_sub9 VARCHAR(255), ADD COLUMN name_sub9_type VARCHAR(20),
-  ADD COLUMN name_sub10 VARCHAR(255), ADD COLUMN name_sub10_type VARCHAR(20);
-
-UPDATE subjects SET
-  name_main = name,  -- subjects テーブルには name_english が存在しないため name をそのまま使用
-  name_sub1 = name,
-  name_sub2 = name_kana;
-
-ALTER TABLE subjects ALTER COLUMN name_main SET NOT NULL;
-
-CREATE INDEX idx_subjects_name_main ON subjects(name_main);
-CREATE INDEX idx_subjects_name_sub1 ON subjects(name_sub1);
-CREATE INDEX idx_subjects_name_sub2 ON subjects(name_sub2);
-
-COMMENT ON COLUMN subjects.name IS 'DEPRECATED: Use name_sub1 instead.';
-COMMENT ON COLUMN subjects.name_kana IS 'DEPRECATED: Use name_sub2 instead.';
-
--- teachers テーブル
-ALTER TABLE teachers
-  ADD COLUMN name_main VARCHAR(255),
-  ADD COLUMN name_main_type VARCHAR(20) DEFAULT 'romanization',
-  ADD COLUMN name_sub1 VARCHAR(255),
-  ADD COLUMN name_sub1_type VARCHAR(20) DEFAULT 'kanji',
-  ADD COLUMN name_sub2 VARCHAR(255),
-  ADD COLUMN name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
-  ADD COLUMN name_sub3 VARCHAR(255),
-  ADD COLUMN name_sub3_type VARCHAR(20) DEFAULT 'katakana',
-  ADD COLUMN name_sub4 VARCHAR(255), ADD COLUMN name_sub4_type VARCHAR(20),
-  ADD COLUMN name_sub5 VARCHAR(255), ADD COLUMN name_sub5_type VARCHAR(20),
-  ADD COLUMN name_sub6 VARCHAR(255), ADD COLUMN name_sub6_type VARCHAR(20);
-
--- teachers テーブルの既存データ移行
--- name フィールドがローマ字か漢字かによって処理を分岐
-UPDATE teachers SET
-  name_main = name,  -- 既存のnameをそのままMainに設定（ローマ字変換は別途実施）
-  name_main_type = 'romanization',
-  name_sub1 = name;  -- 日本語名は別途手動で追加
-
-ALTER TABLE teachers ALTER COLUMN name_main SET NOT NULL;
-
-CREATE INDEX idx_teachers_name_main ON teachers(name_main);
-CREATE INDEX idx_teachers_name_sub1 ON teachers(name_sub1);
-CREATE INDEX idx_teachers_name_sub2 ON teachers(name_sub2);
-
-COMMENT ON COLUMN teachers.name IS 'DEPRECATED: Use name_sub1 for Japanese name, name_main for romanized name.';
+-- 同様のインデックスを他のテーブルにも適用
 ```
 
 **マイグレーション実施時の注意事項:**
 
 1. **データバックアップ**: マイグレーション前に必ず全データをバックアップ
-2. **段階的実施**: 各Phaseを順番に実施し、各ステップで動作確認
-3. **ダウンタイム**: Phase 3（NOT NULL制約追加）時にはサービス停止が必要
-4. **ロールバック計画**: 問題発生時の復旧手順を事前に準備
-5. **アプリケーション対応**: データベーススキーマ変更と並行してアプリケーションコードも更新
+2. **languages テーブル作成**: 外部キー制約のため、先に languages テーブルを作成・データ投入
+3. **ダウンタイム**: リリース前のため、メンテナンスモードで実施
+4. **アプリケーション対応**: データベーススキーマ変更と同時にアプリケーションコードも更新
 
 ---
 
@@ -883,31 +747,25 @@ CREATE TABLE institutions (
   
   -- 多言語対応（MVP: Main + Sub1-3、Phase 2以降: Sub4-10）
   name_main VARCHAR(255) NOT NULL,        -- 英語正式名（API基準）
-  name_main_type VARCHAR(20) DEFAULT 'official',
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語正式名
-  name_sub1_type VARCHAR(20) DEFAULT 'kanji',
+  name_sub1_language VARCHAR(10) REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名（検索・ソート用）
-  name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
+  name_sub2_language VARCHAR(10) REFERENCES languages(code),
   
   name_sub3 VARCHAR(100),                 -- 略称
-  name_sub3_type VARCHAR(20) DEFAULT 'abbreviation',
+  name_sub3_language VARCHAR(10) REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_type VARCHAR(20),  -- 中国語簡体字
-  name_sub5 VARCHAR(255), name_sub5_type VARCHAR(20),  -- 中国語繁体字
-  name_sub6 VARCHAR(255), name_sub6_type VARCHAR(20),  -- 韓国語
-  name_sub7 VARCHAR(255), name_sub7_type VARCHAR(20),  -- ローマ字
-  name_sub8 VARCHAR(255), name_sub8_type VARCHAR(20),  -- 予備
-  name_sub9 VARCHAR(255), name_sub9_type VARCHAR(20),  -- 予備
-  name_sub10 VARCHAR(255), name_sub10_type VARCHAR(20), -- 予備
-  
-  -- 基本情報（DEPRECATED: 後方互換性のため維持）
-  name VARCHAR(255) NOT NULL,             -- DEPRECATED: Use name_sub1 instead
-  name_kana VARCHAR(255),                 -- DEPRECATED: Use name_sub2 instead
-  name_english VARCHAR(255),              -- DEPRECATED: Use name_main instead
-  abbreviation VARCHAR(50),               -- DEPRECATED: Use name_sub3 instead
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語簡体字
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 中国語繁体字
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(10) REFERENCES languages(code),  -- ローマ字
+  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(10) REFERENCES languages(code), -- 予備
   
   -- 定員・人気度（検索ソート順位に使用）
   total_enrollment_capacity INTEGER DEFAULT 0,
@@ -932,7 +790,6 @@ CREATE INDEX idx_institutions_name_main ON institutions(name_main);
 CREATE INDEX idx_institutions_name_sub1 ON institutions(name_sub1);
 CREATE INDEX idx_institutions_name_sub2 ON institutions(name_sub2);
 CREATE INDEX idx_institutions_name_sub3 ON institutions(name_sub3);
-CREATE INDEX idx_institutions_kana ON institutions(name_kana);  -- DEPRECATED: 後方互換性のため維持
 CREATE INDEX idx_institutions_prefecture ON institutions(prefecture);
 CREATE INDEX idx_institutions_popularity ON institutions(popularity_score DESC);
 CREATE INDEX idx_institutions_active ON institutions(is_active) WHERE is_active = TRUE;
@@ -947,72 +804,80 @@ CREATE UNIQUE INDEX idx_institutions_mext_code ON institutions(mext_code) WHERE 
 -- 東京大学（学部） - MVP版（Main + Sub1-3）
 INSERT INTO institutions (
   id, institution_type, parent_institution_id, prefecture, mext_code,
-  name_main, name_main_type,
-  name_sub1, name_sub1_type,
-  name_sub2, name_sub2_type,
-  name_sub3, name_sub3_type,
-  name, name_kana, name_english, abbreviation  -- DEPRECATED: 後方互換性のため
+  name_main, name_main_language,
+  name_sub1, name_sub1_language,
+  name_sub2, name_sub2_language,
+  name_sub3, name_sub3_language
 ) VALUES (
   1, 'university', NULL, '東京都', '4A0001',
-  'University of Tokyo', 'official',
-  '東京大学', 'kanji',
-  'とうきょうだいがく', 'hiragana',
-  '東大', 'abbreviation',
-  '東京大学', 'とうきょうだいがく', 'University of Tokyo', '東大'
+  'University of Tokyo', 'en',
+  '東京大学', 'ja',
+  'とうきょうだいがく', 'ja-Hira',
+  '東大', 'ja'
 );
 
 -- 東京大学大学院
 INSERT INTO institutions (
   id, institution_type, parent_institution_id, prefecture,
-  name_main, name_sub1, name_sub2, name_sub3,
-  name, name_kana, abbreviation
+  name_main, name_main_language,
+  name_sub1, name_sub1_language,
+  name_sub2, name_sub2_language,
+  name_sub3, name_sub3_language
 ) VALUES (
   2, 'graduate_school', 1, '東京都',
-  'University of Tokyo Graduate School', '東京大学大学院', 'とうきょうだいがくだいがくいん', '東大院',
-  '東京大学大学院', 'とうきょうだいがくだいがくいん', '東大院'
+  'University of Tokyo Graduate School', 'en',
+  '東京大学大学院', 'ja',
+  'とうきょうだいがくだいがくいん', 'ja-Hira',
+  '東大院', 'ja'
 );
 
 -- 早稲田大学（学部）
 INSERT INTO institutions (
   id, institution_type, parent_institution_id, prefecture,
-  name_main, name_sub1, name_sub2, name_sub3,
-  name, name_kana, abbreviation
+  name_main, name_main_language,
+  name_sub1, name_sub1_language,
+  name_sub2, name_sub2_language,
+  name_sub3, name_sub3_language
 ) VALUES (
   3, 'university', NULL, '東京都',
-  'Waseda University', '早稲田大学', 'わせだだいがく', '早稲田',
-  '早稲田大学', 'わせだだいがく', '早稲田'
+  'Waseda University', 'en',
+  '早稲田大学', 'ja',
+  'わせだだいがく', 'ja-Hira',
+  '早稲田', 'ja'
 );
 
 -- 早稲田大学大学院
 INSERT INTO institutions (
   id, institution_type, parent_institution_id, prefecture,
-  name_main, name_sub1, name_sub2, name_sub3,
-  name, name_kana, abbreviation
+  name_main, name_main_language,
+  name_sub1, name_sub1_language,
+  name_sub2, name_sub2_language,
+  name_sub3, name_sub3_language
 ) VALUES (
   4, 'graduate_school', 3, '東京都',
-  'Waseda University Graduate School', '早稲田大学大学院', 'わせだだいがくだいがくいん', '早稲田院',
-  '早稲田大学大学院', 'わせだだいがくだいがくいん', '早稲田院'
+  'Waseda University Graduate School', 'en',
+  '早稲田大学大学院', 'ja',
+  'わせだだいがくだいがくいん', 'ja-Hira',
+  '早稲田院', 'ja'
 );
 
 -- 北京大学の例（Phase 2以降: 中国語対応）
 INSERT INTO institutions (
   id, institution_type, parent_institution_id, prefecture,
-  name_main, name_main_type,
-  name_sub1, name_sub1_type,
-  name_sub2, name_sub2_type,
-  name_sub3, name_sub3_type,
-  name_sub4, name_sub4_type,
-  name_sub5, name_sub5_type,
-  name, name_kana, name_english, abbreviation
+  name_main, name_main_language,
+  name_sub1, name_sub1_language,
+  name_sub2, name_sub2_language,
+  name_sub3, name_sub3_language,
+  name_sub4, name_sub4_language,
+  name_sub5, name_sub5_language
 ) VALUES (
   100, 'university', NULL, '海外',
-  'Peking University', 'official',
-  '北京大学', 'kanji',
-  'Běijīng Dàxué', 'pinyin',
-  'PKU', 'abbreviation',
-  '北京大学', 'simplified_chinese',
-  '北京大學', 'traditional_chinese',
-  '北京大学', 'Běijīng Dàxué', 'Peking University', 'PKU'
+  'Peking University', 'en',
+  '北京大学', 'ja',
+  'Běijīng Dàxué', 'zh-Latn-pinyin',
+  'PKU', 'en',
+  '北京大学', 'zh-Hans',
+  '北京大學', 'zh-Hant'
 );
 ```
 
@@ -1031,31 +896,25 @@ CREATE TABLE faculties (
   
   -- 多言語対応（MVP: Main + Sub1-3、Phase 2以降: Sub4-10）
   name_main VARCHAR(255) NOT NULL,        -- 英語正式名（API基準）
-  name_main_type VARCHAR(20) DEFAULT 'official',
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語正式名
-  name_sub1_type VARCHAR(20) DEFAULT 'kanji',
+  name_sub1_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名（検索・ソート用）
-  name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
+  name_sub2_language VARCHAR(10) DEFAULT 'ja-Hira' REFERENCES languages(code),
   
   name_sub3 VARCHAR(100),                 -- 略称
-  name_sub3_type VARCHAR(20) DEFAULT 'abbreviation',
+  name_sub3_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_type VARCHAR(20),  -- 中国語簡体字
-  name_sub5 VARCHAR(255), name_sub5_type VARCHAR(20),  -- 中国語繁体字
-  name_sub6 VARCHAR(255), name_sub6_type VARCHAR(20),  -- 韓国語
-  name_sub7 VARCHAR(255), name_sub7_type VARCHAR(20),  -- ローマ字
-  name_sub8 VARCHAR(255), name_sub8_type VARCHAR(20),  -- 予備
-  name_sub9 VARCHAR(255), name_sub9_type VARCHAR(20),  -- 予備
-  name_sub10 VARCHAR(255), name_sub10_type VARCHAR(20), -- 予備
-  
-  -- 基本情報（DEPRECATED: 後方互換性のため維持）
-  name VARCHAR(255) NOT NULL,             -- DEPRECATED: Use name_sub1 instead
-  name_kana VARCHAR(255),                 -- DEPRECATED: Use name_sub2 instead
-  name_english VARCHAR(255),              -- DEPRECATED: Use name_main instead
-  
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語簡体字
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 中国語繁体字
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(10) REFERENCES languages(code),  -- ローマ字
+  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(10) REFERENCES languages(code), -- 予備  
   established_year INTEGER,
   total_enrollment_capacity INTEGER DEFAULT 0,
   academic_field academic_field_enum,
@@ -1064,9 +923,7 @@ CREATE TABLE faculties (
   popularity_score INTEGER DEFAULT 0,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  UNIQUE(institution_id, name)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- インデックス
@@ -1074,7 +931,6 @@ CREATE INDEX idx_faculties_institution ON faculties(institution_id);
 CREATE INDEX idx_faculties_name_main ON faculties(name_main);
 CREATE INDEX idx_faculties_name_sub1 ON faculties(name_sub1);
 CREATE INDEX idx_faculties_name_sub2 ON faculties(name_sub2);
-CREATE INDEX idx_faculties_kana ON faculties(name_kana);  -- DEPRECATED: 後方互換性のため維持
 CREATE INDEX idx_faculties_active ON faculties(is_active);
 CREATE INDEX idx_faculties_popularity ON faculties(popularity_score DESC);
 CREATE INDEX idx_faculties_field ON faculties(academic_field);
@@ -1088,20 +944,18 @@ CREATE INDEX idx_faculties_field ON faculties(academic_field);
 -- 東京大学の学部
 INSERT INTO faculties (
   institution_id,
-  name_main, name_sub1, name_sub2,
-  name, name_kana
+  name_main, name_sub1, name_sub2
 ) VALUES
-(1, 'Faculty of Engineering', '工学部', 'こうがくぶ', '工学部', 'こうがくぶ'),
-(1, 'Faculty of Science', '理学部', 'りがくぶ', '理学部', 'りがくぶ');
+(1, 'Faculty of Engineering', '工学部', 'こうがくぶ'),
+(1, 'Faculty of Science', '理学部', 'りがくぶ');
 
 -- 東京大学大学院の研究科
 INSERT INTO faculties (
   institution_id,
-  name_main, name_sub1, name_sub2,
-  name, name_kana
+  name_main, name_sub1, name_sub2
 ) VALUES
-(2, 'Graduate School of Engineering', '工学系研究科', 'こうがくけいけんきゅうか', '工学系研究科', 'こうがくけいけんきゅうか'),
-(2, 'Graduate School of Science', '理学系研究科', 'りがくけいけんきゅうか', '理学系研究科', 'りがくけいけんきゅうか');
+(2, 'Graduate School of Engineering', '工学系研究科', 'こうがくけいけんきゅうか'),
+(2, 'Graduate School of Science', '理学系研究科', 'りがくけいけんきゅうか');
 ```
 
 ---
@@ -1119,31 +973,25 @@ CREATE TABLE departments (
   
   -- 多言語対応（MVP: Main + Sub1-3、Phase 2以降: Sub4-10）
   name_main VARCHAR(255) NOT NULL,        -- 英語正式名（API基準）
-  name_main_type VARCHAR(20) DEFAULT 'official',
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語正式名
-  name_sub1_type VARCHAR(20) DEFAULT 'kanji',
+  name_sub1_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名（検索・ソート用）
-  name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
+  name_sub2_language VARCHAR(10) DEFAULT 'ja-Hira' REFERENCES languages(code),
   
   name_sub3 VARCHAR(100),                 -- 略称
-  name_sub3_type VARCHAR(20) DEFAULT 'abbreviation',
+  name_sub3_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_type VARCHAR(20),  -- 中国語簡体字
-  name_sub5 VARCHAR(255), name_sub5_type VARCHAR(20),  -- 中国語繁体字
-  name_sub6 VARCHAR(255), name_sub6_type VARCHAR(20),  -- 韓国語
-  name_sub7 VARCHAR(255), name_sub7_type VARCHAR(20),  -- ローマ字
-  name_sub8 VARCHAR(255), name_sub8_type VARCHAR(20),  -- 予備
-  name_sub9 VARCHAR(255), name_sub9_type VARCHAR(20),  -- 予備
-  name_sub10 VARCHAR(255), name_sub10_type VARCHAR(20), -- 予備
-  
-  -- 基本情報（DEPRECATED: 後方互換性のため維持）
-  name VARCHAR(255) NOT NULL,             -- DEPRECATED: Use name_sub1 instead
-  name_kana VARCHAR(255),                 -- DEPRECATED: Use name_sub2 instead
-  name_english VARCHAR(255),              -- DEPRECATED: Use name_main instead
-  
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語簡体字
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 中国語繁体字
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(10) REFERENCES languages(code),  -- ローマ字
+  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(10) REFERENCES languages(code), -- 予備  
   established_year INTEGER,
   enrollment_capacity INTEGER DEFAULT 0,
   academic_field academic_field_enum,
@@ -1152,9 +1000,7 @@ CREATE TABLE departments (
   popularity_score INTEGER DEFAULT 0,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  UNIQUE(faculty_id, name)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- インデックス
@@ -1162,7 +1008,6 @@ CREATE INDEX idx_departments_faculty ON departments(faculty_id);
 CREATE INDEX idx_departments_name_main ON departments(name_main);
 CREATE INDEX idx_departments_name_sub1 ON departments(name_sub1);
 CREATE INDEX idx_departments_name_sub2 ON departments(name_sub2);
-CREATE INDEX idx_departments_kana ON departments(name_kana);  -- DEPRECATED: 後方互換性のため維持
 CREATE INDEX idx_departments_active ON departments(is_active);
 CREATE INDEX idx_departments_popularity ON departments(popularity_score DESC);
 CREATE INDEX idx_departments_field ON departments(academic_field);
@@ -1176,20 +1021,18 @@ CREATE INDEX idx_departments_field ON departments(academic_field);
 -- 東京大学 工学部の学科
 INSERT INTO departments (
   faculty_id,
-  name_main, name_sub1, name_sub2,
-  name, name_kana
+  name_main, name_sub1, name_sub2
 ) VALUES
-(10, 'Department of Electrical and Electronic Engineering', '電気電子工学科', 'でんきでんしこうがくか', '電気電子工学科', 'でんきでんしこうがくか'),
-(10, 'Department of Mechanical Engineering', '機械工学科', 'きかいこうがくか', '機械工学科', 'きかいこうがくか');
+(10, 'Department of Electrical and Electronic Engineering', '電気電子工学科', 'でんきでんしこうがくか'),
+(10, 'Department of Mechanical Engineering', '機械工学科', 'きかいこうがくか');
 
 -- 東京大学大学院 工学系研究科の専攻
 INSERT INTO departments (
   faculty_id,
-  name_main, name_sub1, name_sub2,
-  name, name_kana
+  name_main, name_sub1, name_sub2
 ) VALUES
-(20, 'Department of Electrical Engineering and Information Systems', '電気系工学専攻', 'でんきけいこうがくせんこう', '電気系工学専攻', 'でんきけいこうがくせんこう'),
-(20, 'Department of Mechanical Engineering', '機械工学専攻', 'きかいこうがくせんこう', '機械工学専攻', 'きかいこうがくせんこう');
+(20, 'Department of Electrical Engineering and Information Systems', '電気系工学専攻', 'でんきけいこうがくせんこう'),
+(20, 'Department of Mechanical Engineering', '機械工学専攻', 'きかいこうがくせんこう');
 ```
 
 ---
@@ -1205,25 +1048,21 @@ CREATE TABLE teachers (
   
   -- 多言語対応（教員名）
   name_main VARCHAR(255) NOT NULL,        -- 英語表記名（ローマ字またはアルファベット名）
-  name_main_type VARCHAR(20) DEFAULT 'romanization',
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語氏名（漢字）
-  name_sub1_type VARCHAR(20) DEFAULT 'kanji',
+  name_sub1_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名（ひらがな）
-  name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
+  name_sub2_language VARCHAR(10) DEFAULT 'ja-Hira' REFERENCES languages(code),
   
   name_sub3 VARCHAR(255),                 -- カタカナ表記
-  name_sub3_type VARCHAR(20) DEFAULT 'katakana',
+  name_sub3_language VARCHAR(10) DEFAULT 'ja-Kana' REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_type VARCHAR(20),  -- 中国語
-  name_sub5 VARCHAR(255), name_sub5_type VARCHAR(20),  -- 韓国語
-  name_sub6 VARCHAR(255), name_sub6_type VARCHAR(20),  -- 予備
-  
-  -- 基本情報（DEPRECATED: 後方互換性のため維持）
-  name VARCHAR(255) NOT NULL,             -- DEPRECATED: Use name_sub1 for Japanese, name_main for romanized
-  
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 予備  
   is_active BOOLEAN DEFAULT TRUE,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1361,57 +1200,50 @@ CREATE TABLE subjects (
   
   -- 多言語対応（科目名）
   name_main VARCHAR(255) NOT NULL,        -- 英語科目名（API基準）
-  name_main_type VARCHAR(20) DEFAULT 'official',
+  name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
   
   name_sub1 VARCHAR(255),                 -- 日本語科目名
-  name_sub1_type VARCHAR(20) DEFAULT 'kanji',
+  name_sub1_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   name_sub2 VARCHAR(255),                 -- 読み仮名
-  name_sub2_type VARCHAR(20) DEFAULT 'hiragana',
+  name_sub2_language VARCHAR(10) DEFAULT 'ja-Hira' REFERENCES languages(code),
   
   name_sub3 VARCHAR(100),                 -- 略称
-  name_sub3_type VARCHAR(20) DEFAULT 'abbreviation',
+  name_sub3_language VARCHAR(10) DEFAULT 'ja' REFERENCES languages(code),
   
   -- 将来の拡張用（Phase 2以降で使用）
-  name_sub4 VARCHAR(255), name_sub4_type VARCHAR(20),  -- 中国語簡体字
-  name_sub5 VARCHAR(255), name_sub5_type VARCHAR(20),  -- 中国語繁体字
-  name_sub6 VARCHAR(255), name_sub6_type VARCHAR(20),  -- 韓国語
-  name_sub7 VARCHAR(255), name_sub7_type VARCHAR(20),  -- ローマ字
-  name_sub8 VARCHAR(255), name_sub8_type VARCHAR(20),  -- 予備
-  name_sub9 VARCHAR(255), name_sub9_type VARCHAR(20),  -- 予備
-  name_sub10 VARCHAR(255), name_sub10_type VARCHAR(20), -- 予備
-  
-  -- 基本情報（DEPRECATED: 後方互換性のため維持）
-  name VARCHAR(255) NOT NULL,             -- DEPRECATED: Use name_sub1 instead
-  name_kana VARCHAR(255),                 -- DEPRECATED: Use name_sub2 instead
-  
+  name_sub4 VARCHAR(255), name_sub4_language VARCHAR(10) REFERENCES languages(code),  -- 中国語簡体字
+  name_sub5 VARCHAR(255), name_sub5_language VARCHAR(10) REFERENCES languages(code),  -- 中国語繁体字
+  name_sub6 VARCHAR(255), name_sub6_language VARCHAR(10) REFERENCES languages(code),  -- 韓国語
+  name_sub7 VARCHAR(255), name_sub7_language VARCHAR(10) REFERENCES languages(code),  -- ローマ字
+  name_sub8 VARCHAR(255), name_sub8_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub9 VARCHAR(255), name_sub9_language VARCHAR(10) REFERENCES languages(code),  -- 予備
+  name_sub10 VARCHAR(255), name_sub10_language VARCHAR(10) REFERENCES languages(code), -- 予備  
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  UNIQUE(institution_id, name)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_subjects_institution ON subjects(institution_id);
 CREATE INDEX idx_subjects_name_main ON subjects(name_main);
 CREATE INDEX idx_subjects_name_sub1 ON subjects(name_sub1);
 CREATE INDEX idx_subjects_name_sub2 ON subjects(name_sub2);
-CREATE INDEX idx_subjects_kana ON subjects(name_kana);  -- DEPRECATED: 後方互換性のため維持
 ```
 
 **イベント:** `content.lifecycle` → `SubjectCreated`, `SubjectUpdated`
 
 ---
 
-### **3.7. `languages` テーブル（v5.0.0新規追加）**
+### **3.7. `languages` テーブル（v6.0.0拡張）**
 
-言語マスタテーブル。`language_enum` を置き換え、BCP 47準拠の言語コード管理。
+言語マスタテーブル。`language_enum` を置き換え、BCP 47準拠の言語コード管理。v6.0.0で`script`列追加、拡張タグ対応。
 
 ```sql
 CREATE TABLE languages (
   id SERIAL PRIMARY KEY,
-  code VARCHAR(10) NOT NULL UNIQUE, -- BCP 47 compliant (e.g., 'ja', 'en', 'zh-CN')
-  name VARCHAR(100) NOT NULL, -- Display name (e.g., '日本語', 'English', '简体中文')
-  native_name VARCHAR(100), -- Native script name
+  code VARCHAR(20) NOT NULL UNIQUE, -- BCP 47準拠（拡張タグ対応）
+  name VARCHAR(100) NOT NULL,
+  native_name VARCHAR(100),
+  script VARCHAR(50),               -- 表記体系（Latn, Jpan, Hans, Hant, Kore等）
   is_active BOOLEAN DEFAULT TRUE,
   sort_order INT DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1425,15 +1257,20 @@ CREATE INDEX idx_languages_active ON languages(is_active) WHERE is_active = TRUE
 **サンプルデータ:**
 
 ```sql
-INSERT INTO languages (code, name, native_name, is_active, sort_order) VALUES
-('ja', '日本語', '日本語', TRUE, 1),
-('en', 'English', 'English', TRUE, 2),
-('zh-CN', '中国語（簡体字）', '简体中文', TRUE, 3),
-('zh-TW', '中国語（繁体字）', '繁體中文', TRUE, 4),
-('ko', '韓国語', '한국어', TRUE, 5),
-('es', 'Spanish', 'Español', TRUE, 6),
-('fr', 'French', 'Français', TRUE, 7),
-('de', 'German', 'Deutsch', TRUE, 8);
+INSERT INTO languages (code, name, native_name, script, is_active, sort_order) VALUES
+('ja', '日本語', '日本語', 'Jpan', TRUE, 1),
+('en', 'English', 'English', 'Latn', TRUE, 2),
+('zh-CN', '中国語（簡体字）', '简体中文', 'Hans', TRUE, 3),
+('zh-TW', '中国語（繁体字）', '繁體中文', 'Hant', TRUE, 4),
+('ko', '韓国語', '한국어', 'Kore', TRUE, 5),
+('ja-Kana', '日本語（カタカナ）', 'カタカナ', 'Kana', TRUE, 6),
+('ja-Hira', '日本語（ひらがな）', 'ひらがな', 'Hira', TRUE, 7),
+('ja-Latn', '日本語（ローマ字）', 'Rōmaji', 'Latn', TRUE, 8),
+('zh-Hans', '中国語簡体字', '简体字', 'Hans', TRUE, 9),
+('zh-Hant', '中国語繁体字', '繁體字', 'Hant', TRUE, 10),
+('zh-Latn-pinyin', '中国語（ピンイン）', 'Pīnyīn', 'Latn', TRUE, 11),
+('ko-Hang', '韓国語（ハングル）', '한글', 'Hang', TRUE, 12),
+('ko-Latn', '韓国語（ローマ字）', 'Romaja', 'Latn', TRUE, 13);
 ```
 
 **イベント:** `content.lifecycle` → `LanguageCreated`, `LanguageUpdated`
@@ -1473,13 +1310,20 @@ CREATE TABLE institution_hierarchy_configs (
 INSERT INTO institution_hierarchy_configs 
 (institution_type, level2_label_ja, level2_label_en, level3_label_ja, level3_label_en) 
 VALUES
-('university', '学部', 'Faculty', '学科', 'Department'),
-('graduate_school', '研究科', 'Graduate School', '専攻', 'Major'),
-('junior_college', '学科', 'Department', '専攻', 'Major'),
-('technical_college', '学科', 'Department', 'コース', 'Course'),
-('technical_college_advanced', '専攻', 'Major', 'コース', 'Course'),
-('high_school', '学科', 'Department', 'コース', 'Course'),
-('vocational_school', '学科', 'Department', '専攻', 'Major');
+('university', '学部', 'Faculty'
+),
+('graduate_school', '研究科', 'Graduate School'
+),
+('junior_college', '学科', 'Department'
+),
+('technical_college', '学科', 'Department'
+),
+('technical_college_advanced', '専攻', 'Major'
+),
+('high_school', '学科', 'Department'
+),
+('vocational_school'
+);
 ```
 
 ---
@@ -2875,7 +2719,8 @@ ALTER TYPE exam_type_enum ADD VALUE 'final_exam' AFTER 'quiz';
 **変更の場合（推奨しない）:**
 ```sql
 -- 1. 新ENUM型を作成
-CREATE TYPE exam_type_enum_new AS ENUM ('regular', 'class', 'quiz', 'final_exam');
+CREATE TYPE exam_type_enum_new AS ENUM ('regular', 'class'
+);
 
 -- 2. カラムを変換
 ALTER TABLE exams 
@@ -3579,10 +3424,223 @@ PostgreSQL → Debezium CDC → Kafka → Kafka Connect → Elasticsearch
 
 ---
 
+## **13. フロントエンド多言語対応戦略**
+
+### **13.1. データ分類と管理方針**
+
+| データ種別 | 管理方法 | 例 |
+|-----------|---------|-----|
+| 静的UI文言 | i18n | ボタンラベル、エラーメッセージ |
+| ENUM表示名 | i18n | `exam_type.regular` → "定期試験" |
+| 動的コンテンツ | API | 大学名、学部名、科目名 |
+
+### **13.2. i18n管理対象**
+
+- ENUM型の表示名（`enum.json`）
+- 共通UI文言（`common.json`）
+- フォームラベル（`form.json`）
+- エラーメッセージ（`error.json`）
+
+**サンプルi18nファイル:**
+
+```json
+// locales/ja/enum.json
+{
+  "exam_type": {
+    "regular": "定期試験",
+    "class": "授業内試験",
+    "quiz": "小テスト"
+  },
+  "academic_field": {
+    "natural_sciences": "自然科学・数学・統計",
+    "ict": "情報通信技術",
+    "engineering": "工学・製造・建設"
+  }
+}
+```
+
+### **13.3. API動的取得対象**
+
+- 大学名・学部名・学科名（`institutions`, `faculties`, `departments`）
+- 科目名・教員名（`subjects`, `teachers`）
+
+**APIエンドポイント仕様:**
+
+```
+GET /api/v1/institutions/{id}?lang={language_code}
+GET /api/v1/institutions/autocomplete?q={query}&lang={language_code}
+```
+
+**レスポンス例:**
+
+```json
+{
+  "id": 1,
+  "displayName": "東京大学",
+  "phoneticName": "とうきょうだいがく",
+  "abbreviation": "東大",
+  "names": {
+    "main": { "value": "University of Tokyo", "language": "en" },
+    "sub1": { "value": "東京大学", "language": "ja" },
+    "sub2": { "value": "とうきょうだいがく", "language": "ja-Hira" }
+  }
+}
+```
+
+### **13.4. フロントエンド実装例**
+
+**ENUMヘルパー関数:**
+
+```typescript
+import { useTranslation } from 'react-i18next';
+
+export function useEnumLabel(enumType: string, value: string): string {
+  const { t } = useTranslation('enum');
+  return t(`${enumType}.${value}`, value);
+}
+```
+
+**API取得フック:**
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { useLanguage } from '@/hooks/useLanguage';
+
+export function useInstitution(id: number) {
+  const { currentLang } = useLanguage();
+  
+  return useQuery({
+    queryKey: ['institution', id, currentLang],
+    queryFn: async () => {
+      const { data } = await axios.get(
+        `/api/v1/institutions/${id}`,
+        { params: { lang: currentLang } }
+      );
+      return data;
+    },
+    staleTime: 1000 * 60 * 10, // 10分キャッシュ
+  });
+}
+```
+
+**コンポーネント使用例:**
+
+```typescript
+function InstitutionCard({ institutionId }: { institutionId: number }) {
+  const { data: institution } = useInstitution(institutionId);
+  const typeLabel = useEnumLabel('institution_type', institution?.institutionType || '');
+  
+  return (
+    <div>
+      <h3>{institution.displayName}</h3>
+      {institution.phoneticName && <p>({institution.phoneticName})</p>}
+      <span>{typeLabel}</span>
+    </div>
+  );
+}
+```
+
+### **13.5. 言語切り替え実装**
+
+```typescript
+import { create } from 'zustand';
+import { useQueryClient } from '@tanstack/react-query';
+import i18n from '@/i18n';
+
+export const useLanguage = create((set) => ({
+  currentLang: 'ja',
+  setLanguage: (lang: string) => {
+    i18n.changeLanguage(lang);
+    const queryClient = useQueryClient();
+    queryClient.invalidateQueries(); // APIキャッシュクリア
+    set({ currentLang: lang });
+  },
+}));
+```
+
+---
+
+## **14. バックエンド実装ガイド**
+
+### **14.1. 多言語名称解決ロジック（Go実装例）**
+
+```go
+func resolveDisplayName(inst *Institution, userLang string) string {
+    // 1. 完全一致検索
+    nameFields := []struct {
+        value string
+        lang  string
+    }{
+        {inst.NameSub1, inst.NameSub1Language},
+        {inst.NameSub2, inst.NameSub2Language},
+        {inst.NameSub3, inst.NameSub3Language},
+        {inst.NameSub4, inst.NameSub4Language},
+        {inst.NameSub5, inst.NameSub5Language},
+        {inst.NameSub6, inst.NameSub6Language},
+        {inst.NameSub7, inst.NameSub7Language},
+        {inst.NameSub8, inst.NameSub8Language},
+        {inst.NameSub9, inst.NameSub9Language},
+        {inst.NameSub10, inst.NameSub10Language},
+    }
+    
+    for _, field := range nameFields {
+        if field.value != "" && field.lang == userLang {
+            return field.value
+        }
+    }
+    
+    // 2. 言語ファミリー一致（例: ja-Hira → ja）
+    baseLang := strings.Split(userLang, "-")[0]
+    for _, field := range nameFields {
+        if field.value != "" && strings.HasPrefix(field.lang, baseLang) {
+            return field.value
+        }
+    }
+    
+    // 3. フォールバック: Main（英語）
+    return inst.NameMain
+}
+```
+
+### **14.2. APIエンドポイント実装**
+
+```go
+func (h *InstitutionHandler) GetInstitution(c *gin.Context) {
+    id := c.Param("id")
+    lang := c.DefaultQuery("lang", "en")
+    
+    institution, err := h.repo.FindByID(id)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Institution not found"})
+        return
+    }
+    
+    response := InstitutionResponse{
+        ID:           institution.ID,
+        DisplayName:  resolveDisplayName(institution, lang),
+        PhoneticName: resolvePhoneticName(institution, lang),
+        Abbreviation: institution.NameSub3,
+        Names: map[string]NameField{
+            "main": {Value: institution.NameMain, Language: institution.NameMainLanguage},
+            "sub1": {Value: institution.NameSub1, Language: institution.NameSub1Language},
+            "sub2": {Value: institution.NameSub2, Language: institution.NameSub2Language},
+            "sub3": {Value: institution.NameSub3, Language: institution.NameSub3Language},
+            "sub4": {Value: institution.NameSub4, Language: institution.NameSub4Language},
+            "sub5": {Value: institution.NameSub5, Language: institution.NameSub5Language},
+        },
+    }
+    
+    c.JSON(http.StatusOK, response)
+}
+```
+
+---
+
 ## **変更履歴**
 
 | 日付 | バージョン | 変更内容 |
 |------|----------|---------|
+| 2026-02-04 | 6.0.0 | `_type` → `_language`変更、後方互換性カラム完全削除、BCP 47準拠の`languages`テーブル拡張、フロントエンド多言語対応戦略追加（i18n vs API動的取得）、バックエンド実装ガイド追加 |
 | 2026-02-04 | 5.1.0 | 多言語対応カラム追加（Main+Sub1-10）、段階的実装戦略追加（Phase 1-3）、Mainを英語に統一、institutions/faculties/departments/subjects/teachersテーブルに多言語フィールド追加、データ整備計画・フロントエンド実装ガイド・マイグレーション計画追加、既存カラムをDEPRECATEDとして保持（後方互換性） |
 | 2026-02-04 | 5.0.0 | PostgreSQL 18.1 + pgvector 0.8+採用、ベクトルカラム追加、Qdrant廃止してElasticsearch 9.2.4統合、Debezium CDC採用、prefecture ENUM化、languages マスタテーブル追加、キーワード管理統合 |
 | 2026-02-04 | 2.0.0 | ENUM型全面採用、UNESCO ISCED-F 2013準拠、academic_fields廃止 |
@@ -3590,4 +3648,4 @@ PostgreSQL → Debezium CDC → Kafka → Kafka Connect → Elasticsearch
 
 ---
 
-**以上、EduMint統合データモデル設計書 v5.1.0（PostgreSQL 18.1 + pgvector + Elasticsearch 9.2.4 + Debezium CDC + 多言語対応版）**
+**以上、EduMint統合データモデル設計書 v6.0.0（PostgreSQL 18.1 + pgvector + Elasticsearch 9.2.4 + Debezium CDC + BCP 47多言語対応版）**
