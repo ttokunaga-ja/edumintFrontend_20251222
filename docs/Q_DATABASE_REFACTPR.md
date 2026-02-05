@@ -39,7 +39,7 @@ This policy ensures that all database schemas, migrations, queries, and generate
 - question_number, sub_numberをsort_orderに統一
 - マイクロサービス別章立てに完全再構成
 - ログテーブルの物理DB分離設計を明記
-- マイグレーション関連記載を全削除（初期構築前提）
+- 初期構築前提（v7.0.1でAtlas移行ツール標準化）
 
 ---
 
