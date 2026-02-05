@@ -680,6 +680,8 @@ function SearchFilter() {
 ```sql
 CREATE TABLE institutions (
   -- 主キー（v7.0.0: UUID + NanoID構成）
+  -- id: 内部UUID（gen_random_uuid()で自動生成）
+  -- public_id: API公開用NanoID（アプリケーションで16文字NanoID生成・設定）
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
   
@@ -1036,6 +1038,22 @@ CREATE INDEX idx_teachers_active ON teachers(is_active) WHERE is_active = TRUE;
 ```
 
 **v7.0.0変更点:** UUID + NanoID構成に変更。教員名のみを管理し、所属情報は試験データから間接的に取得。
+
+**所属情報の取得方法:**
+```sql
+-- 教員の所属機関・学部・学科を取得
+SELECT DISTINCT
+  t.id, t.name_main,
+  i.name_main AS institution,
+  f.name_main AS faculty,
+  d.name_main AS department
+FROM teachers t
+JOIN exams e ON e.teacher_id = t.id
+JOIN institutions i ON e.institution_id = i.id
+JOIN faculties f ON e.faculty_id = f.id
+JOIN departments d ON e.department_id = d.id
+WHERE t.id = $1;
+```
 
 **イベント:** `content.lifecycle` → `TeacherCreated`, `TeacherUpdated`
 
@@ -1853,6 +1871,7 @@ CREATE TABLE exams (
 -- インデックス
 CREATE INDEX idx_exams_public_id ON exams(public_id);
 CREATE INDEX idx_exams_institution ON exams(institution_id);
+-- 階層ドリルダウン最適化（機関→学部→学科の段階的絞り込みクエリ用）
 CREATE INDEX idx_exams_hierarchy ON exams(institution_id, faculty_id, department_id);
 CREATE INDEX idx_exams_faculty_dept ON exams(faculty_id, department_id);
 CREATE INDEX idx_exams_subject_field ON exams(subject_id, academic_field);
@@ -2635,7 +2654,7 @@ INSERT INTO user_report_reasons (id, reason_text, description) VALUES
 CREATE TABLE report_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
-  report_id BIGINT NOT NULL,
+  report_id UUID NOT NULL,  -- References content_reports or user_reports
   file_path TEXT NOT NULL,
   file_type VARCHAR(50) NOT NULL,
   original_filename TEXT,
@@ -2643,6 +2662,7 @@ CREATE TABLE report_files (
 );
 
 CREATE INDEX idx_report_files_public_id ON report_files(public_id);
+CREATE INDEX idx_report_files_report ON report_files(report_id);
 ```
 
 **イベント発行:** `moderation.events` → `ContentReportCreated`, `ContentActionTaken`, `UserReportCreated`, `UserActionTaken`
@@ -3194,7 +3214,7 @@ CREATE TABLE moderation_action_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
   
-  report_id BIGINT,
+  report_id UUID,  -- References content_reports or user_reports (NULL for non-report actions)
   report_type VARCHAR(50),
   
   action VARCHAR(50) NOT NULL,
