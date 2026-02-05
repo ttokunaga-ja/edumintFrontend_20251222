@@ -1698,7 +1698,7 @@ CREATE TABLE notifications (
   title VARCHAR(255) NOT NULL,
   content TEXT NOT NULL,
   link_url TEXT,
-  link_exam_id BIGINT,
+  link_exam_id UUID,
   
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1755,7 +1755,7 @@ CREATE INDEX idx_jobs_created ON jobs(created_at DESC);
 CREATE TABLE file_inputs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
-  exam_id BIGINT NOT NULL,
+  exam_id UUID NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   
   file_path TEXT NOT NULL,
@@ -1853,6 +1853,7 @@ CREATE TABLE exams (
 -- インデックス
 CREATE INDEX idx_exams_public_id ON exams(public_id);
 CREATE INDEX idx_exams_institution ON exams(institution_id);
+CREATE INDEX idx_exams_hierarchy ON exams(institution_id, faculty_id, department_id);
 CREATE INDEX idx_exams_faculty_dept ON exams(faculty_id, department_id);
 CREATE INDEX idx_exams_subject_field ON exams(subject_id, academic_field);
 CREATE INDEX idx_exams_year_semester ON exams(exam_year, semester);
@@ -2422,7 +2423,7 @@ transforms.excludeFields.blacklist=__deleted
 CREATE TABLE exam_likes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
-  exam_id BIGINT NOT NULL,
+  exam_id UUID NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(exam_id, user_id)
@@ -2434,7 +2435,7 @@ CREATE INDEX idx_exam_likes_public_id ON exam_likes(public_id);
 CREATE TABLE exam_bads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
-  exam_id BIGINT NOT NULL,
+  exam_id UUID NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(exam_id, user_id)
@@ -2446,7 +2447,7 @@ CREATE INDEX idx_exam_bads_public_id ON exam_bads(public_id);
 CREATE TABLE exam_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
-  exam_id BIGINT NOT NULL,
+  exam_id UUID NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   comment TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -2459,7 +2460,7 @@ CREATE INDEX idx_exam_comments_public_id ON exam_comments(public_id);
 CREATE TABLE exam_views (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
-  exam_id BIGINT NOT NULL,
+  exam_id UUID NOT NULL,
   user_id VARCHAR(255),
   viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -2544,7 +2545,7 @@ CREATE TABLE user_ad_views (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) NOT NULL,
-  exam_id BIGINT NOT NULL,
+  exam_id UUID NOT NULL,
   action_type VARCHAR(50) NOT NULL,
   ad_network VARCHAR(50),
   revenue_share BIGINT,
@@ -2559,7 +2560,7 @@ CREATE TABLE learning_histories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) NOT NULL,
-  exam_id BIGINT NOT NULL,
+  exam_id UUID NOT NULL,
   viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
