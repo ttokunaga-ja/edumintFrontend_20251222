@@ -1,0 +1,99 @@
+# SKILL.md - Project Context & Tech Stack Standards (v2026.02)
+
+## 1. Core Technology Stack & Version Control (Strict)
+CodingAgent must strictly adhere to the following versions. These represent the stable production standards as of **February 2026**.
+
+| Service/Tool | **Version (Strict)** | **Context / Evidence** |
+| :--- | :--- | :--- |
+| **Go** | **1.25.6** | **Current Stable**. Released Jan 2026. Must utilize Iterators (Range over functions) and `slog`. |
+| **Echo** | **v5.0.1** | **Latest Release**. Concrete struct `Context`. **Legacy v4 is prohibited.** |
+| **PostgreSQL** | **18.1** | **Primary DB**. Native `uuidv7()`, Asynchronous I/O (AIO), and B-tree skip scans. |
+| **Embedding** | **gemini-embedding-001** | **Dims: 1536** (MRL applied), **Type: float32**. |
+
+---
+
+## 2. Dependency Standards (Library Specification)
+The following libraries are mandatory for their respective domains. Hallucination of older module paths (e.g., `square/go-jose`) is strictly forbidden.
+
+| Library | Version | Description & Usage Policy |
+| :--- | :--- | :--- |
+| **`go-jose/v4`** | `v4.0.5` | Standard for JOSE (JWT/JWE/JWS). Use `github.com/go-jose/go-jose/v4`. |
+| **`franz-go`** | `v1.20.6` | High-performance Kafka client. Supports KIP-848 and Kafka 4.1+ protocols. |
+| **`sqlc`** | `v1.30.0` | Compile-time safe SQL. Must use `pgx/v5` engine for PostgreSQL 18 compatibility. |
+| **`oapi-codegen/v2`** | `v2.5.0` | OpenAPI 3.0/3.1 toolchain. Use `omitzero` tags for Go 1.25 compatibility. |
+| **`testcontainers-go`** | `v0.40.1` | Integration testing. Supports **Docker Model Runner** for local LLM testing. |
+| **`pgx/v5`** | `v5.7.2` | Native PostgreSQL driver. Preferred over `lib/pq` for PG18 features (Pipeline mode). |
+| **`golangci-lint`** | **v2.8.0** | Modern linting. Utilizes `golangci-lint fmt` for integrated auto-formatting. |
+
+---
+
+## 3. Echo v5.0.1 Implementation Standards
+**CRITICAL:** Echo v5.0.1 is a significant departure from v4. CodingAgent must follow these structural rules:
+
+### 3.1 Core Architectural Changes
+1.  **Context as a Concrete Struct:**
+    *   `echo.Context` is now a **Struct**, not an Interface.
+    *   **Rule:** Always pass by pointer (`*echo.Context`) to allow state mutation during the request lifecycle.
+2.  **Telemetry & Logging:**
+    *   Native integration with `log/slog`. Use `slog.Group` for request-scoped metadata.
+    *   **Prohibition:** Do not use `c.Logger()`. Use the global or context-injected `slog` instance.
+
+### 3.2 Handler Pattern (Go 1.25.6)
+```go
+package handler
+
+import (
+    "log/slog"
+    "net/http"
+    "github.com/labstack/echo/v5"
+)
+
+type ProductHandler struct{}
+
+func (h *ProductHandler) GetProduct(c *echo.Context) error {
+    // Echo v5 uses PathParam instead of Param
+    id := c.PathParam("id")
+    
+    // Modern slog integration
+    slog.Info("accessing product", slog.String("product_id", id))
+
+    return c.JSON(http.StatusOK, map[string]string{"status": "success", "id": id})
+}
+```
+
+---
+
+## 4. PostgreSQL 18.1 Optimization Standards
+With the migration from MySQL to PostgreSQL 18, the following patterns are required:
+
+1.  **Primary Keys:** Use `UUID v7` for time-ordered uniqueness. Utilize the native `uuidv7()` function provided in PG18.
+2.  **Concurrency:** Utilize **Asynchronous I/O (AIO)** for high-throughput batch inserts.
+3.  **JSONB:** For semi-structured data, use `jsonb` with `GIN` indexing. PostgreSQL 18s improved JSON path expressions should be used for complex filtering.
+4.  **Driver:** Use `jackc/pgx/v5` with `sqlc` to generate type-safe code that leverages PostgreSQL-specific features (e.g., CopyProtocol).
+
+---
+
+## 5. AI Model Selection Strategy (Feb 2026)
+
+### 5.1 Model Decision Matrix
+
+| Task Phase | **Recommended Model** | **Rationale** |
+| :--- | :--- | :--- |
+| **1. Layout Analysis** | **Gemini 2.5 Flash** | High visual reasoning for complex PDF/OCR tasks at low cost. |
+| **2. Data Structuring** | **Gemini 2.5 Flash-Lite** | Lowest latency ($0.10/1M) for high-volume JSON transformation. |
+| **3. Logic Generation** | **Gemini 3.0 Pro** | **"Deep Think"** mode for complex algorithmic Go code and academic accuracy. |
+
+### 5.2 Embedding Configuration
+*   **Model:** `gemini-embedding-001`
+*   **Dimensionality:** **1536** (Strictly enforced via Matryoshka Representation Learning).
+*   **Vector Search:** Use PostgreSQL `pgvector` extension for storing and querying 1536-dim vectors.
+
+---
+
+## 6. Coding Conventions & Quality Control
+*   **Go 1.25 Idioms:**
+    *   Prefer `for...range` over function-based iterators for custom collections.
+    *   Use `math/rand/v2` for all pseudo-random operations.
+*   **Error Handling:** Use `errors.Join` for multiple errors and `fmt.Errorf` with `%w` for wrapping.
+*   **Linting:** `golangci-lint v2.8.0` is the gatekeeper. Code must pass the `v2` configuration schema, focusing on `govet`, `revive`, and `staticcheck`.
+*   **Testing:** Minimum 80% coverage using `Testcontainers-go` for any logic involving PostgreSQL 18.1.
