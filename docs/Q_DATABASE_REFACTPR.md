@@ -1373,7 +1373,8 @@ func BuildUserLocaleContext(userID string) (*UserLocaleContext, error) {
 
 ```sql
 CREATE TABLE institution_hierarchy_configs (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   institution_type VARCHAR(50) NOT NULL UNIQUE,
   country_code VARCHAR(2) NOT NULL DEFAULT 'JP',
   
@@ -1390,6 +1391,8 @@ CREATE TABLE institution_hierarchy_configs (
   
   UNIQUE(institution_type, country_code)
 );
+
+CREATE INDEX idx_institution_hierarchy_configs_public_id ON institution_hierarchy_configs(public_id);
 ```
 
 **サンプルデータ:**
@@ -1534,7 +1537,8 @@ CREATE TABLE oauth_tokens (
 
 ```sql
 CREATE TABLE idp_links (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) NOT NULL,
   provider VARCHAR(50) NOT NULL,
   provider_user_id VARCHAR(255) NOT NULL,
@@ -1544,6 +1548,8 @@ CREATE TABLE idp_links (
   
   UNIQUE(provider, provider_user_id)
 );
+
+CREATE INDEX idx_idp_links_public_id ON idp_links(public_id);
 ```
 
 **イベント:** `auth.events` → `UserSignedUpViaSSO`, `UserLoggedIn`
@@ -1621,7 +1627,8 @@ CREATE INDEX idx_users_status ON users(status);
 
 ```sql
 CREATE TABLE user_profiles (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) UNIQUE REFERENCES users(id),
   
   bio_extended TEXT,
@@ -1631,6 +1638,8 @@ CREATE TABLE user_profiles (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_user_profiles_public_id ON user_profiles(public_id);
 ```
 
 ---
@@ -1639,7 +1648,8 @@ CREATE TABLE user_profiles (
 
 ```sql
 CREATE TABLE user_follows (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   follower_id VARCHAR(255) NOT NULL REFERENCES users(id),
   followed_id VARCHAR(255) NOT NULL REFERENCES users(id),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1647,6 +1657,7 @@ CREATE TABLE user_follows (
   UNIQUE(follower_id, followed_id)
 );
 
+CREATE INDEX idx_user_follows_public_id ON user_follows(public_id);
 CREATE INDEX idx_user_follows_follower ON user_follows(follower_id);
 CREATE INDEX idx_user_follows_followed ON user_follows(followed_id);
 ```
@@ -1659,13 +1670,16 @@ CREATE INDEX idx_user_follows_followed ON user_follows(followed_id);
 
 ```sql
 CREATE TABLE user_blocks (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   blocker_id VARCHAR(255) NOT NULL REFERENCES users(id),
   blocked_id VARCHAR(255) NOT NULL REFERENCES users(id),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   
   UNIQUE(blocker_id, blocked_id)
 );
+
+CREATE INDEX idx_user_blocks_public_id ON user_blocks(public_id);
 ```
 
 **イベント:** `user.events` → `UserBlocked`
@@ -1676,7 +1690,8 @@ CREATE TABLE user_blocks (
 
 ```sql
 CREATE TABLE notifications (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) NOT NULL REFERENCES users(id),
   
   type notification_type_enum NOT NULL,
@@ -1689,6 +1704,7 @@ CREATE TABLE notifications (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_notifications_public_id ON notifications(public_id);
 CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at DESC);
 CREATE INDEX idx_notifications_type ON notifications(type);
 ```
@@ -1737,7 +1753,8 @@ CREATE INDEX idx_jobs_created ON jobs(created_at DESC);
 
 ```sql
 CREATE TABLE file_inputs (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   exam_id BIGINT NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   
@@ -1754,6 +1771,7 @@ CREATE TABLE file_inputs (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_file_inputs_public_id ON file_inputs(public_id);
 CREATE INDEX idx_file_inputs_exam ON file_inputs(exam_id);
 CREATE INDEX idx_file_inputs_user ON file_inputs(user_id);
 ```
@@ -1928,9 +1946,6 @@ CREATE INDEX idx_sub_questions_explanation_embedding_hnsw ON sub_questions USING
 **注記:** `question_types` テーブルは廃止され、`question_type_enum` に置き換えられました。
 
 ---
-```
-
----
 
 ### **6.5-6.7. 補助テーブル**
 
@@ -2056,13 +2071,14 @@ CREATE INDEX idx_content_keywords_keyword ON content_keywords(keyword_id);
 {
   "mappings": {
     "properties": {
-      "id": { "type": "long" },
+      "id": { "type": "keyword" },
+      "public_id": { "type": "keyword" },
       "title": { "type": "text", "analyzer": "kuromoji" },
       "exam_type": { "type": "keyword" },
-      "institution_id": { "type": "integer" },
-      "faculty_id": { "type": "integer" },
-      "department_id": { "type": "integer" },
-      "subject_id": { "type": "long" },
+      "institution_id": { "type": "keyword" },
+      "faculty_id": { "type": "keyword" },
+      "department_id": { "type": "keyword" },
+      "subject_id": { "type": "keyword" },
       "exam_year": { "type": "integer" },
       "semester": { "type": "keyword" },
       "academic_field": { "type": "keyword" },
@@ -2086,9 +2102,10 @@ CREATE INDEX idx_content_keywords_keyword ON content_keywords(keyword_id);
 {
   "mappings": {
     "properties": {
-      "id": { "type": "long" },
-      "exam_id": { "type": "long" },
-      "question_number": { "type": "integer" },
+      "id": { "type": "keyword" },
+      "public_id": { "type": "keyword" },
+      "exam_id": { "type": "keyword" },
+      "sort_order": { "type": "integer" },
       "difficulty_level": { "type": "keyword" },
       "content": { "type": "text", "analyzer": "kuromoji" },
       "region_code": { "type": "keyword" },
@@ -2110,9 +2127,10 @@ CREATE INDEX idx_content_keywords_keyword ON content_keywords(keyword_id);
 {
   "mappings": {
     "properties": {
-      "id": { "type": "long" },
-      "question_id": { "type": "long" },
-      "sub_number": { "type": "integer" },
+      "id": { "type": "keyword" },
+      "public_id": { "type": "keyword" },
+      "question_id": { "type": "keyword" },
+      "sort_order": { "type": "integer" },
       "question_type": { "type": "keyword" },
       "content": { "type": "text", "analyzer": "kuromoji" },
       "answer": { "type": "text", "analyzer": "kuromoji" },
@@ -2141,7 +2159,8 @@ CREATE INDEX idx_content_keywords_keyword ON content_keywords(keyword_id);
 {
   "mappings": {
     "properties": {
-      "id": { "type": "long" },
+      "id": { "type": "keyword" },
+      "public_id": { "type": "keyword" },
       "name": { "type": "text", "analyzer": "kuromoji" },
       "name_embedding": {
         "type": "dense_vector",
@@ -2266,7 +2285,8 @@ edumint.content.languages
 
 ```sql
 CREATE TABLE search_query_logs (
-  id BIGSERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255),
   query_text TEXT NOT NULL,
   filters JSONB,
@@ -2276,6 +2296,7 @@ CREATE TABLE search_query_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_search_query_logs_public_id ON search_query_logs(public_id);
 CREATE INDEX idx_search_logs_user ON search_query_logs(user_id);
 CREATE INDEX idx_search_logs_created ON search_query_logs(created_at DESC);
 ```
@@ -2399,25 +2420,32 @@ transforms.excludeFields.blacklist=__deleted
 ```sql
 -- いいね
 CREATE TABLE exam_likes (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   exam_id BIGINT NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(exam_id, user_id)
 );
+
+CREATE INDEX idx_exam_likes_public_id ON exam_likes(public_id);
 
 -- 低評価
 CREATE TABLE exam_bads (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   exam_id BIGINT NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(exam_id, user_id)
 );
 
+CREATE INDEX idx_exam_bads_public_id ON exam_bads(public_id);
+
 -- コメント
 CREATE TABLE exam_comments (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   exam_id BIGINT NOT NULL,
   user_id VARCHAR(255) NOT NULL,
   comment TEXT NOT NULL,
@@ -2425,13 +2453,18 @@ CREATE TABLE exam_comments (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_exam_comments_public_id ON exam_comments(public_id);
+
 -- 閲覧
 CREATE TABLE exam_views (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   exam_id BIGINT NOT NULL,
   user_id VARCHAR(255),
   viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_exam_views_public_id ON exam_views(public_id);
 ```
 
 **イベント発行:** `content.feedback` → `ExamLiked`, `ExamBadRated`, `ExamCommented`, `ExamViewed`
@@ -2445,7 +2478,8 @@ CREATE TABLE exam_views (
 ```sql
 -- ウォレット
 CREATE TABLE wallets (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) UNIQUE NOT NULL,
   balance BIGINT NOT NULL DEFAULT 0,
   currency VARCHAR(3) DEFAULT 'JPY',
@@ -2454,10 +2488,13 @@ CREATE TABLE wallets (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_wallets_public_id ON wallets(public_id);
+
 -- トランザクション
 CREATE TABLE wallet_transactions (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  wallet_id BIGINT NOT NULL REFERENCES wallets(id),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
+  wallet_id UUID NOT NULL REFERENCES wallets(id),
   amount BIGINT NOT NULL,
   type transaction_type_enum NOT NULL,
   reference_type VARCHAR(50),
@@ -2467,6 +2504,7 @@ CREATE TABLE wallet_transactions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_wallet_transactions_public_id ON wallet_transactions(public_id);
 CREATE INDEX idx_wallet_transactions_wallet ON wallet_transactions(wallet_id);
 CREATE INDEX idx_wallet_transactions_type ON wallet_transactions(type);
 ```
@@ -2480,7 +2518,8 @@ CREATE INDEX idx_wallet_transactions_type ON wallet_transactions(type);
 ```sql
 -- 収益レポート
 CREATE TABLE revenue_reports (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) NOT NULL,
   report_month DATE NOT NULL,
   ad_earnings BIGINT NOT NULL,
@@ -2491,6 +2530,8 @@ CREATE TABLE revenue_reports (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_revenue_reports_public_id ON revenue_reports(public_id);
 ```
 
 ---
@@ -2500,7 +2541,8 @@ CREATE TABLE revenue_reports (
 ```sql
 -- 広告視聴履歴
 CREATE TABLE user_ad_views (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) NOT NULL,
   exam_id BIGINT NOT NULL,
   action_type VARCHAR(50) NOT NULL,
@@ -2510,13 +2552,18 @@ CREATE TABLE user_ad_views (
   UNIQUE(user_id, exam_id, action_type)
 );
 
+CREATE INDEX idx_user_ad_views_public_id ON user_ad_views(public_id);
+
 -- 学習履歴
 CREATE TABLE learning_histories (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) NOT NULL,
   exam_id BIGINT NOT NULL,
   viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_learning_histories_public_id ON learning_histories(public_id);
 ```
 
 ---
@@ -2585,13 +2632,16 @@ INSERT INTO user_report_reasons (id, reason_text, description) VALUES
 
 -- 通報添��ファイル
 CREATE TABLE report_files (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   report_id BIGINT NOT NULL,
   file_path TEXT NOT NULL,
   file_type VARCHAR(50) NOT NULL,
   original_filename TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_report_files_public_id ON report_files(public_id);
 ```
 
 **イベント発行:** `moderation.events` → `ContentReportCreated`, `ContentActionTaken`, `UserReportCreated`, `UserActionTaken`
@@ -2884,7 +2934,8 @@ def sync_mext_data():
 
 **必須カラム:**
 ```sql
-id BIGSERIAL PRIMARY KEY,
+id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+public_id VARCHAR(16) NOT NULL UNIQUE,
 event_type VARCHAR(50) NOT NULL,
 user_id VARCHAR(255),
 ip_address INET,
@@ -2895,6 +2946,7 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 **インデックス戦略:**
 ```sql
+CREATE INDEX idx_{table}_public_id ON {table}(public_id);
 CREATE INDEX idx_{table}_user ON {table}(user_id);
 CREATE INDEX idx_{table}_event ON {table}(event_type);
 CREATE INDEX idx_{table}_created ON {table}(created_at DESC);
@@ -2912,7 +2964,8 @@ CREATE INDEX idx_{table}_created ON {table}(created_at DESC);
 
 ```sql
 CREATE TABLE auth_logs (
-  id BIGSERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   
   event_type auth_event_enum NOT NULL,
   
@@ -2937,6 +2990,7 @@ CREATE TABLE auth_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_auth_logs_public_id ON auth_logs(public_id);
 CREATE INDEX idx_auth_logs_user ON auth_logs(user_id);
 CREATE INDEX idx_auth_logs_event ON auth_logs(event_type);
 CREATE INDEX idx_auth_logs_created ON auth_logs(created_at DESC);
@@ -2961,7 +3015,8 @@ CREATE INDEX idx_auth_logs_ip ON auth_logs(ip_address);
 
 ```sql
 CREATE TABLE content_audit_logs (
-  id BIGSERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   
   resource_type VARCHAR(50) NOT NULL,
   -- 'institution', 'faculty', 'department', 'exam', 'question', 'sub_question'
@@ -2987,6 +3042,7 @@ CREATE TABLE content_audit_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_content_audit_logs_public_id ON content_audit_logs(public_id);
 CREATE INDEX idx_content_audit_logs_resource ON content_audit_logs(resource_type, resource_id);
 CREATE INDEX idx_content_audit_logs_user ON content_audit_logs(user_id);
 CREATE INDEX idx_content_audit_logs_action ON content_audit_logs(action);
@@ -3027,7 +3083,8 @@ FOR EACH ROW EXECUTE FUNCTION log_exam_changes();
 
 ```sql
 CREATE TABLE search_query_logs (
-  id BIGSERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   
   query_text TEXT NOT NULL,
   normalized_query TEXT,
@@ -3050,6 +3107,7 @@ CREATE TABLE search_query_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_search_query_logs_public_id ON search_query_logs(public_id);
 CREATE INDEX idx_search_query_logs_user ON search_query_logs(user_id);
 CREATE INDEX idx_search_query_logs_query ON search_query_logs(query_text);
 CREATE INDEX idx_search_query_logs_created ON search_query_logs(created_at DESC);
@@ -3072,10 +3130,11 @@ CREATE INDEX idx_search_query_logs_created ON search_query_logs(created_at DESC)
 
 ```sql
 CREATE TABLE wallet_audit_logs (
-  id BIGSERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   
-  transaction_id BIGINT NOT NULL REFERENCES wallet_transactions(id),
-  wallet_id BIGINT NOT NULL REFERENCES wallets(id),
+  transaction_id UUID NOT NULL REFERENCES wallet_transactions(id),
+  wallet_id UUID NOT NULL REFERENCES wallets(id),
   
   action VARCHAR(50) NOT NULL,
   -- 'transaction_created', 'transaction_completed', 'transaction_failed',
@@ -3094,6 +3153,7 @@ CREATE TABLE wallet_audit_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_wallet_audit_logs_public_id ON wallet_audit_logs(public_id);
 CREATE INDEX idx_wallet_audit_logs_transaction ON wallet_audit_logs(transaction_id);
 CREATE INDEX idx_wallet_audit_logs_wallet ON wallet_audit_logs(wallet_id);
 CREATE INDEX idx_wallet_audit_logs_user ON wallet_audit_logs(user_id);
@@ -3130,7 +3190,8 @@ FOR EACH ROW EXECUTE FUNCTION log_wallet_changes();
 
 ```sql
 CREATE TABLE moderation_action_logs (
-  id BIGSERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   
   report_id BIGINT,
   report_type VARCHAR(50),
@@ -3152,6 +3213,7 @@ CREATE TABLE moderation_action_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_moderation_action_logs_public_id ON moderation_action_logs(public_id);
 CREATE INDEX idx_moderation_action_logs_report ON moderation_action_logs(report_id);
 CREATE INDEX idx_moderation_action_logs_moderator ON moderation_action_logs(moderator_id);
 CREATE INDEX idx_moderation_action_logs_action ON moderation_action_logs(action);
