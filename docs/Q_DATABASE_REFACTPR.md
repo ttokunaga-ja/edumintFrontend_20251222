@@ -1,6 +1,16 @@
-# **EduMint 統合データモデル設計書 v6.2.0**
+# **EduMint 統合データモデル設計書 v7.0.0**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
+
+**v7.0.0 主要更新:**
+- 全主キーをUUID + NanoID構成に変更（SERIAL/AUTO_INCREMENT廃止）
+- user_role_enumを free, system, admin, premium に厳格化
+- content_report_reason_enumをENUM型で定義
+- academic_field_metadataテーブルを削除（ENUM型のみに集約）
+- established_year, mext_code系カラムを削除
+- parent_institution_idを削除（院大学は独立機関として登録）
+- question_number, sub_numberをsort_orderに統一
+- マイグレーション関連記載を全削除（初期構築前提）
 
 **v6.2.0 主要更新:**
 - YouTube方式の言語と地域の分離管理を採用
@@ -20,7 +30,6 @@
 - 外部キー制約追加（languages.code参照）
 - フロントエンド多言語対応戦略追加（i18n vs API動的取得の分類）
 - バックエンド実装ガイド追加（Go言語サンプルコード）
-- マイグレーション計画更新（後方互換性なしの直接移行手順）
 
 **v5.0.0 主要更新:**
 - PostgreSQL 18.1 + pgvector 0.8+ 採用、ベクトル検索機能の統合
@@ -192,11 +201,10 @@ CREATE TYPE academic_field_enum AS ENUM (
 ```sql
 -- ユーザーロール
 CREATE TYPE user_role_enum AS ENUM (
-  'user',               -- 一般ユーザー
-  'premium',            -- プレミアムユーザー
-  'moderator',          -- モデレーター
+  'free',               -- 無料ユーザー
+  'system',             -- システム
   'admin',              -- 管理者
-  'system'              -- システム
+  'premium'             -- プレミアムユーザー
 );
 
 -- ユーザーステータス
@@ -258,6 +266,17 @@ CREATE TYPE report_status_enum AS ENUM (
   'resolved',           -- 解決済み
   'ignored'             -- 無視
 );
+
+-- コンテンツ通報理由
+CREATE TYPE content_report_reason_enum AS ENUM (
+  'incorrect_answer',      -- 1: 解答が不正確・間違っている
+  'unclear_question',      -- 2: 問題文が不明瞭・誤字がある
+  'mismatch',              -- 3: 問題と解答の対応が不適切
+  'copyright',             -- 4: 著作権を侵害している疑い
+  'inappropriate',         -- 5: 不適切な表現を含んでいる
+  'spam',                  -- 6: スパム・宣伝目的である
+  'other'                  -- 99: その他
+);
 ```
 
 #### **1.6. 経済・通知関連ENUM**
@@ -296,7 +315,7 @@ CREATE TYPE notification_type_enum AS ENUM (
 | **edumintAuth** | SSO・認証 | `oauth_clients`, `oauth_tokens`, `idp_links`, `auth_logs` | `auth.events` | - |
 | **edumintUserProfile** | ユーザー管理・フォロー・通知 | `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications` | `user.events` | `auth.events` |
 | **edumintFile** | ファイル管理 | `file_inputs`, `file_upload_jobs` | `content.jobs` (FileUploaded) | `gateway.jobs` |
-| **edumintContent** | 試験・問題データ (Source of Truth) | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `academic_field_metadata`, `exams`, `questions`, `sub_questions`, etc. | `content.lifecycle` | `gateway.jobs`, `ai.results` |
+| **edumintContent** | 試験・問題データ (Source of Truth) | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, etc. | `content.lifecycle` | `gateway.jobs`, `ai.results` |
 | **edumintSearch** | 検索・インデックス | `*_terms` (subject, institution, faculty, teacher), `term_generation_jobs`, `term_generation_candidates`, Elasticsearch索引、Qdrant索引 | `search.indexed`, `search.term_generation` | `content.lifecycle` |
 | **edumintAiWorker** | AI処理（ステートレス） | （通常DBなし）*キャッシュ・ジョブログのみ | `ai.results` | `gateway.jobs`, `content.jobs`, `search.term_generation` |
 | **edumintSocial** | SNS機能（コメント・いいね） | `exam_likes`, `exam_bads`, `exam_comments`, `exam_views` | `content.feedback` | - |
@@ -652,94 +671,6 @@ function SearchFilter() {
 }
 ```
 
-#### **3.0.7. マイグレーション計画**
-
-**新スキーマへの移行手順（後方互換性なし）:**
-
-```sql
--- ==========================================
--- Phase 1: 旧カラムの完全削除
--- ==========================================
-
--- institutions テーブル
-ALTER TABLE institutions
-  DROP COLUMN IF EXISTS name,
-  DROP COLUMN IF EXISTS name_kana,
-  DROP COLUMN IF EXISTS name_english,
-  DROP COLUMN IF EXISTS abbreviation;
-
--- faculties テーブル
-ALTER TABLE faculties
-  DROP COLUMN IF EXISTS name,
-  DROP COLUMN IF EXISTS name_kana,
-  DROP COLUMN IF EXISTS name_english;
-
--- departments テーブル
-ALTER TABLE departments
-  DROP COLUMN IF EXISTS name,
-  DROP COLUMN IF EXISTS name_kana,
-  DROP COLUMN IF EXISTS name_english;
-
--- subjects テーブル
-ALTER TABLE subjects
-  DROP COLUMN IF EXISTS name,
-  DROP COLUMN IF EXISTS name_kana;
-
--- teachers テーブル
-ALTER TABLE teachers
-  DROP COLUMN IF EXISTS name;
-
--- ==========================================
--- Phase 2: 新カラムの追加
--- ==========================================
-
--- institutions テーブル
-ALTER TABLE institutions
-  ADD COLUMN name_main VARCHAR(255) NOT NULL DEFAULT 'Unnamed Institution',
-  ADD COLUMN name_main_language VARCHAR(10) DEFAULT 'en' REFERENCES languages(code),
-  ADD COLUMN name_sub1 VARCHAR(255),
-  ADD COLUMN name_sub1_language VARCHAR(10) REFERENCES languages(code),
-  ADD COLUMN name_sub2 VARCHAR(255),
-  ADD COLUMN name_sub2_language VARCHAR(10) REFERENCES languages(code),
-  ADD COLUMN name_sub3 VARCHAR(100),
-  ADD COLUMN name_sub3_language VARCHAR(10) REFERENCES languages(code),
-  ADD COLUMN name_sub4 VARCHAR(255),
-  ADD COLUMN name_sub4_language VARCHAR(10) REFERENCES languages(code),
-  ADD COLUMN name_sub5 VARCHAR(255),
-  ADD COLUMN name_sub5_language VARCHAR(10) REFERENCES languages(code),
-  ADD COLUMN name_sub6 VARCHAR(255),
-  ADD COLUMN name_sub6_language VARCHAR(10) REFERENCES languages(code),
-  ADD COLUMN name_sub7 VARCHAR(255),
-  ADD COLUMN name_sub7_language VARCHAR(10) REFERENCES languages(code),
-  ADD COLUMN name_sub8 VARCHAR(255),
-  ADD COLUMN name_sub8_language VARCHAR(10) REFERENCES languages(code),
-  ADD COLUMN name_sub9 VARCHAR(255),
-  ADD COLUMN name_sub9_language VARCHAR(10) REFERENCES languages(code),
-  ADD COLUMN name_sub10 VARCHAR(255),
-  ADD COLUMN name_sub10_language VARCHAR(10) REFERENCES languages(code);
-
--- 同様の手順を他のテーブルにも適用
--- (faculties, departments, subjects, teachers)
-
--- ==========================================
--- Phase 3: インデックスの追加
--- ==========================================
-
-CREATE INDEX idx_institutions_name_main ON institutions(name_main);
-CREATE INDEX idx_institutions_name_sub1 ON institutions(name_sub1);
-CREATE INDEX idx_institutions_name_sub2 ON institutions(name_sub2);
-CREATE INDEX idx_institutions_name_sub3 ON institutions(name_sub3);
-
--- 同様のインデックスを他のテーブルにも適用
-```
-
-**マイグレーション実施時の注意事項:**
-
-1. **データバックアップ**: マイグレーション前に必ず全データをバックアップ
-2. **languages テーブル作成**: 外部キー制約のため、先に languages テーブルを作成・データ投入
-3. **ダウンタイム**: リリース前のため、メンテナンスモードで実施
-4. **アプリケーション対応**: データベーススキーマ変更と同時にアプリケーションコードも更新
-
 ---
 
 ### **3.1. `institutions` テーブル**
@@ -748,17 +679,12 @@ CREATE INDEX idx_institutions_name_sub3 ON institutions(name_sub3);
 
 ```sql
 CREATE TABLE institutions (
-  -- 主キー
-  id SERIAL PRIMARY KEY,
+  -- 主キー（v7.0.0: UUID + NanoID構成）
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   
   -- 機関種別（ENUM型）
   institution_type institution_type_enum NOT NULL,
-  
-  -- 親機関（大学院→大学の紐付け）
-  parent_institution_id INTEGER REFERENCES institutions(id),
-  
-  -- 文部科学省コード（データ同期用）
-  mext_code VARCHAR(20) UNIQUE,
   
   -- 多言語対応（MVP: Main + Sub1-3、Phase 2以降: Sub4-10）
   name_main VARCHAR(255) NOT NULL,        -- 英語正式名（API基準）
@@ -802,8 +728,8 @@ CREATE TABLE institutions (
 );
 
 -- インデックス
+CREATE INDEX idx_institutions_public_id ON institutions(public_id);
 CREATE INDEX idx_institutions_type ON institutions(institution_type);
-CREATE INDEX idx_institutions_parent ON institutions(parent_institution_id);
 CREATE INDEX idx_institutions_name_main ON institutions(name_main);
 CREATE INDEX idx_institutions_name_sub1 ON institutions(name_sub1);
 CREATE INDEX idx_institutions_name_sub2 ON institutions(name_sub2);
@@ -811,7 +737,6 @@ CREATE INDEX idx_institutions_name_sub3 ON institutions(name_sub3);
 CREATE INDEX idx_institutions_prefecture ON institutions(prefecture);
 CREATE INDEX idx_institutions_popularity ON institutions(popularity_score DESC);
 CREATE INDEX idx_institutions_active ON institutions(is_active) WHERE is_active = TRUE;
-CREATE UNIQUE INDEX idx_institutions_mext_code ON institutions(mext_code) WHERE mext_code IS NOT NULL;
 ```
 
 **イベント:** `content.lifecycle` → `InstitutionCreated`, `InstitutionUpdated`, `InstitutionDeactivated`
@@ -821,28 +746,28 @@ CREATE UNIQUE INDEX idx_institutions_mext_code ON institutions(mext_code) WHERE 
 ```sql
 -- 東京大学（学部） - MVP版（Main + Sub1-3）
 INSERT INTO institutions (
-  id, institution_type, parent_institution_id, prefecture, mext_code,
+  public_id, institution_type, prefecture,
   name_main, name_main_language,
   name_sub1, name_sub1_language,
   name_sub2, name_sub2_language,
   name_sub3, name_sub3_language
 ) VALUES (
-  1, 'university', NULL, '東京都', '4A0001',
+  'UTokyo001', 'university', '東京都',
   'University of Tokyo', 'en',
   '東京大学', 'ja',
   'とうきょうだいがく', 'ja-Hira',
   '東大', 'ja'
 );
 
--- 東京大学大学院
+-- 東京大学大学院（独立機関として登録）
 INSERT INTO institutions (
-  id, institution_type, parent_institution_id, prefecture,
+  public_id, institution_type, prefecture,
   name_main, name_main_language,
   name_sub1, name_sub1_language,
   name_sub2, name_sub2_language,
   name_sub3, name_sub3_language
 ) VALUES (
-  2, 'graduate_school', 1, '東京都',
+  'UTokyoGrad001', 'graduate_school', '東京都',
   'University of Tokyo Graduate School', 'en',
   '東京大学大学院', 'ja',
   'とうきょうだいがくだいがくいん', 'ja-Hira',
@@ -907,10 +832,10 @@ INSERT INTO institutions (
 
 ```sql
 CREATE TABLE faculties (
-  id SERIAL PRIMARY KEY,
-  institution_id INTEGER NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
-  
-  mext_faculty_code VARCHAR(20),
+  -- 主キー（v7.0.0: UUID + NanoID構成）
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
+  institution_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
   
   -- 多言語対応（MVP: Main + Sub1-3、Phase 2以降: Sub4-10）
   name_main VARCHAR(255) NOT NULL,        -- 英語正式名（API基準）
@@ -937,7 +862,6 @@ CREATE TABLE faculties (
   -- 地域情報（v6.2.0追加）
   region_code CHAR(2) REFERENCES regions(iso_code),
   
-  established_year INTEGER,
   total_enrollment_capacity INTEGER DEFAULT 0,
   academic_field academic_field_enum,
   
@@ -949,6 +873,7 @@ CREATE TABLE faculties (
 );
 
 -- インデックス
+CREATE INDEX idx_faculties_public_id ON faculties(public_id);
 CREATE INDEX idx_faculties_institution ON faculties(institution_id);
 CREATE INDEX idx_faculties_name_main ON faculties(name_main);
 CREATE INDEX idx_faculties_name_sub1 ON faculties(name_sub1);
@@ -965,19 +890,19 @@ CREATE INDEX idx_faculties_field ON faculties(academic_field);
 ```sql
 -- 東京大学の学部
 INSERT INTO faculties (
-  institution_id,
+  public_id, institution_id,
   name_main, name_sub1, name_sub2
 ) VALUES
-(1, 'Faculty of Engineering', '工学部', 'こうがくぶ'),
-(1, 'Faculty of Science', '理学部', 'りがくぶ');
+('UTFac001', (SELECT id FROM institutions WHERE public_id = 'UTokyo001'), 'Faculty of Engineering', '工学部', 'こうがくぶ'),
+('UTFac002', (SELECT id FROM institutions WHERE public_id = 'UTokyo001'), 'Faculty of Science', '理学部', 'りがくぶ');
 
 -- 東京大学大学院の研究科
 INSERT INTO faculties (
-  institution_id,
+  public_id, institution_id,
   name_main, name_sub1, name_sub2
 ) VALUES
-(2, 'Graduate School of Engineering', '工学系研究科', 'こうがくけいけんきゅうか'),
-(2, 'Graduate School of Science', '理学系研究科', 'りがくけいけんきゅうか');
+('UTGradFac001', (SELECT id FROM institutions WHERE public_id = 'UTokyoGrad001'), 'Graduate School of Engineering', '工学系研究科', 'こうがくけいけんきゅうか'),
+('UTGradFac002', (SELECT id FROM institutions WHERE public_id = 'UTokyoGrad001'), 'Graduate School of Science', '理学系研究科', 'りがくけいけんきゅうか');
 ```
 
 ---
@@ -988,10 +913,10 @@ INSERT INTO faculties (
 
 ```sql
 CREATE TABLE departments (
-  id SERIAL PRIMARY KEY,
-  faculty_id INTEGER NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
-  
-  mext_department_code VARCHAR(20),
+  -- 主キー（v7.0.0: UUID + NanoID構成）
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
+  faculty_id UUID NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
   
   -- 多言語対応（MVP: Main + Sub1-3、Phase 2以降: Sub4-10）
   name_main VARCHAR(255) NOT NULL,        -- 英語正式名（API基準）
@@ -1018,7 +943,6 @@ CREATE TABLE departments (
   -- 地域情報（v6.2.0追加）
   region_code CHAR(2) REFERENCES regions(iso_code),
   
-  established_year INTEGER,
   enrollment_capacity INTEGER DEFAULT 0,
   academic_field academic_field_enum,
   
@@ -1030,6 +954,7 @@ CREATE TABLE departments (
 );
 
 -- インデックス
+CREATE INDEX idx_departments_public_id ON departments(public_id);
 CREATE INDEX idx_departments_faculty ON departments(faculty_id);
 CREATE INDEX idx_departments_name_main ON departments(name_main);
 CREATE INDEX idx_departments_name_sub1 ON departments(name_sub1);
@@ -1046,30 +971,32 @@ CREATE INDEX idx_departments_field ON departments(academic_field);
 ```sql
 -- 東京大学 工学部の学科
 INSERT INTO departments (
-  faculty_id,
+  public_id, faculty_id,
   name_main, name_sub1, name_sub2
 ) VALUES
-(10, 'Department of Electrical and Electronic Engineering', '電気電子工学科', 'でんきでんしこうがくか'),
-(10, 'Department of Mechanical Engineering', '機械工学科', 'きかいこうがくか');
+('UTDept001', (SELECT id FROM faculties WHERE public_id = 'UTFac001'), 'Department of Electrical and Electronic Engineering', '電気電子工学科', 'でんきでんしこうがくか'),
+('UTDept002', (SELECT id FROM faculties WHERE public_id = 'UTFac001'), 'Department of Mechanical Engineering', '機械工学科', 'きかいこうがくか');
 
 -- 東京大学大学院 工学系研究科の専攻
 INSERT INTO departments (
-  faculty_id,
+  public_id, faculty_id,
   name_main, name_sub1, name_sub2
 ) VALUES
-(20, 'Department of Electrical Engineering and Information Systems', '電気系工学専攻', 'でんきけいこうがくせんこう'),
-(20, 'Department of Mechanical Engineering', '機械工学専攻', 'きかいこうがくせんこう');
+('UTGradDept001', (SELECT id FROM faculties WHERE public_id = 'UTGradFac001'), 'Department of Electrical Engineering and Information Systems', '電気系工学専攻', 'でんきけいこうがくせんこう'),
+('UTGradDept002', (SELECT id FROM faculties WHERE public_id = 'UTGradFac001'), 'Department of Mechanical Engineering', '機械工学専攻', 'きかいこうがくせんこう');
 ```
 
 ---
 
 ### **3.4. `teachers` テーブル**
 
-教授情報を管理。v5.0.0で簡略化。
+教授情報を管理。v7.0.0でさらに簡略化。
 
 ```sql
 CREATE TABLE teachers (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  -- 主キー（v7.0.0: UUID + NanoID構成）
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   user_id VARCHAR(255) REFERENCES users(id),
   
   -- 多言語対応（教員名）
@@ -1100,6 +1027,7 @@ CREATE TABLE teachers (
 );
 
 -- インデックス
+CREATE INDEX idx_teachers_public_id ON teachers(public_id);
 CREATE INDEX idx_teachers_user ON teachers(user_id);
 CREATE INDEX idx_teachers_name_main ON teachers(name_main);
 CREATE INDEX idx_teachers_name_sub1 ON teachers(name_sub1);
@@ -1107,126 +1035,22 @@ CREATE INDEX idx_teachers_name_sub2 ON teachers(name_sub2);
 CREATE INDEX idx_teachers_active ON teachers(is_active) WHERE is_active = TRUE;
 ```
 
-**v5.0.0変更点:** 冗長な `institution_id`, `faculty_id`, `department_id`, `title`, `research_keywords` カラムを削除。教員の所属情報は試験データから間接的に取得可能。
+**v7.0.0変更点:** UUID + NanoID構成に変更。教員名のみを管理し、所属情報は試験データから間接的に取得。
 
 **イベント:** `content.lifecycle` → `TeacherCreated`, `TeacherUpdated`
 
 ---
 
-### **3.5. `academic_field_metadata` テーブル**
+### **3.5. `subjects` テーブル**
 
-学問分野のメタデータ管理（UNESCO ISCED-F 2013準拠 11大分類）。
-
-**設計方針:**
-- 日本独自の学問分類を廃止し、UNESCO ISCED-F 2013の国際標準分類を採用
-- ENUM型 (`academic_field_enum`) を主キーとして使用
-- 多言語対応・i18n対応のためのメタデータを保持
-- 静的マスタとして扱い、Kafkaイベントは発行しない
-
-```sql
-CREATE TABLE academic_field_metadata (
-  -- 主キー（ENUM型）
-  field_code academic_field_enum PRIMARY KEY,
-  
-  -- ISCED-F公式コード
-  isced_code VARCHAR(2) NOT NULL UNIQUE,  -- '00' to '10'
-  
-  -- 多言語名称（i18nキーで管理、ここはフォールバック用）
-  field_name_en VARCHAR(100) NOT NULL,
-  field_name_ja VARCHAR(100) NOT NULL,
-  
-  -- 文理区分（日本市場向け互換性）
-  academic_track VARCHAR(20) NOT NULL,
-  -- 'humanities': 文系
-  -- 'science': 理系
-  -- 'interdisciplinary': 学際
-  
-  -- 表示順序
-  sort_order INTEGER NOT NULL,
-  
-  -- i18nキー（フロントエンドで使用）
-  i18n_key VARCHAR(100) NOT NULL,
-  
-  -- 説明
-  description_en TEXT,
-  description_ja TEXT,
-  
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- インデックス
-CREATE INDEX idx_academic_field_meta_track ON academic_field_metadata(academic_track);
-CREATE INDEX idx_academic_field_meta_order ON academic_field_metadata(sort_order);
-```
-
-**サンプルデータ（UNESCO ISCED-F 2013 11大分類）:**
-
-```sql
-INSERT INTO academic_field_metadata (field_code, isced_code, field_name_en, field_name_ja, academic_track, sort_order, i18n_key, description_en, description_ja) VALUES
-('generic_programmes', '00', 'Generic programmes and qualifications', '汎用プログラム・資格', 'interdisciplinary', 1, 'enum.academic_field.generic_programmes', 
- 'Not further defined or interdisciplinary programmes', '特定分野に属さない汎用的なプログラムや資格'),
-
-('education', '01', 'Education', '教育', 'humanities', 2, 'enum.academic_field.education',
- 'Teacher training and education science', '教員養成および教育学'),
-
-('arts_and_humanities', '02', 'Arts and humanities', '芸術・人文科学', 'humanities', 3, 'enum.academic_field.arts_and_humanities',
- 'Arts, humanities, languages, history, philosophy', '芸術、人文科学、言語、歴史、哲学'),
-
-('social_sciences', '03', 'Social sciences, journalism and information', '社会科学・ジャーナリズム・情報', 'humanities', 4, 'enum.academic_field.social_sciences',
- 'Social and behavioural sciences, journalism and information', '社会科学、行動科学、ジャーナリズム、情報学'),
-
-('business_and_law', '04', 'Business, administration and law', 'ビジネス・経営・法律', 'humanities', 5, 'enum.academic_field.business_and_law',
- 'Business, administration, law', 'ビジネス、経営管理、法学'),
-
-('natural_sciences', '05', 'Natural sciences, mathematics and statistics', '自然科学・数学・統計', 'science', 6, 'enum.academic_field.natural_sciences',
- 'Physical sciences, biological sciences, mathematics and statistics', '物理科学、生物科学、数学、統計学'),
-
-('ict', '06', 'Information and Communication Technologies', '情報通信技術', 'science', 7, 'enum.academic_field.ict',
- 'Computer science, IT, software and applications development', 'コンピュータサイエンス、IT、ソフトウェア開発'),
-
-('engineering', '07', 'Engineering, manufacturing and construction', '工学・製造・建設', 'science', 8, 'enum.academic_field.engineering',
- 'Engineering, manufacturing, construction, architecture', '工学、製造、建設、建築'),
-
-('agriculture', '08', 'Agriculture, forestry, fisheries and veterinary', '農林水産・獣医', 'science', 9, 'enum.academic_field.agriculture',
- 'Agriculture, forestry, fisheries, veterinary', '農業、林業、水産業、獣医学'),
-
-('health_and_welfare', '09', 'Health and welfare', '保健・福祉', 'science', 10, 'enum.academic_field.health_and_welfare',
- 'Health, medicine, nursing, welfare, social services', '保健、医学、看護、福祉、社会サービス'),
-
-('services', '10', 'Services', 'サービス', 'interdisciplinary', 11, 'enum.academic_field.services',
- 'Personal services, transport services, environmental protection, security services', 'パーソナルサービス、運輸、環境保護、保安サービス');
-```
-
-**日本独自分類との対応例:**
-
-旧分類（日本独自27分類） → 新分類（UNESCO ISCED-F 11大分類）へのマッピング:
-
-| 旧分類 | 新分類 |
-|--------|--------|
-| 情報系、情報科学 | `ict` または `natural_sciences` |
-| 電気電子系、機械系、建築土木系 | `engineering` |
-| 化学系、物理学系、数学系、生物系 | `natural_sciences` |
-| 医学系、歯学系、薬学系、看護系 | `health_and_welfare` |
-| 農学系 | `agriculture` |
-| 経済・経営学系 | `business_and_law` |
-| 法学系 | `business_and_law` |
-| 文学系、語学系、歴史学系、哲学系 | `arts_and_humanities` |
-| 教育学系 | `education` |
-| 心理学系、社会学系 | `social_sciences` |
-| 芸術・デザイン系 | `arts_and_humanities` |
-| 環境科学系、スポーツ科学系、国際関係学系 | `social_sciences` または `interdisciplinary` |
-
----
-
-### **3.6. `subjects` テーブル**
-
-科目マスタ。v5.0.0で institution_id を追加（学部横断科目対応）。
+科目マスタ。v7.0.0でUUID対応。
 
 ```sql
 CREATE TABLE subjects (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  institution_id INTEGER NOT NULL REFERENCES institutions(id),
+  -- 主キー（v7.0.0: UUID + NanoID構成）
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
+  institution_id UUID NOT NULL REFERENCES institutions(id),
   
   -- 多言語対応（科目名）
   name_main VARCHAR(255) NOT NULL,        -- 英語科目名（API基準）
@@ -1257,6 +1081,7 @@ CREATE TABLE subjects (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_subjects_public_id ON subjects(public_id);
 CREATE INDEX idx_subjects_institution ON subjects(institution_id);
 CREATE INDEX idx_subjects_name_main ON subjects(name_main);
 CREATE INDEX idx_subjects_name_sub1 ON subjects(name_sub1);
@@ -1267,7 +1092,7 @@ CREATE INDEX idx_subjects_name_sub2 ON subjects(name_sub2);
 
 ---
 
-### **3.7. `languages` テーブル（v6.2.0完全再設計）**
+### **3.6. `languages` テーブル（v6.2.0完全再設計）**
 
 言語マスタテーブル。BCP 47言語タグを主キーとし、言語属性のみを管理。表示名はi18n-iso-languagesライブラリから動的取得。
 
@@ -1361,7 +1186,7 @@ const nativeName = languages.getNativeName('ja'); // "日本語"
 
 ---
 
-### **3.8. `regions` テーブル（v6.2.0新規追加）**
+### **3.7. `regions` テーブル（v6.2.0新規追加）**
 
 地域マスタテーブル。ISO 3166-1 alpha-2コードを主キーとし、ビジネスロジックに必要な属性のみを管理。表示名はi18n-iso-countriesライブラリから動的取得。
 
@@ -1443,7 +1268,7 @@ const nativeName = countries.getName('US', 'en'); // "United States of America"
 
 ---
 
-### **3.9. 言語と地域の連携フロー（YouTube方式）**
+### **3.8. 言語と地域の連携フロー（YouTube方式）**
 
 **目的:** ユーザーの言語設定（UI言語）と地域設定（コンテンツロケール）を独立して管理し、高度なパーソナライゼーションを実現。
 
@@ -1540,7 +1365,7 @@ func BuildUserLocaleContext(userID string) (*UserLocaleContext, error) {
 
 ---
 
-### **3.10. 階層ラベルの動的解決**
+### **3.9. 階層ラベルの動的解決**
 
 #### **3.10.1. `institution_hierarchy_configs` テーブル**
 
@@ -1591,7 +1416,7 @@ VALUES
 
 ---
 
-### **3.11. クライアント参照ルール**
+### **3.10. クライアント参照ルール**
 
 #### **3.11.1. ユーザー登録フロー**
 
@@ -1961,17 +1786,19 @@ CREATE TABLE file_upload_jobs (
 
 ```sql
 CREATE TABLE exams (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  -- 主キー（v7.0.0: UUID + NanoID構成）
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   title VARCHAR(255) NOT NULL,
   exam_type exam_type_enum NOT NULL DEFAULT 'regular',
   
   -- 所属情報（必須）
-  institution_id INTEGER NOT NULL REFERENCES institutions(id),
-  faculty_id INTEGER NOT NULL REFERENCES faculties(id),
-  department_id INTEGER NOT NULL REFERENCES departments(id),
+  institution_id UUID NOT NULL REFERENCES institutions(id),
+  faculty_id UUID NOT NULL REFERENCES faculties(id),
+  department_id UUID NOT NULL REFERENCES departments(id),
   
-  teacher_id BIGINT REFERENCES teachers(id),
-  subject_id BIGINT NOT NULL REFERENCES subjects(id),
+  teacher_id UUID REFERENCES teachers(id),
+  subject_id UUID NOT NULL REFERENCES subjects(id),
   
   -- 試験情報
   exam_year INT NOT NULL,
@@ -2006,6 +1833,7 @@ CREATE TABLE exams (
 );
 
 -- インデックス
+CREATE INDEX idx_exams_public_id ON exams(public_id);
 CREATE INDEX idx_exams_institution ON exams(institution_id);
 CREATE INDEX idx_exams_faculty_dept ON exams(faculty_id, department_id);
 CREATE INDEX idx_exams_subject_field ON exams(subject_id, academic_field);
@@ -2026,10 +1854,12 @@ CREATE INDEX idx_exams_name_embedding_hnsw ON exams USING hnsw (exam_name_embedd
 
 ```sql
 CREATE TABLE questions (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  exam_id BIGINT NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+  -- 主キー（v7.0.0: UUID + NanoID構成）
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
+  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
   
-  question_number INT NOT NULL,
+  sort_order INT NOT NULL,  -- v7.0.0: question_numberから変更
   difficulty_level difficulty_level_enum DEFAULT 'standard',
   content TEXT NOT NULL,
   
@@ -2043,7 +1873,9 @@ CREATE TABLE questions (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_questions_public_id ON questions(public_id);
 CREATE INDEX idx_questions_exam ON questions(exam_id);
+CREATE INDEX idx_questions_sort_order ON questions(exam_id, sort_order);
 CREATE INDEX idx_questions_level ON questions(difficulty_level);
 
 -- ベクトルインデックス（開発・フォールバック用。本番検索はedumintSearchのElasticsearchで実行）
@@ -2056,10 +1888,12 @@ CREATE INDEX idx_questions_content_embedding_hnsw ON questions USING hnsw (quest
 
 ```sql
 CREATE TABLE sub_questions (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+  -- 主キー（v7.0.0: UUID + NanoID構成）
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
+  question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
   
-  sub_number INT NOT NULL,
+  sort_order INT NOT NULL,  -- v7.0.0: sub_numberから変更
   question_type question_type_enum NOT NULL,
   
   content TEXT NOT NULL,
@@ -2081,7 +1915,9 @@ CREATE TABLE sub_questions (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_sub_questions_public_id ON sub_questions(public_id);
 CREATE INDEX idx_sub_questions_question ON sub_questions(question_id);
+CREATE INDEX idx_sub_questions_sort_order ON sub_questions(question_id, sort_order);
 CREATE INDEX idx_sub_questions_type ON sub_questions(question_type);
 
 -- ベクトルインデックス（開発・フォールバック用。本番検索はedumintSearchのElasticsearchで実行）
@@ -2101,8 +1937,8 @@ CREATE INDEX idx_sub_questions_explanation_embedding_hnsw ON sub_questions USING
 ```sql
 -- 選択肢（ID 1-3用）
 CREATE TABLE sub_question_selection (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  sub_question_id BIGINT NOT NULL REFERENCES sub_questions(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sub_question_id UUID NOT NULL REFERENCES sub_questions(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   is_correct BOOLEAN DEFAULT FALSE,
   is_shufflable BOOLEAN DEFAULT TRUE, -- v5.0.0新規追加
@@ -2111,8 +1947,8 @@ CREATE TABLE sub_question_selection (
 
 -- マッチング（ID 4用）
 CREATE TABLE sub_question_matching (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  sub_question_id BIGINT NOT NULL REFERENCES sub_questions(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sub_question_id UUID NOT NULL REFERENCES sub_questions(id) ON DELETE CASCADE,
   left_content TEXT NOT NULL,
   right_content TEXT NOT NULL,
   sort_order INT DEFAULT 0
@@ -2120,8 +1956,8 @@ CREATE TABLE sub_question_matching (
 
 -- 順序付け（ID 5用）
 CREATE TABLE sub_question_ordering (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  sub_question_id BIGINT NOT NULL REFERENCES sub_questions(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sub_question_id UUID NOT NULL REFERENCES sub_questions(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   correct_order INT NOT NULL
 );
@@ -2129,12 +1965,13 @@ CREATE TABLE sub_question_ordering (
 
 ---
 
-### **6.8. キーワード管理（v5.0.0統合版）**
+### **6.8. キーワード管理（v7.0.0 UUID対応）**
 
 ```sql
--- キーワードマスタ（v5.0.0: keywordカラムをnameに変更、ベクトル埋め込み追加）
+-- キーワードマスタ
 CREATE TABLE keywords (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   name VARCHAR(100) NOT NULL UNIQUE,
   
   -- ベクトル埋め込み（v5.0.0新規追加）
@@ -2144,17 +1981,18 @@ CREATE TABLE keywords (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_keywords_public_id ON keywords(public_id);
 CREATE INDEX idx_keywords_name ON keywords(name);
 
 -- ベクトルインデックス（開発・フォールバック用。本番検索はedumintSearchのElasticsearchで実行）
 CREATE INDEX idx_keywords_name_embedding_hnsw ON keywords USING hnsw (name_embedding_gemini vector_cosine_ops);
 
--- 統合キーワード管理（v5.0.0: question_keywordsとsub_question_keywordsを統合）
+-- 統合キーワード管理（v7.0.0: UUID対応）
 CREATE TABLE content_keywords (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   content_type VARCHAR(20) NOT NULL, -- 'question' or 'sub_question'
-  content_id BIGINT NOT NULL,
-  keyword_id BIGINT NOT NULL REFERENCES keywords(id),
+  content_id UUID NOT NULL,
+  keyword_id UUID NOT NULL REFERENCES keywords(id),
   relevance_score FLOAT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(content_type, content_id, keyword_id)
@@ -2690,11 +2528,11 @@ CREATE TABLE learning_histories (
 ```sql
 -- コンテンツ通報
 CREATE TABLE content_reports (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_user_id VARCHAR(255) NOT NULL,
   content_type VARCHAR(50) NOT NULL,
-  content_id BIGINT NOT NULL,
-  reason_id INT NOT NULL REFERENCES content_report_reasons(id),
+  content_id UUID NOT NULL,
+  reason content_report_reason_enum NOT NULL,  -- v7.0.0: ENUM型に変更
   details TEXT,
   status report_status_enum DEFAULT 'pending',
   moderator_id VARCHAR(255),
@@ -2706,26 +2544,11 @@ CREATE TABLE content_reports (
 
 CREATE INDEX idx_content_reports_status ON content_reports(status);
 CREATE INDEX idx_content_reports_reporter ON content_reports(reporter_user_id);
-
--- コンテンツ通報理由
-CREATE TABLE content_report_reasons (
-  id INT PRIMARY KEY,
-  reason_text VARCHAR(255) NOT NULL,
-  description TEXT
-);
-
-INSERT INTO content_report_reasons (id, reason_text, description) VALUES
-(1, '解答が不正確・間違っている', '生成された解答の誤り'),
-(2, '問題文が不明瞭・誤字がある', '意味不明瞭、誤字脱字'),
-(3, '問題と解答の対応が不適切', '不一致'),
-(4, '著作権を侵害している疑い', '無断転載'),
-(5, '不適切な表現を含んでいる', '公序良俗違反'),
-(6, 'スパム・宣伝目的である', '宣伝など'),
-(99, 'その他', 'その他');
+CREATE INDEX idx_content_reports_reason ON content_reports(reason);
 
 -- ユーザー通報
 CREATE TABLE user_reports (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_user_id VARCHAR(255) NOT NULL,
   reported_user_id VARCHAR(255) NOT NULL,
   content_type VARCHAR(50) NOT NULL,
@@ -2837,176 +2660,6 @@ CREATE TABLE report_files (
 | `search.term_generation` | edumintSearch | edumintAiWorker | TermGenerationJobCreated |
 
 ---
-
-## **11.3. マイグレーション計画**
-
-ENUM型の導入とUNESCO ISCED-F 2013への移行は、以下の3フェーズで実施します。
-
-### **Phase 1: ENUM型定義とメタデータ投入**
-
-**目的:** 新しいENUM型を定義し、academic_field_metadataテーブルを作成
-
-```sql
--- 1. 全ENUM型の作成（セクション1参照）
-CREATE TYPE question_type_enum AS ENUM (...);
-CREATE TYPE difficulty_level_enum AS ENUM (...);
--- ... 他14個のENUM型
-
--- 2. academic_field_metadataテーブル作成
-CREATE TABLE academic_field_metadata (...);
-
--- 3. UNESCO ISCED-F 2013データ投入（11件）
-INSERT INTO academic_field_metadata VALUES (...);
-```
-
-**実施タイミング:** メンテナンスウィンドウ（ダウンタイム不要）
-
-**ロールバック:** DROP TYPE/TABLE文で元に戻す
-
-### **Phase 2: データ移行**
-
-**目的:** 既存データをINT/VARCHARからENUM値に変換
-
-```sql
--- 1. 新カラム追加（ENUM型）
-ALTER TABLE exams ADD COLUMN exam_type_new exam_type_enum;
-ALTER TABLE exams ADD COLUMN semester_new semester_enum;
-ALTER TABLE exams ADD COLUMN academic_track_new academic_track_enum;
-ALTER TABLE exams ADD COLUMN status_new exam_status_enum;
-ALTER TABLE exams ADD COLUMN academic_field_new academic_field_enum;
-
--- 2. データ変換マッピング
-UPDATE exams SET exam_type_new = 
-  CASE exam_type
-    WHEN 0 THEN 'regular'::exam_type_enum
-    WHEN 1 THEN 'class'::exam_type_enum
-    WHEN 2 THEN 'quiz'::exam_type_enum
-  END;
-
-UPDATE exams SET semester_new = 
-  CASE exam_semester
-    WHEN 1 THEN 'spring'::semester_enum
-    WHEN 2 THEN 'fall'::semester_enum
-    WHEN 3 THEN 'summer'::semester_enum
-    WHEN 4 THEN 'winter'::semester_enum
-    WHEN 5 THEN 'full_year'::semester_enum
-  END;
-
-UPDATE exams SET academic_track_new = 
-  CASE academic_track
-    WHEN 0 THEN 'science'::academic_track_enum
-    WHEN 1 THEN 'humanities'::academic_track_enum
-  END;
-
-UPDATE exams SET status_new = 
-  CASE status
-    WHEN 'draft' THEN 'draft'::exam_status_enum
-    WHEN 'active' THEN 'active'::exam_status_enum
-    WHEN 'archived' THEN 'archived'::exam_status_enum
-    ELSE 'deleted'::exam_status_enum
-  END;
-
--- 3. 学問分野の変換（academic_field_id → academic_field）
--- 日本独自27分類 → UNESCO ISCED-F 11大分類へのマッピング
-UPDATE exams e SET academic_field_new = 
-  CASE af.id
-    WHEN 1 THEN 'ict'::academic_field_enum  -- 情報系
-    WHEN 2 THEN 'engineering'::academic_field_enum  -- 電気電子系
-    WHEN 3 THEN 'engineering'::academic_field_enum  -- 機械系
-    WHEN 4 THEN 'natural_sciences'::academic_field_enum  -- 化学系
-    WHEN 5 THEN 'natural_sciences'::academic_field_enum  -- 生物・生命科学系
-    WHEN 6 THEN 'natural_sciences'::academic_field_enum  -- 物理学系
-    WHEN 7 THEN 'natural_sciences'::academic_field_enum  -- 数学系
-    WHEN 8 THEN 'engineering'::academic_field_enum  -- 建築・土木系
-    WHEN 9 THEN 'engineering'::academic_field_enum  -- 材料工学系
-    WHEN 10 THEN 'engineering'::academic_field_enum  -- 航空宇宙系
-    WHEN 11 THEN 'business_and_law'::academic_field_enum  -- 経済・経営学系
-    WHEN 12 THEN 'business_and_law'::academic_field_enum  -- 法学系
-    WHEN 13 THEN 'arts_and_humanities'::academic_field_enum  -- 文学系
-    WHEN 14 THEN 'education'::academic_field_enum  -- 教育学系
-    WHEN 15 THEN 'social_sciences'::academic_field_enum  -- 心理学系
-    WHEN 16 THEN 'social_sciences'::academic_field_enum  -- 社会学系
-    WHEN 17 THEN 'arts_and_humanities'::academic_field_enum  -- 語学系
-    WHEN 18 THEN 'arts_and_humanities'::academic_field_enum  -- 歴史学系
-    WHEN 19 THEN 'arts_and_humanities'::academic_field_enum  -- 哲学系
-    WHEN 20 THEN 'arts_and_humanities'::academic_field_enum  -- 芸術・デザイン系
-    WHEN 21 THEN 'health_and_welfare'::academic_field_enum  -- 医学系
-    WHEN 22 THEN 'health_and_welfare'::academic_field_enum  -- 歯学系
-    WHEN 23 THEN 'health_and_welfare'::academic_field_enum  -- 薬学系
-    WHEN 24 THEN 'health_and_welfare'::academic_field_enum  -- 看護・保健系
-    WHEN 25 THEN 'agriculture'::academic_field_enum  -- 農学系
-    WHEN 26 THEN 'natural_sciences'::academic_field_enum  -- 環境科学系
-    WHEN 27 THEN 'ict'::academic_field_enum  -- 情報科学（文理融合）
-    WHEN 28 THEN 'health_and_welfare'::academic_field_enum  -- スポーツ科学系
-    WHEN 29 THEN 'social_sciences'::academic_field_enum  -- 国際関係学系
-    WHEN 30 THEN 'generic_programmes'::academic_field_enum  -- その他
-  END
-FROM academic_fields af
-WHERE e.academic_field_id = af.id;
-
--- 4. 同様の変換を他のテーブルにも適用
--- questions, sub_questions, users, jobs, notifications, など
-
--- 5. NOT NULL制約の追加（必要な場合）
-ALTER TABLE exams ALTER COLUMN exam_type_new SET NOT NULL;
-```
-
-**実施タイミング:** メンテナンスウィンドウ（読み取り可能、書き込み一時停止）
-
-**検証:** 変換後のデータ整合性チェック
-
-```sql
--- 変換漏れチェック
-SELECT COUNT(*) FROM exams WHERE exam_type_new IS NULL AND exam_type IS NOT NULL;
-SELECT COUNT(*) FROM exams WHERE academic_field_new IS NULL AND academic_field_id IS NOT NULL;
-```
-
-### **Phase 3: 旧カラム削除とクリーンアップ**
-
-**目的:** 旧INT/VARCHARカラムを削除し、ENUMカラムにリネーム
-
-```sql
--- 1. 外部キー制約の削除
-ALTER TABLE exams DROP CONSTRAINT IF EXISTS exams_academic_field_id_fkey;
-
--- 2. 旧カラムの削除
-ALTER TABLE exams DROP COLUMN exam_type;
-ALTER TABLE exams DROP COLUMN exam_semester;
-ALTER TABLE exams DROP COLUMN academic_track;
-ALTER TABLE exams DROP COLUMN status;
-ALTER TABLE exams DROP COLUMN academic_field_id;
-
--- 3. 新カラムのリネーム
-ALTER TABLE exams RENAME COLUMN exam_type_new TO exam_type;
-ALTER TABLE exams RENAME COLUMN semester_new TO semester;
-ALTER TABLE exams RENAME COLUMN academic_track_new TO academic_track;
-ALTER TABLE exams RENAME COLUMN status_new TO status;
-ALTER TABLE exams RENAME COLUMN academic_field_new TO academic_field;
-
--- 4. インデックスの再作成
-CREATE INDEX idx_exams_type ON exams(exam_type);
-CREATE INDEX idx_exams_semester ON exams(semester);
-CREATE INDEX idx_exams_status ON exams(status);
-CREATE INDEX idx_exams_field ON exams(academic_field);
-
--- 5. 旧テーブルの削除
-DROP TABLE IF EXISTS question_types CASCADE;
-DROP TABLE IF EXISTS academic_fields CASCADE;
-```
-
-**実施タイミング:** メンテナンスウィンドウ（ダウンタイム30分）
-
-**ロールバック:** Phase 2のバックアップから復元
-
-### **マイグレーション後の確認項目**
-
-1. ✅ 全ENUM型が正しく定義されている
-2. ✅ academic_field_metadataに11件のデータが存在する
-3. ✅ 全テーブルでENUM型が使用されている
-4. ✅ 旧テーブル（academic_fields, question_types）が削除されている
-5. ✅ フロントエンドのENUM値マッピングが更新されている
-6. ✅ APIレスポンスがENUM文字列を返している
-7. ✅ i18nファイルにENUM用の翻訳キーが追加されている
 
 ---
 
