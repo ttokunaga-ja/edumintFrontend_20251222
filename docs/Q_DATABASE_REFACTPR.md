@@ -759,9 +759,12 @@ CREATE TABLE user_profiles (
   display_name VARCHAR(100),
   bio TEXT,
   avatar_url VARCHAR(512),
-  institution_id UUID,  -- institutions.idを参照（論理的）
-  faculty_id UUID,      -- faculties.idを参照（論理的）
-  department_id UUID,   -- departments.idを参照（論理的）
+　institution_type_enum NOT NULL DEFAULT 'university',
+　academic_track_enum NOT NULL DEFAULT 'humanities',
+　academic_field_enum NOT NULL DEFAULT 'generic_programmes',
+  institution_id NOT NULL UUID,  -- institutions.idを参照（論理的）
+  faculty_id NOT NULL UUID,      -- faculties.idを参照（論理的）
+  department_id NOT NULL UUID,   -- departments.idを参照（論理的）
   graduation_year INT,
   website_url VARCHAR(512),
   twitter_handle VARCHAR(50),
