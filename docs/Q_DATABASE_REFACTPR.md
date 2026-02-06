@@ -1033,6 +1033,12 @@ edumintContents (4DB構成)
 - ベクトル検索対応（pgvector）
 - リードレプリカ対応（読み取りスケール）
 
+**主要テーブル群:**
+- コアメタデータ: institutions, faculties, departments, teachers, subjects
+- 試験・問題: exams, questions, sub_questions, keywords, exam_keywords
+- 統計・イベント: exam_statistics, exam_interaction_events
+- 広告管理: ad_display_events, ad_viewing_history
+
 #### **institutions (教育機関)**
 
 大学・大学院・短大・高専等の機関情報を管理します。
@@ -1323,8 +1329,6 @@ CREATE INDEX idx_exam_keywords_exam_id ON exam_keywords(exam_id);
 CREATE INDEX idx_exam_keywords_keyword_id ON exam_keywords(keyword_id);
 ```
 
-### 5.3 統計情報管理テーブル (v7.0.3新規追加)
-
 #### **exam_statistics (試験統計集約テーブル)**
 
 試験ごとの統計情報を集約管理します。検索ランキング・推薦システムで高速参照可能。
@@ -1520,118 +1524,6 @@ WHERE e.status = 'active' AND e.is_deleted = FALSE
 ORDER BY es.quality_score DESC, es.like_count DESC
 LIMIT $1 OFFSET $2;
 ```
-
-#### **master_exams (試験OCRテキスト - イミュータブル)**
-
-OCR処理された試験問題のテキストデータを管理します。**原本ファイルはedumintFilesで保存**されます。
-
-**設計原則:**
-- **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
-- **イミュータブル設計**: 編集・削除不可（append-only）
-- **自動暗号化**: OCRテキストは7日経過で自動暗号化
-- **アクセス制御**: 管理者と自動化システムのみアクセス可
-
-```sql
-CREATE TABLE master_exams (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE RESTRICT,
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  original_filename VARCHAR(512) NOT NULL,
-  stored_filename VARCHAR(512) NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
-  mime_type VARCHAR(100) NOT NULL,
-  storage_path VARCHAR(1024) NOT NULL,
-  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-master-exams',
-  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
-  ocr_processed BOOLEAN DEFAULT FALSE,
-  ocr_text TEXT,
-  language_code VARCHAR(10) DEFAULT 'ja',
-  is_encrypted BOOLEAN DEFAULT FALSE,
-  encrypted_at TIMESTAMPTZ,
-  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_master_exams_public_id ON master_exams(public_id);
-CREATE INDEX idx_master_exams_exam_id ON master_exams(exam_id);
-CREATE INDEX idx_master_exams_uploader_id ON master_exams(uploader_id);
-CREATE INDEX idx_master_exams_file_hash ON master_exams(file_hash);
-CREATE INDEX idx_master_exams_ocr_processed ON master_exams(ocr_processed);
-CREATE INDEX idx_master_exams_is_encrypted ON master_exams(is_encrypted);
-CREATE INDEX idx_master_exams_created_at ON master_exams(created_at DESC);
-```
-
-**設計注記:**
-- exam_rawから改名（v7.1.0）
-- **原本ファイル保存はedumintFilesが担当**: file_metadata参照、本テーブルはOCRテキストとメタデータのみ
-- **edumintFilesとの連携**: original_filename, stored_filenameは edumintFiles の file_metadata を参照
-- **OCRテキストの保存**: ocr_text フィールドにOCR処理結果を格納
-- LLM学習データとして活用
-- 通報時の検証用ソースとして参照
-- ユーザーは**直接ダウンロード不可**
-- ON DELETE RESTRICT: 試験削除時はOCRテキストも保護
-
-#### **master_materials (教材OCRテキスト - イミュータブル)**
-
-OCR処理された教材のテキストデータを管理します。**原本ファイルはedumintFilesで保存**されます。
-
-**設計原則:**
-- **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
-- **イミュータブル設計**: 編集・削除不可（append-only）
-- **自動暗号化**: OCRテキストは7日経過で自動暗号化
-- **アクセス制御**: 管理者と自動化システムのみアクセス可
-
-```sql
-CREATE TABLE master_materials (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  question_id UUID,  -- questions.idを参照（論理的）
-  sub_question_id UUID,  -- sub_questions.idを参照（論理的）
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  original_filename VARCHAR(512) NOT NULL,
-  stored_filename VARCHAR(512) NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
-  mime_type VARCHAR(100) NOT NULL,
-  storage_path VARCHAR(1024) NOT NULL,
-  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-master-materials',
-  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
-  ocr_processed BOOLEAN DEFAULT FALSE,
-  ocr_text TEXT,
-  language_code VARCHAR(10) DEFAULT 'ja',
-  is_encrypted BOOLEAN DEFAULT FALSE,
-  encrypted_at TIMESTAMPTZ,
-  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT chk_master_materials_question_ref CHECK (
-    (question_id IS NOT NULL AND sub_question_id IS NULL) OR
-    (question_id IS NULL AND sub_question_id IS NOT NULL)
-  )
-);
-
-CREATE INDEX idx_master_materials_public_id ON master_materials(public_id);
-CREATE INDEX idx_master_materials_question_id ON master_materials(question_id);
-CREATE INDEX idx_master_materials_sub_question_id ON master_materials(sub_question_id);
-CREATE INDEX idx_master_materials_uploader_id ON master_materials(uploader_id);
-CREATE INDEX idx_master_materials_file_hash ON master_materials(file_hash);
-CREATE INDEX idx_master_materials_ocr_processed ON master_materials(ocr_processed);
-CREATE INDEX idx_master_materials_is_encrypted ON master_materials(is_encrypted);
-CREATE INDEX idx_master_materials_created_at ON master_materials(created_at DESC);
-```
-
-**設計注記:**
-- source_rawから改名（v7.1.0）
-- **原本ファイル保存はedumintFilesが担当**: file_metadata参照、本テーブルはOCRテキストとメタデータのみ
-- **edumintFilesとの連携**: original_filename, stored_filenameは edumintFiles の file_metadata を参照
-- **OCRテキストの保存**: ocr_text フィールドにOCR処理結果を格納
-- OCR処理の入力元として使用
-- question_id または sub_question_id のいずれか必須
-- LLM学習データとして活用
-- ユーザーは**直接ダウンロード不可**
 
 #### **subject_terms (科目検索用語)**
 
@@ -1873,7 +1765,156 @@ CREATE INDEX idx_ad_viewing_history_first_viewed ON ad_viewing_history(first_vie
 - リアルタイム検索インデックス更新
 - 検索用語テーブル変更の精密制御
 
-#### **subject_terms (科目検索用語)**
+**含まれるテーブル:**
+検索用語テーブル群の定義は上記（5.1.1の後）に記載されています：
+- `subject_terms` (科目検索用語)
+- `institution_terms` (機関検索用語)
+- `faculty_terms` (学部検索用語)
+- `teacher_terms` (教員検索用語)
+- `term_generation_jobs` (用語生成ジョブ)
+- `term_generation_candidates` (用語生成候補)
+
+### 5.3 edumint_contents_master (マスターDB)
+
+**物理DB:** `edumint_contents_master`
+
+**役割:**
+- OCRテキスト専用データベース
+- 機密情報（試験問題・教材のOCRテキスト）の分離管理
+- イミュータブル設計（追加のみ、編集・削除禁止）
+
+**特徴:**
+- **セキュリティ強化**: IAMロール分離による厳格なアクセス制御
+- **自動暗号化**: アップロード7日後に自動暗号化
+- **イミュータブル**: append-only設計で監査追跡性確保
+- **アクセス制限**: 管理者とシステムのみアクセス可能
+
+**IAMアクセス制御:**
+- `edumint-contents-master-sa`: 書き込み専用（INSERT権限のみ）
+- `edumint-admin-sa`: 読み取り専用（SELECT権限のみ、管理者用）
+- 一般ユーザー・アプリケーション: アクセス不可
+
+#### **master_exams (試験OCRテキスト - イミュータブル)**
+
+OCR処理された試験問題のテキストデータを管理します。**原本ファイルはedumintFilesで保存**されます。
+
+**設計原則:**
+- **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
+- **イミュータブル設計**: 編集・削除不可（append-only）
+- **自動暗号化**: OCRテキストは7日経過で自動暗号化
+- **アクセス制御**: 管理者と自動化システムのみアクセス可
+
+```sql
+CREATE TABLE master_exams (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE RESTRICT,
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  original_filename VARCHAR(512) NOT NULL,
+  stored_filename VARCHAR(512) NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(1024) NOT NULL,
+  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-master-exams',
+  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  ocr_processed BOOLEAN DEFAULT FALSE,
+  ocr_text TEXT,
+  language_code VARCHAR(10) DEFAULT 'ja',
+  is_encrypted BOOLEAN DEFAULT FALSE,
+  encrypted_at TIMESTAMPTZ,
+  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_master_exams_public_id ON master_exams(public_id);
+CREATE INDEX idx_master_exams_exam_id ON master_exams(exam_id);
+CREATE INDEX idx_master_exams_uploader_id ON master_exams(uploader_id);
+CREATE INDEX idx_master_exams_file_hash ON master_exams(file_hash);
+CREATE INDEX idx_master_exams_ocr_processed ON master_exams(ocr_processed);
+CREATE INDEX idx_master_exams_is_encrypted ON master_exams(is_encrypted);
+CREATE INDEX idx_master_exams_created_at ON master_exams(created_at DESC);
+```
+
+**設計注記:**
+- exam_rawから改名（v7.1.0）
+- **物理DB分離**（v7.2.0）: `edumint_contents` → `edumint_contents_master`
+- **原本ファイル保存はedumintFilesが担当**: file_metadata参照、本テーブルはOCRテキストとメタデータのみ
+- **edumintFilesとの連携**: original_filename, stored_filenameは edumintFiles の file_metadata を参照
+- **OCRテキストの保存**: ocr_text フィールドにOCR処理結果を格納
+- LLM学習データとして活用
+- 通報時の検証用ソースとして参照
+- ユーザーは**直接ダウンロード不可**
+- ON DELETE RESTRICT: 試験削除時はOCRテキストも保護
+
+#### **master_materials (教材OCRテキスト - イミュータブル)**
+
+OCR処理された教材のテキストデータを管理します。**原本ファイルはedumintFilesで保存**されます。
+
+**設計原則:**
+- **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
+- **イミュータブル設計**: 編集・削除不可（append-only）
+- **自動暗号化**: OCRテキストは7日経過で自動暗号化
+- **アクセス制御**: 管理者と自動化システムのみアクセス可
+
+```sql
+CREATE TABLE master_materials (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  question_id UUID,  -- questions.idを参照（論理的）
+  sub_question_id UUID,  -- sub_questions.idを参照（論理的）
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  original_filename VARCHAR(512) NOT NULL,
+  stored_filename VARCHAR(512) NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(1024) NOT NULL,
+  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-master-materials',
+  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  ocr_processed BOOLEAN DEFAULT FALSE,
+  ocr_text TEXT,
+  language_code VARCHAR(10) DEFAULT 'ja',
+  is_encrypted BOOLEAN DEFAULT FALSE,
+  encrypted_at TIMESTAMPTZ,
+  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_master_materials_question_ref CHECK (
+    (question_id IS NOT NULL AND sub_question_id IS NULL) OR
+    (question_id IS NULL AND sub_question_id IS NOT NULL)
+  )
+);
+
+CREATE INDEX idx_master_materials_public_id ON master_materials(public_id);
+CREATE INDEX idx_master_materials_question_id ON master_materials(question_id);
+CREATE INDEX idx_master_materials_sub_question_id ON master_materials(sub_question_id);
+CREATE INDEX idx_master_materials_uploader_id ON master_materials(uploader_id);
+CREATE INDEX idx_master_materials_file_hash ON master_materials(file_hash);
+CREATE INDEX idx_master_materials_ocr_processed ON master_materials(ocr_processed);
+CREATE INDEX idx_master_materials_is_encrypted ON master_materials(is_encrypted);
+CREATE INDEX idx_master_materials_created_at ON master_materials(created_at DESC);
+```
+
+**設計注記:**
+- source_rawから改名（v7.1.0）
+- **物理DB分離**（v7.2.0）: `edumint_contents` → `edumint_contents_master`
+- **原本ファイル保存はedumintFilesが担当**: file_metadata参照、本テーブルはOCRテキストとメタデータのみ
+- **edumintFilesとの連携**: original_filename, stored_filenameは edumintFiles の file_metadata を参照
+- **OCRテキストの保存**: ocr_text フィールドにOCR処理結果を格納
+- OCR処理の入力元として使用
+- question_id または sub_question_id のいずれか必須
+- LLM学習データとして活用
+- ユーザーは**直接ダウンロード不可**
+
+### 5.4 ログテーブル (DB分離設計)
+
+**物理DB:** `edumint_contents_logs`
+
+#### **content_logs**
+
+コンテンツ変更履歴を記録します。
 
 ```sql
 CREATE TABLE content_logs (
