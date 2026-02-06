@@ -363,10 +363,10 @@ CREATE TYPE job_status_enum AS ENUM (
 
 -- ジョブタイプ
 CREATE TYPE job_type_enum AS ENUM (
-  'exam_creation',      -- 試験作成
+  'exam_creation',      -- 試験生成
   'file_upload',        -- ファイルアップロード
   'ocr_processing',     -- OCR処理
-  'ai_analysis',        -- AI生成
+  'ai_analysis',        -- AI構造分析
   'search_indexing',    -- 検索インデックス作成
   'term_generation',    -- 用語生成
   'revenue_calculation',-- 収益計算
