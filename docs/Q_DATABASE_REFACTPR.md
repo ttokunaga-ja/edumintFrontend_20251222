@@ -2902,9 +2902,15 @@ CREATE INDEX idx_job_logs_status ON job_logs(status, created_at);
 
 ### 概要
 
-v7.1.0では、Debezium CDCを導入し、PostgreSQLからElasticsearchへのリアルタイムデータ同期を実現します。これにより、edumintSearchサービスの無状態化と、データ整合性の自動保証が可能になります。
+v7.2.0では、Debezium CDCを2コネクタ構成に拡張し、edumintContentsの4DB構成に対応します。PostgreSQLからElasticsearchへのリアルタイムデータ同期を実現し、edumintSearchサービスの無状態化と、データ整合性の自動保証が可能になります。
 
-### アーキテクチャ
+**v7.2.0の主要変更:**
+- **2コネクタ構成**: edumint_contents と edumint_contents_search の個別同期
+- **精密なレプリケーション制御**: テーブル単位での同期設定最適化
+- **I/O負荷の分離**: 検索用DBの変更を独立して捕捉
+- **master DBは非レプリケーション**: OCRテキスト（機密情報）はElasticsearchに同期しない
+
+### アーキテクチャ（v7.2.0 - 3コネクタ構成）
 
 ```
 ┌─────────────────────┐
@@ -2955,21 +2961,27 @@ v7.1.0では、Debezium CDCを導入し、PostgreSQLからElasticsearchへのリ
 ```sql
 -- postgresql.conf
 wal_level = logical
-max_replication_slots = 10
-max_wal_senders = 10
+max_replication_slots = 12  -- v7.2.0: 3コネクタ構成により増加
+max_wal_senders = 12
 
--- レプリケーションスロット作成
+-- レプリケーションスロット作成（v7.2.0 - 3スロット構成）
 SELECT pg_create_logical_replication_slot('debezium_edumint_users', 'pgoutput');
 SELECT pg_create_logical_replication_slot('debezium_edumint_contents', 'pgoutput');
+SELECT pg_create_logical_replication_slot('debezium_edumint_contents_search', 'pgoutput');  -- NEW
 
--- パブリケーション作成
+-- パブリケーション作成（edumint_users）
 CREATE PUBLICATION dbz_publication_users FOR TABLE 
   users, user_profiles, oauth_tokens, idp_links;
 
+-- パブリケーション作成（edumint_contents メインDB）
 CREATE PUBLICATION dbz_publication_contents FOR TABLE
   institutions, faculties, departments, teachers, subjects,
   exams, questions, sub_questions, keywords, exam_keywords,
   exam_statistics, exam_interaction_events,
+  ad_display_events, ad_viewing_history;  -- v7.2.0: 広告テーブル追加
+
+-- パブリケーション作成（edumint_contents_search 検索用DB） *NEW*
+CREATE PUBLICATION dbz_publication_contents_search FOR TABLE
   subject_terms, institution_terms, faculty_terms, teacher_terms,
   term_generation_jobs, term_generation_candidates;
 ```
@@ -3002,7 +3014,7 @@ CREATE PUBLICATION dbz_publication_contents FOR TABLE
 }
 ```
 
-#### Debezium Connector 設定（edumintContents）
+#### Debezium Connector 設定（edumintContents メインDB）
 
 ```json
 {
@@ -3015,7 +3027,7 @@ CREATE PUBLICATION dbz_publication_contents FOR TABLE
     "database.password": "${secret:debezium-password}",
     "database.dbname": "edumint_contents",
     "database.server.name": "edumint_contents",
-    "table.include.list": "public.institutions,public.faculties,public.departments,public.teachers,public.subjects,public.exams,public.questions,public.sub_questions,public.keywords,public.exam_keywords,public.exam_statistics,public.exam_interaction_events,public.subject_terms,public.institution_terms,public.faculty_terms,public.teacher_terms",
+    "table.include.list": "public.institutions,public.faculties,public.departments,public.teachers,public.subjects,public.exams,public.questions,public.sub_questions,public.keywords,public.exam_keywords,public.exam_statistics,public.exam_interaction_events,public.ad_display_events,public.ad_viewing_history",
     "plugin.name": "pgoutput",
     "publication.name": "dbz_publication_contents",
     "slot.name": "debezium_edumint_contents",
@@ -3030,7 +3042,46 @@ CREATE PUBLICATION dbz_publication_contents FOR TABLE
 }
 ```
 
-### Kafkaトピック設計
+**設計注記（v7.2.0変更点）:**
+- 検索用語テーブル（`*_terms`, `term_generation_*`）を除外
+- 広告管理テーブル（`ad_display_events`, `ad_viewing_history`）を追加
+- table.include.listを最適化（読み取り専用テーブルのみ）
+
+#### Debezium Connector 設定（edumint_contents_search 検索用DB） *NEW*
+
+```json
+{
+  "name": "debezium-connector-edumint-contents-search",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "edumint-contents-search-db.internal",
+    "database.port": "5432",
+    "database.user": "debezium",
+    "database.password": "${secret:debezium-password}",
+    "database.dbname": "edumint_contents_search",
+    "database.server.name": "edumint_contents_search",
+    "table.include.list": "public.subject_terms,public.institution_terms,public.faculty_terms,public.teacher_terms,public.term_generation_jobs,public.term_generation_candidates",
+    "plugin.name": "pgoutput",
+    "publication.name": "dbz_publication_contents_search",
+    "slot.name": "debezium_edumint_contents_search",
+    "heartbeat.interval.ms": 5000,
+    "snapshot.mode": "initial",
+    "topic.prefix": "dbz.edumint_contents_search",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite"
+  }
+}
+```
+
+**設計注記（v7.2.0新設）:**
+- 検索用語テーブル専用のコネクタ
+- I/O負荷を分離（検索DB専用のレプリケーション）
+- 全文検索インデックス更新の精密制御
+- リードレプリカからのレプリケーション対応
+
+### Kafkaトピック設計（v7.2.0 - 3コネクタ構成）
 
 | トピック名 | 用途 | データ例 |
 |:---|:---|:---|
@@ -3039,7 +3090,15 @@ CREATE PUBLICATION dbz_publication_contents FOR TABLE
 | `dbz.edumint_contents.public.exams` | 試験変更 | INSERT/UPDATE/DELETE on exams |
 | `dbz.edumint_contents.public.questions` | 問題変更 | INSERT/UPDATE/DELETE on questions |
 | `dbz.edumint_contents.public.exam_statistics` | 統計変更 | INSERT/UPDATE on exam_statistics |
-| `dbz.edumint_contents.public.subject_terms` | 検索用語変更 | INSERT/UPDATE/DELETE on *_terms |
+| `dbz.edumint_contents.public.ad_display_events` | 広告表示イベント | INSERT on ad_display_events *NEW* |
+| `dbz.edumint_contents_search.public.subject_terms` | 科目検索用語変更 | INSERT/UPDATE/DELETE on subject_terms *NEW* |
+| `dbz.edumint_contents_search.public.institution_terms` | 機関検索用語変更 | INSERT/UPDATE/DELETE on institution_terms *NEW* |
+| `dbz.edumint_contents_search.public.term_generation_jobs` | 用語生成ジョブ | INSERT/UPDATE on term_generation_jobs *NEW* |
+
+**v7.2.0変更点:**
+- 検索用語テーブル変更を専用トピック（`dbz.edumint_contents_search.*`）で配信
+- メインDBトピック（`dbz.edumint_contents.*`）から検索用語テーブルを除外
+- 広告管理テーブルをメインDBトピックに追加
 
 ### edumintSearch Consumer実装
 
