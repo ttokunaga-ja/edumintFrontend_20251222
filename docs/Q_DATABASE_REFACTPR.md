@@ -1,10 +1,23 @@
-# **EduMint 統合データモデル設計書 v7.0.3**
+# **EduMint 統合データモデル設計書 v7.1.0**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
+**最終更新日: 2026-02-06**
+
+**v7.1.0 主要更新:**
+- **マイクロサービス統合**: edumintAuth + edumintUserProfile → **edumintUsers**に統合（トランザクション整合性・レイテンシ削減）
+- **ファイル管理移管**: edumintFile廃止、全機能を**edumintContents**へ統合
+- **テーブル名変更**: `exam_raw` → **`master_exams`**, `source_raw` → **`master_materials`**（イミュータブル設計）
+- **自動暗号化機能**: ファイルアップロード7日後に自動暗号化実装
+- **edumintSearch無状態化**: 物理DB削除、Elasticsearch + ログDBのみに変更
+- **Debezium CDC導入**: PostgreSQL論理レプリケーション、Kafka経由リアルタイム差分同期
+- **検索用語管理移管**: `*_terms`, `term_generation_*`テーブルをedumintContentsへ移動
+- **広告管理機能追加**: `ad_display_events`, `ad_viewing_history`テーブル新設（4段階表示戦略）
+- **サービス名統一**: 複数形に統一（edumintContents, edumintUsers, edumintGateways）
+
 **v7.0.3 主要更新:**
-- **edumintSocialの責務再定義**: 統計情報管理をedumintContentへ移管、ソーシャル機能に特化
-- **edumintContentに統計管理機能追加**: `exam_statistics`, `exam_interaction_events`テーブル新設
+- **edumintSocialの責務再定義**: 統計情報管理をedumintContentsへ移管、ソーシャル機能に特化
+- **edumintContentsに統計管理機能追加**: `exam_statistics`, `exam_interaction_events`テーブル新設
 - **SNS機能拡張**: ユーザー投稿、DM、マッチング機能用テーブル追加
 - **イベント駆動フロー強化**: `content.interaction`トピック新設、統計更新の非同期化
 - **検索・推薦システムの改善**: 統計情報への直接アクセスによる性能向上
@@ -49,29 +62,28 @@
 
 **サービス別設計編**
 
-4. [edumintAuth (認証サービス)](#4-edumintauth-認証サービス)
-5. [edumintUserProfile (ユーザープロフィールサービス)](#5-edumintuserprofile-ユーザープロフィールサービス)
-6. [edumintContent (コンテンツ管理サービス)](#6-edumintcontent-コンテンツ管理サービス)
-7. [edumintFile (ファイル管理サービス)](#7-edumintfile-ファイル管理サービス)
-8. [edumintSearch (検索サービス)](#8-edumintsearch-検索サービス)
-9. [edumintAiWorker (AI処理サービス)](#9-edumintaiworker-ai処理サービス)
-10. [edumintSocial (ソーシャルサービス)](#10-edumintsocial-ソーシャルサービス)
-11. [edumintMonetizeWallet (ウォレット管理サービス)](#11-edumintmonetizewallet-ウォレット管理サービス)
-12. [edumintRevenue (収益分配サービス)](#12-edumintrevenue-収益分配サービス)
-13. [edumintModeration (通報管理サービス)](#13-edumintmoderation-通報管理サービス)
-14. [edumintGateway (ジョブゲートウェイ)](#14-edumintgateway-ジョブゲートウェイ)
+4. [edumintUsers (統合ユーザー管理サービス)](#4-edumintusers-統合ユーザー管理サービス)
+5. [edumintContents (コンテンツ・ファイル統合管理サービス)](#5-edumintcontents-コンテンツ・ファイル統合管理サービス)
+6. [edumintSearch (検索サービス)](#6-edumintsearch-検索サービス)
+7. [edumintAiWorker (AI処理サービス)](#7-edumintaiworker-ai処理サービス)
+8. [edumintSocial (ソーシャルサービス)](#8-edumintsocial-ソーシャルサービス)
+9. [edumintMonetizeWallet (ウォレット管理サービス)](#9-edumintmonetizewallet-ウォレット管理サービス)
+10. [edumintRevenue (収益分配サービス)](#10-edumintrevenue-収益分配サービス)
+11. [edumintModeration (通報管理サービス)](#11-edumintmoderation-通報管理サービス)
+12. [edumintGateways (ジョブゲートウェイ)](#12-edumintgateways-ジョブゲートウェイ)
 
 **統合設計編**
 
-15. [イベント駆動フロー](#15-イベント駆動フロー)
-16. [データベース設計ガイドライン](#16-データベース設計ガイドライン)
-17. [pgvector + ベクトル検索設計](#17-pgvectorベクトル検索設計)
-18. [Atlas HCL + sqlcワークフロー](#18-atlas-hclsqlcワークフロー)
-19. [Cloud SQL運用設定](#19-cloud-sql運用設定)
-20. [可観測性・監査ログ設計](#20-可観測性監査ログ設計)
-21. [テスト・CI/CD設計](#21-テストcicd設計)
-22. [Goインテグレーション](#22-goインテグレーション)
-23. [AIエージェント協働](#23-aiエージェント協働)
+13. [Debezium CDC レプリケーション設計](#13-debezium-cdc-レプリケーション設計)
+14. [イベント駆動フロー](#14-イベント駆動フロー)
+15. [データベース設計ガイドライン](#15-データベース設計ガイドライン)
+16. [pgvector + ベクトル検索設計](#16-pgvectorベクトル検索設計)
+17. [Atlas HCL + sqlcワークフロー](#17-atlas-hclsqlcワークフロー)
+18. [Cloud SQL運用設定](#18-cloud-sql運用設定)
+19. [可観測性・監査ログ設計](#19-可観測性監査ログ設計)
+20. [テスト・CI/CD設計](#20-テストcicd設計)
+21. [Goインテグレーション](#21-goインテグレーション)
+22. [AIエージェント協働](#22-aiエージェント協働)
 
 ---
 
@@ -111,7 +123,7 @@
 
 ### デプロイ段階
 
-*   **Phase 1 (MVP)**: edumintGateway, edumintAuth, edumintUserProfile, edumintFile, edumintContent, edumintAiWorker, edumintSearch
+*   **Phase 1 (MVP)**: edumintGateways, edumintUsers, edumintContents, edumintAiWorker, edumintSearch
 *   **Phase 2 (製品版)**: + edumintMonetizeWallet, edumintRevenue, edumintSocial, edumintModeration
 *   **Phase 3 (拡張版)**: + 多言語・推薦等
 
@@ -389,6 +401,14 @@ CREATE TYPE notification_type_enum AS ENUM (
   'system_notice',      -- システム通知
   'moderation_action'   -- モデレーション通知
 );
+
+-- 広告表示段階（v7.1.0新設）
+CREATE TYPE ad_display_stage_enum AS ENUM (
+  'question_view',      -- 問題文閲覧時（未ログインOK）
+  'answer_explanation', -- 解答・解説閲覧時（ログイン必須）
+  'pdf_download',       -- PDFダウンロード時（ログイン必須）
+  'markdown_download'   -- Markdownダウンロード時（ログイン必須）
+);
 ```
 
 ---
@@ -529,37 +549,53 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 
 | サービス | 役割 | 所有テーブル | イベント発行 | Kafka購読 |
 | :--- | :--- | :--- | :--- | :--- |
-| **edumintGateway** | ジョブオーケストレーション | `jobs`, `job_logs` (分離DB) | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
-| **edumintAuth** | SSO・認証 | `oauth_clients`, `oauth_tokens`, `idp_links`, `auth_logs` (分離DB) | `auth.events` | - |
-| **edumintUserProfile** | ユーザー管理・フォロー・通知 | `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `user_profile_logs` (分離DB) | `user.events` | `auth.events`, `content.feedback`, `monetization.transactions` |
-| **edumintFile** | ファイル管理 | `exam_raw`, `source_raw`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `content.jobs` (FileUploaded) | `gateway.jobs` |
-| **edumintContent** | 試験・問題データ + 統計管理 (Source of Truth) | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, **`exam_statistics`, `exam_interaction_events`**, `content_logs` (分離DB) | `content.lifecycle`, **`content.interaction`** | `gateway.jobs`, `ai.results` |
-| **edumintSearch** | 検索・インデックス | `*_terms` (subject, institution, faculty, teacher), `term_generation_jobs`, `term_generation_candidates`, Elasticsearch索引, `search_logs` (分離DB) | `search.indexed` | `content.lifecycle`, **`content.interaction`**, `search.term_generation` |
+| **edumintGateways** | ジョブオーケストレーション | `jobs`, `job_logs` (分離DB) | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
+| **edumintUsers** | SSO・認証・ユーザー管理・フォロー・通知（統合） | `oauth_clients`, `oauth_tokens`, `idp_links`, `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `auth_logs` (分離DB), `user_profile_logs` (分離DB) | `auth.events`, `user.events` | `content.feedback`, `monetization.transactions`, **`content.interaction`** |
+| **edumintContents** | 試験・問題・統計・ファイル管理（統合） | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, **`master_exams`, `master_materials`, `report_attachment`, `file_upload_jobs`**, **`subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates`**, **`ad_display_events`, `ad_viewing_history`**, `content_logs` (分離DB), `file_logs` (分離DB) | `content.lifecycle`, `content.interaction`, `content.jobs` (FileUploaded) | `gateway.jobs`, `ai.results`, `search.term_generation` |
+| **edumintSearch** | 検索・インデックス（無状態化） | **Elasticsearch索引のみ（物理DB廃止）**, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle`, `content.interaction` via **Debezium CDC** |
 | **edumintAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `content.jobs`, `search.term_generation` |
-| **edumintSocial** | SNS機能（投稿・コメント・DM・マッチング） | **`user_posts`, `post_likes`, `post_comments`, `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages`, `dm_read_receipts`, `user_match_preferences`, `user_matches`** | `social.activity` | **`content.interaction`** |
+| **edumintSocial** | SNS機能（投稿・コメント・DM・マッチング） | `user_posts`, `post_likes`, `post_comments`, `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages`, `dm_read_receipts`, `user_match_preferences`, `user_matches` | `social.activity` | `content.interaction` |
 | **edumintMonetizeWallet** | MintCoin管理 | `wallets`, `wallet_transactions`, `wallet_logs` (分離DB, 7年保持) | `monetization.transactions` | - |
-| **edumintRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions`, **`content.interaction`** |
-| **edumintModeration** | 通報管理 | `content_reports`, `user_reports`, `report_attachment`, `moderation_logs` (分離DB) | `moderation.events` | - |
+| **edumintRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions`, `content.interaction` |
+| **edumintModeration** | 通報管理 | `content_reports`, `user_reports`, `moderation_logs` (分離DB) | `moderation.events` | - |
 | **edumintAdmin** | 管理UI統合 | （他サービスのAPIを集約） | - | - |
 
-**主要変更点（v7.0.3）:**
-- **edumintContent**: `exam_statistics`, `exam_interaction_events`を新規追加（統計情報管理の責務を追加）
-- **edumintSocial**: `exam_likes`, `exam_bads`, `exam_views`を削除（edumintContentへ移管）
-- **edumintSocial**: SNS投稿、DM、マッチング機能用テーブルを追加
-- **Kafkaトピック**: `content.interaction`を新規追加（統計イベント専用）
+**主要変更点（v7.1.0）:**
+- **edumintUsers**: edumintAuth + edumintUserProfileを統合。物理DB: `edumint_users`
+- **edumintContents**: edumintFile機能を統合。`exam_raw` → `master_exams`, `source_raw` → `master_materials`にリネーム
+- **edumintContents**: 検索用語管理テーブル（`*_terms`, `term_generation_*`）を追加
+- **edumintContents**: 広告管理テーブル（`ad_display_events`, `ad_viewing_history`）を新設
+- **edumintSearch**: 物理DB削除、Elasticsearch + ログDBのみに変更。全データはDebezium CDCで同期
+- **edumintGateways**: edumintGateways → edumintGateways（複数形統一）
+- **Debezium CDC**: edumintUsers, edumintContents → edumintSearchへリアルタイム差分同期
 
 ---
 
-## **3. edumintAuth (認証サービス)**
+## **4. edumintUsers (統合ユーザー管理サービス)**
 
-### 設計変更点（v7.0.0）
+### 設計変更点（v7.1.0）
 
+**マイクロサービス統合:**
+- edumintAuth + edumintUserProfile → **edumintUsers**に統合
+- 物理DB名: `edumint_users`
+- ログDB名: `edumint_users_logs`
+
+**統合の利点:**
+- **トランザクション整合性**: 認証とユーザープロフィールの同一トランザクション管理
+- **レイテンシ削減**: サービス間通信の排除
+- **データ一貫性**: 外部キー制約による強整合性保証
+- **運用コスト削減**: DB・サービスインスタンス数の削減
+
+**設計変更点（v7.0.0からの継続）:**
 - 全テーブルの主キーをUUIDに変更
 - AUTO_INCREMENT廃止
 - ログテーブルを物理的に分離したデータベースに配置
-- セキュリティ強化のため、トークンにもUUID採用
+- user_role_enumを4値に厳格化（free, system, admin, premium）
+- users.public_idにNanoID (8文字) 採用
 
-### 3.1 本体DBテーブル (DDL例)
+### 4.1 本体DBテーブル (DDL例)
+
+**物理DB:** `edumint_users`
 
 #### **oauth_clients**
 
@@ -589,7 +625,7 @@ CREATE INDEX idx_oauth_clients_active ON oauth_clients(is_active);
 ```sql
 CREATE TABLE oauth_tokens (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  user_id UUID NOT NULL,  -- users.idを参照（論理的）
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   client_id UUID REFERENCES oauth_clients(id) ON DELETE CASCADE,
   access_token VARCHAR(255) NOT NULL UNIQUE,
   refresh_token VARCHAR(255) UNIQUE,
@@ -613,7 +649,7 @@ CREATE INDEX idx_oauth_tokens_expires_at ON oauth_tokens(expires_at);
 ```sql
 CREATE TABLE idp_links (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  user_id UUID NOT NULL,  -- users.idを参照（論理的）
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   provider VARCHAR(50) NOT NULL,  -- 'google', 'github', 'apple', etc.
   provider_user_id VARCHAR(255) NOT NULL,
   email VARCHAR(255),
@@ -626,55 +662,6 @@ CREATE TABLE idp_links (
 CREATE INDEX idx_idp_links_user_id ON idp_links(user_id);
 CREATE INDEX idx_idp_links_provider ON idp_links(provider, provider_user_id);
 ```
-
-### 3.2 ログテーブル (DB分離設計)
-
-**物理DB:** `edumint_auth_logs` (別インスタンスまたはスキーマ)
-
-#### **auth_logs**
-
-認証イベントログを記録します。セキュリティ監査・分析用。
-
-```sql
-CREATE TABLE auth_logs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  user_id UUID,  -- NULL許可（ログイン失敗時）
-  event_type auth_event_enum NOT NULL,
-  ip_address INET,
-  user_agent TEXT,
-  success BOOLEAN NOT NULL,
-  error_message TEXT,
-  metadata JSONB,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-) PARTITION BY RANGE (created_at);
-
--- パーティション例（月次）
-CREATE TABLE auth_logs_2025_01 PARTITION OF auth_logs
-  FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-
-CREATE INDEX idx_auth_logs_user_id ON auth_logs(user_id, created_at);
-CREATE INDEX idx_auth_logs_event_type ON auth_logs(event_type, created_at);
-CREATE INDEX idx_auth_logs_created_at ON auth_logs(created_at);
-```
-
-**設計注記:**
-- パーティショニングにより大量ログを効率管理
-- 本体DBとは物理的に分離（I/O競合回避）
-- 長期保存・分析クエリに最適化
-- 自動アーカイブ・削除ポリシーを設定可能
-
----
-
-## **5. edumintUserProfile (ユーザープロフィールサービス)**
-
-### 設計変更点（v7.0.0）
-
-- user_role_enumを4値に厳格化（free, system, admin, premium）
-- 全テーブルの主キーをUUIDに変更
-- ログテーブルを物理的に分離
-- users.public_idにNanoID (8文字) 採用
-
-### 4.1 本体DBテーブル (DDL例)
 
 #### **users**
 
@@ -710,7 +697,7 @@ CREATE INDEX idx_users_status ON users(status);
 
 ```sql
 CREATE TABLE user_profiles (
-  user_id UUID PRIMARY KEY,  -- users.idと1:1
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   display_name VARCHAR(100),
   bio TEXT,
   avatar_url VARCHAR(512),
@@ -733,8 +720,8 @@ CREATE INDEX idx_user_profiles_institution_id ON user_profiles(institution_id);
 
 ```sql
 CREATE TABLE user_follows (
-  follower_id UUID NOT NULL,  -- users.id
-  followee_id UUID NOT NULL,  -- users.id
+  follower_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  followee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (follower_id, followee_id),
   CHECK (follower_id != followee_id)
@@ -750,8 +737,8 @@ CREATE INDEX idx_user_follows_followee ON user_follows(followee_id, created_at);
 
 ```sql
 CREATE TABLE user_blocks (
-  blocker_id UUID NOT NULL,  -- users.id
-  blocked_id UUID NOT NULL,  -- users.id
+  blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blocked_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   reason TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (blocker_id, blocked_id),
@@ -769,7 +756,7 @@ CREATE INDEX idx_user_blocks_blocked ON user_blocks(blocked_id);
 ```sql
 CREATE TABLE notifications (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  user_id UUID NOT NULL,  -- users.id
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   type notification_type_enum NOT NULL,
   title VARCHAR(255) NOT NULL,
   message TEXT,
@@ -786,7 +773,33 @@ CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read, created
 
 ### 4.2 ログテーブル (DB分離設計)
 
-**物理DB:** `edumint_userprofile_logs`
+**物理DB:** `edumint_users_logs`
+
+#### **auth_logs**
+
+認証イベントログを記録します。セキュリティ監査・分析用。
+
+```sql
+CREATE TABLE auth_logs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID,  -- NULL許可（ログイン失敗時）
+  event_type auth_event_enum NOT NULL,
+  ip_address INET,
+  user_agent TEXT,
+  success BOOLEAN NOT NULL,
+  error_message TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
+
+-- パーティション例（月次）
+CREATE TABLE auth_logs_2025_01 PARTITION OF auth_logs
+  FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+
+CREATE INDEX idx_auth_logs_user_id ON auth_logs(user_id, created_at);
+CREATE INDEX idx_auth_logs_event_type ON auth_logs(event_type, created_at);
+CREATE INDEX idx_auth_logs_created_at ON auth_logs(created_at);
+```
 
 #### **user_profile_logs**
 
@@ -810,15 +823,49 @@ CREATE INDEX idx_user_profile_logs_action ON user_profile_logs(action, created_a
 ```
 
 **設計注記:**
-- ユーザー情報の変更履歴を追跡
+- パーティショニングにより大量ログを効率管理
+- 本体DBとは物理的に分離（I/O競合回避）
+- 長期保存・分析クエリに最適化
+- 自動アーカイブ・削除ポリシーを設定可能
 - GDPR対応・監査証跡として利用
-- 本体DBとは分離してパフォーマンス確保
 
 ---
 
-## **6. edumintContent (コンテンツ管理サービス)**
+## **5. edumintContents (コンテンツ・ファイル統合管理サービス)**
 
-### 設計変更点（v7.0.0)
+### 設計変更点（v7.1.0）
+
+**サービス名変更:**
+- edumintContent → **edumintContents** （複数形に統一）
+
+**ファイル管理機能統合:**
+- edumintFileサービスを廃止し、全機能をedumintContentsへ統合
+- `exam_raw` → **`master_exams`** にリネーム（イミュータブル設計）
+- `source_raw` → **`master_materials`** にリネーム（イミュータブル設計）
+- `report_attachment` テーブルを統合（edumintModerationから移管）
+- `file_upload_jobs` テーブルを追加
+- **自動暗号化機能**: アップロード後7日経過でファイル自動暗号化
+- **イミュータブル設計**: master_exams, master_materialsは編集・削除不可（append-only）
+
+**検索用語管理統合:**
+- edumintSearchから検索用語テーブルを移管
+- `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`
+- `term_generation_jobs`, `term_generation_candidates`
+- Debezium CDCでedumintSearchへリアルタイム同期
+
+**広告管理機能追加:**
+- **`ad_display_events`**: 広告表示イベント記録
+- **`ad_viewing_history`**: ユーザー別広告閲覧履歴
+- **4段階表示戦略**: question_view, answer_explanation, pdf_download, markdown_download
+- **スキップロジック**: 同一試験2回目以降の閲覧では広告非表示
+
+**統合の利点:**
+- **トランザクション整合性**: 試験メタデータと原本ファイルの一貫性保証
+- **レイテンシ削減**: サービス間通信の排除
+- **検索最適化**: CDC による自動同期で検索インデックス更新
+- **運用コスト削減**: サービス・DB数の削減
+
+### 設計変更点（v7.0.0からの継続）
 
 - established_year削除（機関・学部・学科から）
 - mext_code系カラム全削除
@@ -828,6 +875,8 @@ CREATE INDEX idx_user_profile_logs_action ON user_profile_logs(action, created_a
 - ログテーブルを物理DB分離
 
 ### 5.1 本体DBテーブル (DDL例)
+
+**物理DB:** `edumint_contents`
 
 #### **institutions (教育機関)**
 
@@ -1317,9 +1366,391 @@ ORDER BY es.quality_score DESC, es.like_count DESC
 LIMIT $1 OFFSET $2;
 ```
 
+#### **master_exams (試験マスターファイル - イミュータブル)**
+
+試験問題の元となる生ファイル（PDF、画像等）のメタデータを管理します。
+
+**設計原則:**
+- **イミュータブル設計**: 編集・削除不可（append-only）
+- **自動暗号化**: アップロード後7日経過で自動暗号化
+- **アクセス制御**: 管理者と自動化システムのみアクセス可
+
+```sql
+CREATE TABLE master_exams (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE RESTRICT,
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  original_filename VARCHAR(512) NOT NULL,
+  stored_filename VARCHAR(512) NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(1024) NOT NULL,
+  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-master-exams',
+  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  ocr_processed BOOLEAN DEFAULT FALSE,
+  ocr_text TEXT,
+  language_code VARCHAR(10) DEFAULT 'ja',
+  is_encrypted BOOLEAN DEFAULT FALSE,
+  encrypted_at TIMESTAMPTZ,
+  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_master_exams_public_id ON master_exams(public_id);
+CREATE INDEX idx_master_exams_exam_id ON master_exams(exam_id);
+CREATE INDEX idx_master_exams_uploader_id ON master_exams(uploader_id);
+CREATE INDEX idx_master_exams_file_hash ON master_exams(file_hash);
+CREATE INDEX idx_master_exams_ocr_processed ON master_exams(ocr_processed);
+CREATE INDEX idx_master_exams_is_encrypted ON master_exams(is_encrypted);
+CREATE INDEX idx_master_exams_created_at ON master_exams(created_at DESC);
+```
+
+**設計注記:**
+- exam_rawから改名（v7.1.0）
+- LLM学習データとして活用
+- 通報時の検証用ソースとして参照
+- ユーザーは**直接ダウンロード不可**
+- ON DELETE RESTRICT: 試験削除時は物理ファイルも保護
+
+#### **master_materials (教材マスターファイル - イミュータブル)**
+
+問題作成の元となる生ファイル（手書き画像、OCR入力元等）のメタデータを管理します。
+
+**設計原則:**
+- **イミュータブル設計**: 編集・削除不可（append-only）
+- **自動暗号化**: アップロード後7日経過で自動暗号化
+- **アクセス制御**: 管理者と自動化システムのみアクセス可
+
+```sql
+CREATE TABLE master_materials (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  question_id UUID,  -- questions.idを参照（論理的）
+  sub_question_id UUID,  -- sub_questions.idを参照（論理的）
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  original_filename VARCHAR(512) NOT NULL,
+  stored_filename VARCHAR(512) NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(1024) NOT NULL,
+  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-master-materials',
+  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  ocr_processed BOOLEAN DEFAULT FALSE,
+  ocr_text TEXT,
+  language_code VARCHAR(10) DEFAULT 'ja',
+  is_encrypted BOOLEAN DEFAULT FALSE,
+  encrypted_at TIMESTAMPTZ,
+  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_master_materials_question_ref CHECK (
+    (question_id IS NOT NULL AND sub_question_id IS NULL) OR
+    (question_id IS NULL AND sub_question_id IS NOT NULL)
+  )
+);
+
+CREATE INDEX idx_master_materials_public_id ON master_materials(public_id);
+CREATE INDEX idx_master_materials_question_id ON master_materials(question_id);
+CREATE INDEX idx_master_materials_sub_question_id ON master_materials(sub_question_id);
+CREATE INDEX idx_master_materials_uploader_id ON master_materials(uploader_id);
+CREATE INDEX idx_master_materials_file_hash ON master_materials(file_hash);
+CREATE INDEX idx_master_materials_ocr_processed ON master_materials(ocr_processed);
+CREATE INDEX idx_master_materials_is_encrypted ON master_materials(is_encrypted);
+CREATE INDEX idx_master_materials_created_at ON master_materials(created_at DESC);
+```
+
+**設計注記:**
+- source_rawから改名（v7.1.0）
+- OCR処理の入力元として使用
+- question_id または sub_question_id のいずれか必須
+- LLM学習データとして活用
+- ユーザーは**直接ダウンロード不可**
+
+#### **report_attachment (通報証拠ファイル)**
+
+通報時にユーザーが添付する証拠ファイルのメタデータを管理します。
+
+```sql
+CREATE TABLE report_attachment (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  report_id UUID NOT NULL,  -- content_reports.idまたはuser_reports.idを参照（論理的）
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  original_filename VARCHAR(512) NOT NULL,
+  stored_filename VARCHAR(512) NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(1024) NOT NULL,
+  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-report-attachments',
+  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  access_level VARCHAR(20) DEFAULT 'user_accessible',  -- ユーザーアクセス可能
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_report_attachment_public_id ON report_attachment(public_id);
+CREATE INDEX idx_report_attachment_report_id ON report_attachment(report_id);
+CREATE INDEX idx_report_attachment_uploader_id ON report_attachment(uploader_id);
+CREATE INDEX idx_report_attachment_file_hash ON report_attachment(file_hash);
+CREATE INDEX idx_report_attachment_created_at ON report_attachment(created_at DESC);
+```
+
+**設計注記:**
+- edumintModerationから移管（v7.1.0）
+- **ユーザーがアクセス可能な唯一のファイル種別**
+- 通報者と管理者がダウンロード可能
+- 通報の妥当性検証に使用
+
+#### **file_upload_jobs (ファイルアップロードジョブ)**
+
+ファイルアップロード処理のジョブ状態を管理します。
+
+```sql
+CREATE TABLE file_upload_jobs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  file_id UUID NOT NULL,  -- master_exams, master_materials, report_attachmentのいずれかを参照
+  file_type VARCHAR(50) NOT NULL,  -- 'master_exam', 'master_material', 'report_attachment'
+  job_id UUID,  -- jobs.idを参照（論理的）
+  status job_status_enum DEFAULT 'pending',
+  progress_percentage INT DEFAULT 0 CHECK (progress_percentage BETWEEN 0 AND 100),
+  error_message TEXT,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_file_upload_jobs_file_id ON file_upload_jobs(file_id, file_type);
+CREATE INDEX idx_file_upload_jobs_job_id ON file_upload_jobs(job_id);
+CREATE INDEX idx_file_upload_jobs_status ON file_upload_jobs(status);
+CREATE INDEX idx_file_upload_jobs_created_at ON file_upload_jobs(created_at DESC);
+```
+
+#### **subject_terms (科目検索用語)**
+
+科目の検索用語を管理します（edumintSearchから移管、v7.1.0）。
+
+```sql
+CREATE TABLE subject_terms (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  term VARCHAR(255) NOT NULL,
+  term_type VARCHAR(50) NOT NULL,  -- 'primary', 'alias', 'abbreviation', 'related'
+  language_code VARCHAR(10) DEFAULT 'ja',
+  weight FLOAT DEFAULT 1.0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(subject_id, term, language_code)
+);
+
+CREATE INDEX idx_subject_terms_subject_id ON subject_terms(subject_id);
+CREATE INDEX idx_subject_terms_term ON subject_terms USING gin(to_tsvector('japanese', term));
+CREATE INDEX idx_subject_terms_type ON subject_terms(term_type);
+```
+
+#### **institution_terms (機関検索用語)**
+
+機関の検索用語を管理します（edumintSearchから移管、v7.1.0）。
+
+```sql
+CREATE TABLE institution_terms (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  institution_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
+  term VARCHAR(255) NOT NULL,
+  term_type VARCHAR(50) NOT NULL,  -- 'primary', 'alias', 'abbreviation', 'related'
+  language_code VARCHAR(10) DEFAULT 'ja',
+  weight FLOAT DEFAULT 1.0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(institution_id, term, language_code)
+);
+
+CREATE INDEX idx_institution_terms_institution_id ON institution_terms(institution_id);
+CREATE INDEX idx_institution_terms_term ON institution_terms USING gin(to_tsvector('japanese', term));
+CREATE INDEX idx_institution_terms_type ON institution_terms(term_type);
+```
+
+#### **faculty_terms (学部検索用語)**
+
+学部の検索用語を管理します（edumintSearchから移管、v7.1.0）。
+
+```sql
+CREATE TABLE faculty_terms (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  faculty_id UUID NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
+  term VARCHAR(255) NOT NULL,
+  term_type VARCHAR(50) NOT NULL,  -- 'primary', 'alias', 'abbreviation', 'related'
+  language_code VARCHAR(10) DEFAULT 'ja',
+  weight FLOAT DEFAULT 1.0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(faculty_id, term, language_code)
+);
+
+CREATE INDEX idx_faculty_terms_faculty_id ON faculty_terms(faculty_id);
+CREATE INDEX idx_faculty_terms_term ON faculty_terms USING gin(to_tsvector('japanese', term));
+CREATE INDEX idx_faculty_terms_type ON faculty_terms(term_type);
+```
+
+#### **teacher_terms (教員検索用語)**
+
+教員の検索用語を管理します（edumintSearchから移管、v7.1.0）。
+
+```sql
+CREATE TABLE teacher_terms (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  teacher_id UUID NOT NULL,  -- teachers.idを参照（論理的、複合主キーのため）
+  term VARCHAR(255) NOT NULL,
+  term_type VARCHAR(50) NOT NULL,  -- 'primary', 'alias', 'abbreviation', 'related'
+  language_code VARCHAR(10) DEFAULT 'ja',
+  weight FLOAT DEFAULT 1.0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(teacher_id, term, language_code)
+);
+
+CREATE INDEX idx_teacher_terms_teacher_id ON teacher_terms(teacher_id);
+CREATE INDEX idx_teacher_terms_term ON teacher_terms USING gin(to_tsvector('japanese', term));
+CREATE INDEX idx_teacher_terms_type ON teacher_terms(term_type);
+```
+
+#### **term_generation_jobs (用語生成ジョブ)**
+
+検索用語の自動生成ジョブを管理します（edumintSearchから移管、v7.1.0）。
+
+```sql
+CREATE TABLE term_generation_jobs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  entity_type VARCHAR(50) NOT NULL,  -- 'subject', 'institution', 'faculty', 'teacher'
+  entity_id UUID NOT NULL,
+  job_id UUID,  -- jobs.idを参照（論理的）
+  status job_status_enum DEFAULT 'pending',
+  ai_provider VARCHAR(50),  -- 'gemini', 'openai', etc.
+  model_name VARCHAR(100),
+  prompt_template TEXT,
+  generated_count INT DEFAULT 0,
+  error_message TEXT,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_term_generation_jobs_entity ON term_generation_jobs(entity_type, entity_id);
+CREATE INDEX idx_term_generation_jobs_job_id ON term_generation_jobs(job_id);
+CREATE INDEX idx_term_generation_jobs_status ON term_generation_jobs(status);
+CREATE INDEX idx_term_generation_jobs_created_at ON term_generation_jobs(created_at DESC);
+```
+
+#### **term_generation_candidates (用語生成候補)**
+
+AI生成された検索用語候補を管理します（edumintSearchから移管、v7.1.0）。
+
+```sql
+CREATE TABLE term_generation_candidates (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  job_id UUID NOT NULL REFERENCES term_generation_jobs(id) ON DELETE CASCADE,
+  term VARCHAR(255) NOT NULL,
+  term_type VARCHAR(50) NOT NULL,
+  confidence_score FLOAT CHECK (confidence_score BETWEEN 0 AND 1),
+  reasoning TEXT,
+  is_approved BOOLEAN DEFAULT FALSE,
+  approved_by_user_id UUID,
+  approved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_term_generation_candidates_job_id ON term_generation_candidates(job_id);
+CREATE INDEX idx_term_generation_candidates_approved ON term_generation_candidates(is_approved);
+CREATE INDEX idx_term_generation_candidates_confidence ON term_generation_candidates(confidence_score DESC);
+```
+
+**設計注記（検索用語テーブル群）:**
+- edumintSearchから移管（v7.1.0）
+- Debezium CDCでElasticsearchへ自動同期
+- AI生成候補の承認フロー実装
+- 多言語対応（BCP 47）
+- 全文検索インデックス（GIN）最適化
+
+#### **ad_display_events (広告表示イベント)**
+
+広告表示イベントを記録します（v7.1.0新設）。
+
+```sql
+CREATE TABLE ad_display_events (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID,  -- NULL許可（未ログイン時）
+  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+  display_stage ad_display_stage_enum NOT NULL,
+  ad_provider VARCHAR(100),
+  ad_unit_id VARCHAR(255),
+  ad_impression_id VARCHAR(255),
+  revenue_amount DECIMAL(10,4),  -- 推定収益額
+  currency_code CHAR(3) DEFAULT 'JPY',
+  ip_address INET,
+  user_agent TEXT,
+  displayed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
+
+-- パーティション例（月次）
+CREATE TABLE ad_display_events_2026_02 PARTITION OF ad_display_events
+  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+
+CREATE INDEX idx_ad_display_events_user_id ON ad_display_events(user_id, created_at);
+CREATE INDEX idx_ad_display_events_exam_id ON ad_display_events(exam_id, created_at);
+CREATE INDEX idx_ad_display_events_stage ON ad_display_events(display_stage, created_at);
+CREATE INDEX idx_ad_display_events_displayed_at ON ad_display_events(displayed_at);
+```
+
+**設計注記:**
+- パーティショニングで大量データ管理
+- 未ログインユーザーの表示も記録（user_id NULL許可）
+- 収益計算・分析用データ
+- BigQueryへエクスポート対応
+
+#### **ad_viewing_history (広告閲覧履歴)**
+
+ユーザーごとの広告閲覧履歴を管理します（v7.1.0新設）。
+
+```sql
+CREATE TABLE ad_viewing_history (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID NOT NULL,  -- users.idを参照（論理的）
+  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+  display_stage ad_display_stage_enum NOT NULL,
+  first_viewed_at TIMESTAMPTZ NOT NULL,
+  last_viewed_at TIMESTAMPTZ NOT NULL,
+  view_count INT DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, exam_id, display_stage)
+);
+
+CREATE INDEX idx_ad_viewing_history_user_id ON ad_viewing_history(user_id);
+CREATE INDEX idx_ad_viewing_history_exam_id ON ad_viewing_history(exam_id);
+CREATE INDEX idx_ad_viewing_history_stage ON ad_viewing_history(display_stage);
+CREATE INDEX idx_ad_viewing_history_first_viewed ON ad_viewing_history(first_viewed_at);
+```
+
+**設計注記:**
+- **スキップロジック実装**: 2回目以降は広告非表示
+- display_stageごとに個別管理
+- view_countで閲覧回数追跡
+- ユーザーエクスペリエンス最適化
+
 ### 5.2 ログテーブル (DB分離設計)
 
-**物理DB:** `edumint_content_logs`
+**物理DB:** `edumint_contents_logs`
 
 #### **content_logs**
 
@@ -1344,244 +1775,16 @@ CREATE INDEX idx_content_logs_action ON content_logs(action, created_at);
 CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_at);
 ```
 
-**設計注記:**
-- 全コンテンツの変更履歴を一元管理
-- 監査証跡・バージョン管理用途
-- 本体DBと分離してパフォーマンス確保
-- パーティショニングで大量データに対応
-
----
-
-## **7. edumintFile (ファイル管理サービス)**
-
-### 概要
-
-edumintFile マイクロサービスの永続化データモデル定義。
-システムが管理するファイル（OCR入力画像、試験ソース等）と通報証拠ファイルのメタデータを管理し、Google Cloud Storage（GCS）への物理ファイル保存と連携する。
-
-**重要な前提**:
-- ユーザーは通常、自分がアップロードしたファイルに直接アクセス**できない**
-- ユーザーがアクセス可能なファイルは**通報証拠ファイル（report_attachment）のみ**
-- `exam_raw`, `source_raw` はLLM学習と通報時の確認用途専用
-- これらのファイルは管理者と自動化システムのみがアクセス可能
-
-### 設計変更点（v7.0.2）
-
-- **PostgreSQL 18.1、pgx v5.8.0、Atlas v1.0.0、sqlc 1.30.0対応**
-- **全テーブルの主キーをuuidv7()で統一（gen_random_uuid()廃止）**
-- **file_type_enum導入によるファイル種別の型安全化**
-- **exam_raw, source_raw テーブルの明示的分離**
-- **report_attachment テーブルの追加（通報証拠専用）**
-- **アクセス制御の明確化（ユーザー直接アクセス不可の原則）**
-- **ログテーブルを物理DB分離（edumint_file_logs）**
-
-### 所有サービス
-
-**edumintFile**: ファイルメタデータ管理・GCS連携・OCR処理連携
-
-### 技術スタック
-
-| 項目 | バージョン | 備考 |
-|:---|:---|:---|
-| PostgreSQL | 18.1 | uuidv7()、非同期I/O対応 |
-| pgx | v5.8.0 | Go PostgreSQLドライバ |
-| Atlas | v1.0.0 | スキーママイグレーション |
-| sqlc | 1.30.0 | Go型生成 |
-| Google Cloud Storage | - | 物理ファイル保存 |
-
-### 7.1 ファイル種別ENUM
-
-```sql
-CREATE TYPE file_type_enum AS ENUM (
-  'exam_raw',          -- 試験ソース生ファイル（PDF/画像）
-  'source_raw',        -- 問題ソース生ファイル（手書き/OCR入力）
-  'report_attachment'  -- 通報証拠ファイル（ユーザーアクセス可能）
-);
-```
-
-**設計注記:**
-- `exam_raw`: 試験問題の元ファイル（PDF、画像など）
-- `source_raw`: OCR入力元となる手書き画像など
-- `report_attachment`: 通報時にユーザーが添付する証拠ファイル
-- ユーザーが直接ダウンロード可能なのは `report_attachment` **のみ**
-
-### 7.2 本体DBテーブル (DDL例)
-
-#### **exam_raw (試験ソース生ファイル)**
-
-試験問題の元となる生ファイル（PDF、画像等）のメタデータを管理します。
-
-```sql
-CREATE TABLE exam_raw (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  file_type file_type_enum NOT NULL DEFAULT 'exam_raw',
-  original_filename VARCHAR(512) NOT NULL,
-  stored_filename VARCHAR(512) NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
-  mime_type VARCHAR(100) NOT NULL,
-  storage_path VARCHAR(1024) NOT NULL,
-  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-exam-raw',
-  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
-  ocr_processed BOOLEAN DEFAULT FALSE,
-  ocr_text TEXT,
-  language_code VARCHAR(10) DEFAULT 'ja',
-  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT chk_exam_raw_file_type CHECK (file_type = 'exam_raw')
-);
-
-CREATE INDEX idx_exam_raw_public_id ON exam_raw(public_id);
-CREATE INDEX idx_exam_raw_exam_id ON exam_raw(exam_id);
-CREATE INDEX idx_exam_raw_uploader_id ON exam_raw(uploader_id);
-CREATE INDEX idx_exam_raw_file_hash ON exam_raw(file_hash);
-CREATE INDEX idx_exam_raw_ocr_processed ON exam_raw(ocr_processed);
-CREATE INDEX idx_exam_raw_created_at ON exam_raw(created_at DESC);
-```
-
-**設計注記:**
-- 試験問題の元ファイルを保存
-- アクセス制御: 管理者と自動化システムのみ
-- LLM学習データとして活用
-- 通報時の検証用ソースとして参照
-- ユーザーは**直接ダウンロード不可**
-
-#### **source_raw (問題ソース生ファイル)**
-
-問題作成の元となる生ファイル（手書き画像、OCR入力元等）のメタデータを管理します。
-
-```sql
-CREATE TABLE source_raw (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  question_id UUID,  -- questions.idを参照（論理的）
-  sub_question_id UUID,  -- sub_questions.idを参照（論理的）
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  file_type file_type_enum NOT NULL DEFAULT 'source_raw',
-  original_filename VARCHAR(512) NOT NULL,
-  stored_filename VARCHAR(512) NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
-  mime_type VARCHAR(100) NOT NULL,
-  storage_path VARCHAR(1024) NOT NULL,
-  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-source-raw',
-  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
-  ocr_processed BOOLEAN DEFAULT FALSE,
-  ocr_text TEXT,
-  language_code VARCHAR(10) DEFAULT 'ja',
-  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT chk_source_raw_file_type CHECK (file_type = 'source_raw'),
-  CONSTRAINT chk_source_raw_question_ref CHECK (
-    (question_id IS NOT NULL AND sub_question_id IS NULL) OR
-    (question_id IS NULL AND sub_question_id IS NOT NULL)
-  )
-);
-
-CREATE INDEX idx_source_raw_public_id ON source_raw(public_id);
-CREATE INDEX idx_source_raw_question_id ON source_raw(question_id);
-CREATE INDEX idx_source_raw_sub_question_id ON source_raw(sub_question_id);
-CREATE INDEX idx_source_raw_uploader_id ON source_raw(uploader_id);
-CREATE INDEX idx_source_raw_file_hash ON source_raw(file_hash);
-CREATE INDEX idx_source_raw_ocr_processed ON source_raw(ocr_processed);
-CREATE INDEX idx_source_raw_created_at ON source_raw(created_at DESC);
-```
-
-**設計注記:**
-- 問題・小問の元ファイルを保存
-- OCR処理の入力元として使用
-- question_id または sub_question_id のいずれか必須
-- アクセス制御: 管理者と自動化システムのみ
-- LLM学習データとして活用
-- ユーザーは**直接ダウンロード不可**
-
-#### **report_attachment (通報証拠ファイル)**
-
-通報時にユーザーが添付する証拠ファイルのメタデータを管理します。
-
-```sql
-CREATE TABLE report_attachment (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  report_id UUID NOT NULL,  -- reports.idを参照（論理的）
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  file_type file_type_enum NOT NULL DEFAULT 'report_attachment',
-  original_filename VARCHAR(512) NOT NULL,
-  stored_filename VARCHAR(512) NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
-  mime_type VARCHAR(100) NOT NULL,
-  storage_path VARCHAR(1024) NOT NULL,
-  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-report-attachments',
-  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
-  access_level VARCHAR(20) DEFAULT 'user_accessible',  -- ユーザーアクセス可能
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT chk_report_attachment_file_type CHECK (file_type = 'report_attachment')
-);
-
-CREATE INDEX idx_report_attachment_public_id ON report_attachment(public_id);
-CREATE INDEX idx_report_attachment_report_id ON report_attachment(report_id);
-CREATE INDEX idx_report_attachment_uploader_id ON report_attachment(uploader_id);
-CREATE INDEX idx_report_attachment_file_hash ON report_attachment(file_hash);
-CREATE INDEX idx_report_attachment_created_at ON report_attachment(created_at DESC);
-```
-
-**設計注記:**
-- 通報時の証拠ファイルを保存
-- **ユーザーがアクセス可能な唯一のファイル種別**
-- 通報者と管理者がダウンロード可能
-- 通報の妥当性検証に使用
-
-#### **file_upload_jobs (ファイルアップロードジョブ)**
-
-ファイルアップロード処理のジョブ状態を管理します。
-
-```sql
-CREATE TABLE file_upload_jobs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  file_id UUID NOT NULL,  -- exam_raw, source_raw, report_attachmentのいずれかを参照
-  file_type file_type_enum NOT NULL,
-  job_id UUID,  -- jobs.idを参照（論理的）
-  status job_status_enum DEFAULT 'pending',
-  progress_percentage INT DEFAULT 0 CHECK (progress_percentage BETWEEN 0 AND 100),
-  error_message TEXT,
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_file_upload_jobs_file_id ON file_upload_jobs(file_id, file_type);
-CREATE INDEX idx_file_upload_jobs_job_id ON file_upload_jobs(job_id);
-CREATE INDEX idx_file_upload_jobs_status ON file_upload_jobs(status);
-CREATE INDEX idx_file_upload_jobs_created_at ON file_upload_jobs(created_at DESC);
-```
-
-**設計注記:**
-- ファイルアップロードの非同期処理を管理
-- file_type で対象テーブルを識別
-- ジョブステータスで処理進捗を追跡
-
-### 7.3 ログテーブル (DB分離設計)
-
-**物理DB:** `edumint_file_logs`
-
 #### **file_logs (ファイル操作ログ)**
 
-ファイル操作履歴を記録します。
+ファイル操作履歴を記録します（edumintFileから移管、v7.1.0）。
 
 ```sql
 CREATE TABLE file_logs (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   file_id UUID NOT NULL,
-  file_type file_type_enum NOT NULL,
-  action VARCHAR(50) NOT NULL,  -- 'upload', 'download', 'delete', 'ocr_complete', 'access_denied'
+  file_type VARCHAR(50) NOT NULL,  -- 'master_exam', 'master_material', 'report_attachment'
+  action VARCHAR(50) NOT NULL,  -- 'upload', 'download', 'delete', 'ocr_complete', 'access_denied', 'encrypt'
   user_id UUID,
   ip_address INET,
   user_agent TEXT,
@@ -1597,486 +1800,42 @@ CREATE INDEX idx_file_logs_access_result ON file_logs(access_result, created_at)
 ```
 
 **設計注記:**
-- ファイル操作の監査証跡
-- アクセス制御違反の検出
-- セキュリティ分析用ログ
+- 全コンテンツの変更履歴を一元管理
+- ファイル操作の監査証跡（アクセス制御違反検出）
+- 本体DBと分離してパフォーマンス確保
 - パーティショニングで大量データに対応
-
-### 7.4 アクセス制御設計
-
-#### アクセス権限マトリクス
-
-| ファイル種別 | ユーザー | 管理者 | システム | 用途 |
-|:---|:---:|:---:|:---:|:---|
-| exam_raw | ❌ | ✅ | ✅ | LLM学習・通報検証 |
-| source_raw | ❌ | ✅ | ✅ | LLM学習・通報検証 |
-| report_attachment | ✅ | ✅ | ✅ | 通報証拠（通報者のみ） |
-
-#### アクセス制御の実装
-
-```sql
--- アクセス制御チェック関数例
-CREATE OR REPLACE FUNCTION check_file_access(
-  p_file_type file_type_enum,
-  p_user_id UUID,
-  p_file_id UUID,
-  p_is_admin BOOLEAN
-) RETURNS BOOLEAN AS $$
-BEGIN
-  -- 管理者は全ファイルにアクセス可能
-  IF p_is_admin THEN
-    RETURN TRUE;
-  END IF;
-  
-  -- report_attachmentのみユーザーアクセス可（通報者のみ）
-  IF p_file_type = 'report_attachment' THEN
-    RETURN EXISTS (
-      SELECT 1 FROM report_attachment
-      WHERE id = p_file_id AND uploader_id = p_user_id
-    );
-  END IF;
-  
-  -- exam_raw, source_rawはユーザーアクセス不可
-  RETURN FALSE;
-END;
-$$ LANGUAGE plpgsql STABLE;
-```
-
-### 7.5 GCS連携設計
-
-#### バケット構成
-
-```
-edumint-exam-raw/           # 試験ソースファイル
-  ├── {year}/
-  │   └── {month}/
-  │       └── {uuid}.{ext}
-  
-edumint-source-raw/         # 問題ソースファイル
-  ├── {year}/
-  │   └── {month}/
-  │       └── {uuid}.{ext}
-  
-edumint-report-attachments/ # 通報証拠ファイル
-  ├── {year}/
-  │   └── {month}/
-  │       └── {uuid}.{ext}
-```
-
-#### ストレージクラス設定
-
-| バケット | ストレージクラス | 保持期間 | 理由 |
-|:---|:---|:---|:---|
-| exam-raw | STANDARD | 永続 | LLM学習データ |
-| source-raw | STANDARD | 永続 | LLM学習データ |
-| report-attachments | NEARLINE | 1年 | 通報証拠（低頻度アクセス） |
-
-### 7.6 OCR処理連携
-
-```sql
--- OCR処理完了時の更新例
-UPDATE exam_raw
-SET
-  ocr_processed = TRUE,
-  ocr_text = :ocr_result_text,
-  updated_at = CURRENT_TIMESTAMP
-WHERE id = :file_id;
-```
-
-**OCR処理フロー:**
-1. ファイルアップロード → GCS保存
-2. Kafka イベント発行（edumintAiWorker へ）
-3. OCR処理実行（Vision API等）
-4. 結果をDBに保存（ocr_text）
-5. ベクトル化（検索インデックス更新）
-
-### 7.7 セキュリティ対策
-
-#### ファイルサイズ制限
-
-```sql
-ALTER TABLE exam_raw ADD CONSTRAINT chk_exam_raw_file_size
-  CHECK (file_size_bytes <= 104857600);  -- 100MB
-
-ALTER TABLE source_raw ADD CONSTRAINT chk_source_raw_file_size
-  CHECK (file_size_bytes <= 52428800);   -- 50MB
-
-ALTER TABLE report_attachment ADD CONSTRAINT chk_report_attachment_file_size
-  CHECK (file_size_bytes <= 10485760);   -- 10MB
-```
-
-#### MIMEタイプ制限
-
-```sql
--- exam_raw: PDF及び画像ファイルのみ許可
-ALTER TABLE exam_raw ADD CONSTRAINT chk_exam_raw_mime_type
-  CHECK (mime_type IN (
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'application/pdf',
-    'image/heic'
-  ));
-
--- source_raw: 画像ファイルのみ許可
-ALTER TABLE source_raw ADD CONSTRAINT chk_source_raw_mime_type
-  CHECK (mime_type IN (
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/heic'
-  ));
-
--- report_attachment: 画像及びPDFのみ許可
-ALTER TABLE report_attachment ADD CONSTRAINT chk_report_attachment_mime_type
-  CHECK (mime_type IN (
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'application/pdf'
-  ));
-```
-
-#### ファイルハッシュによる重複検出
-
-```sql
--- 重複ファイルの検出
-SELECT file_hash, COUNT(*) as duplicate_count
-FROM (
-  SELECT file_hash FROM exam_raw
-  UNION ALL
-  SELECT file_hash FROM source_raw
-  UNION ALL
-  SELECT file_hash FROM report_attachment
-) AS all_files
-GROUP BY file_hash
-HAVING COUNT(*) > 1;
-```
-
-### 7.8 Atlas HCL + sqlc 連携
-
-#### Atlas HCL スキーマ定義例
-
-```hcl
-// schema.hcl - edumintFile
-table "exam_raw" {
-  schema = schema.edumint_files
-  
-  column "id" {
-    type = uuid
-    default = sql("uuidv7()")
-  }
-  column "public_id" {
-    type = varchar(16)
-    null = false
-  }
-  column "file_type" {
-    type = enum.file_type_enum
-    default = "exam_raw"
-  }
-  // ... 他のカラム定義
-  
-  primary_key {
-    columns = [column.id]
-  }
-  
-  index "idx_exam_raw_public_id" {
-    unique = true
-    columns = [column.public_id]
-  }
-}
-```
-
-#### sqlc クエリ例
-
-```sql
--- name: CreateExamRaw :one
-INSERT INTO exam_raw (
-  public_id,
-  exam_id,
-  uploader_id,
-  file_type,
-  original_filename,
-  stored_filename,
-  file_size_bytes,
-  mime_type,
-  storage_path,
-  bucket_name,
-  file_hash
-) VALUES (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-) RETURNING *;
-
--- name: GetExamRawByID :one
-SELECT * FROM exam_raw
-WHERE id = $1 AND is_active = TRUE;
-
--- name: ListExamRawByExamID :many
-SELECT * FROM exam_raw
-WHERE exam_id = $1 AND is_active = TRUE
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
-
--- name: UpdateOCRResult :exec
-UPDATE exam_raw
-SET
-  ocr_processed = TRUE,
-  ocr_text = $2,
-  updated_at = CURRENT_TIMESTAMP
-WHERE id = $1;
-```
-
-### 7.9 Goインテグレーション例
-
-```go
-// models/file.go
-type FileType string
-
-const (
-    FileTypeExamRaw         FileType = "exam_raw"
-    FileTypeSourceRaw       FileType = "source_raw"
-    FileTypeReportAttachment FileType = "report_attachment"
-)
-
-// services/file_service.go
-type FileService struct {
-    queries *db.Queries
-    storage *gcs.Client
-}
-
-func (s *FileService) UploadExamRaw(
-    ctx context.Context,
-    examID uuid.UUID,
-    uploaderID uuid.UUID,
-    file io.Reader,
-    filename string,
-) (*db.ExamRaw, error) {
-    // 1. GCSにアップロード
-    storedPath, err := s.uploadToGCS(ctx, file, "edumint-exam-raw", filename)
-    if err != nil {
-        return nil, err
-    }
-    
-    // 2. DBにメタデータ保存
-    examRaw, err := s.queries.CreateExamRaw(ctx, db.CreateExamRawParams{
-        PublicID:        nanoid.New(),
-        ExamID:          examID,
-        UploaderID:      uploaderID,
-        FileType:        string(FileTypeExamRaw),
-        OriginalFilename: filename,
-        StoredFilename:  storedPath,
-        // ... その他のパラメータ
-    })
-    if err != nil {
-        return nil, err
-    }
-    
-    // 3. OCR処理用Kafkaイベント発行
-    s.publishOCREvent(ctx, examRaw.ID)
-    
-    return &examRaw, nil
-}
-
-func (s *FileService) CheckFileAccess(
-    ctx context.Context,
-    fileType FileType,
-    fileID uuid.UUID,
-    userID uuid.UUID,
-    isAdmin bool,
-) (bool, error) {
-    // アクセス制御ロジック
-    if isAdmin {
-        return true, nil
-    }
-    
-    if fileType == FileTypeReportAttachment {
-        // 通報者のみアクセス可
-        attachment, err := s.queries.GetReportAttachmentByID(ctx, fileID)
-        if err != nil {
-            return false, err
-        }
-        return attachment.UploaderID == userID, nil
-    }
-    
-    // exam_raw, source_rawはユーザーアクセス不可
-    return false, nil
-}
-```
-
-### 7.10 監査・運用設計
-
-#### 監査ログ記録
-
-```sql
--- アクセス拒否の記録
-INSERT INTO file_logs (
-  file_id,
-  file_type,
-  action,
-  user_id,
-  ip_address,
-  access_result,
-  metadata
-) VALUES (
-  :file_id,
-  :file_type,
-  'access_denied',
-  :user_id,
-  :ip_address,
-  'denied',
-  jsonb_build_object('reason', 'insufficient_permission')
-);
-```
-
-#### 定期メンテナンス
-
-```sql
--- 非アクティブファイルの削除候補抽出
-SELECT id, public_id, original_filename, file_size_bytes
-FROM exam_raw
-WHERE is_active = FALSE
-  AND updated_at < CURRENT_TIMESTAMP - INTERVAL '90 days'
-ORDER BY updated_at;
-```
+- セキュリティ分析用ログ
 
 ---
 
-## **8. edumintSearch (検索サービス)**
+## **6. edumintSearch (検索サービス)**
 
-### 設計変更点（v7.0.0）
+### 設計変更点（v7.1.0）
 
-- 全テーブルの主キーをUUIDに変更
-- ログテーブルを物理DB分離
-- Elasticsearchインデックス設計を更新
+**無状態化（Stateless）:**
+- **物理DB削除**: PostgreSQL本体DBを完全廃止
+- **Elasticsearchのみ**: 全インデックスデータはElasticsearchで管理
+- **Debezium CDC**: edumintUsers, edumintContentsからリアルタイム差分同期
+- **検索用語テーブル移管**: *_terms, term_generation_*テーブルをedumintContentsへ移管
+- **ログDBは維持**: `edumint_search_logs` (分離DB) は検索クエリ履歴として保持
 
-### 7.1 本体DBテーブル (DDL例)
-
-#### **subject_terms**
-
-科目名の検索用語を管理します。
-
-```sql
-CREATE TABLE subject_terms (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  subject_id UUID NOT NULL,  -- subjects.idを参照（論理的）
-  term VARCHAR(255) NOT NULL,
-  term_type VARCHAR(50),  -- 'official_name', 'alias', 'abbreviation'
-  language_code VARCHAR(10) DEFAULT 'ja',
-  usage_count INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(subject_id, term, language_code)
-);
-
-CREATE INDEX idx_subject_terms_subject_id ON subject_terms(subject_id);
-CREATE INDEX idx_subject_terms_term ON subject_terms(term);
-CREATE INDEX idx_subject_terms_usage_count ON subject_terms(usage_count DESC);
+**アーキテクチャ:**
+```
+edumintContents (PostgreSQL)
+        ↓ Debezium CDC (論理レプリケーション)
+        ↓ Kafka経由
+edumintSearch (Elasticsearch + ログDB)
 ```
 
-#### **institution_terms**
+**利点:**
+- **運用コスト削減**: PostgreSQL管理・同期処理の削除
+- **リアルタイム同期**: Debezium CDCによる自動差分反映
+- **スケーラビリティ**: Elasticsearch水平スケールに最適化
+- **整合性保証**: Source of Truth (edumintContents) からの一方向同期
 
-機関名の検索用語を管理します。
+### 設計変更点（v7.0.0からの継続）
 
-```sql
-CREATE TABLE institution_terms (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  institution_id UUID NOT NULL,  -- institutions.idを参照（論理的）
-  term VARCHAR(255) NOT NULL,
-  term_type VARCHAR(50),
-  language_code VARCHAR(10) DEFAULT 'ja',
-  usage_count INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(institution_id, term, language_code)
-);
-
-CREATE INDEX idx_institution_terms_institution_id ON institution_terms(institution_id);
-CREATE INDEX idx_institution_terms_term ON institution_terms(term);
-CREATE INDEX idx_institution_terms_usage_count ON institution_terms(usage_count DESC);
-```
-
-#### **faculty_terms**
-
-学部名の検索用語を管理します。
-
-```sql
-CREATE TABLE faculty_terms (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  faculty_id UUID NOT NULL,  -- faculties.idを参照（論理的）
-  term VARCHAR(255) NOT NULL,
-  term_type VARCHAR(50),
-  language_code VARCHAR(10) DEFAULT 'ja',
-  usage_count INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(faculty_id, term, language_code)
-);
-
-CREATE INDEX idx_faculty_terms_faculty_id ON faculty_terms(faculty_id);
-CREATE INDEX idx_faculty_terms_term ON faculty_terms(term);
-CREATE INDEX idx_faculty_terms_usage_count ON faculty_terms(usage_count DESC);
-```
-
-#### **teacher_terms**
-
-教員名の検索用語を管理します。
-
-```sql
-CREATE TABLE teacher_terms (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  teacher_id UUID NOT NULL,  -- teachers.idを参照（論理的）
-  term VARCHAR(255) NOT NULL,
-  term_type VARCHAR(50),
-  language_code VARCHAR(10) DEFAULT 'ja',
-  usage_count INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(teacher_id, term, language_code)
-);
-
-CREATE INDEX idx_teacher_terms_teacher_id ON teacher_terms(teacher_id);
-CREATE INDEX idx_teacher_terms_term ON teacher_terms(term);
-CREATE INDEX idx_teacher_terms_usage_count ON teacher_terms(usage_count DESC);
-```
-
-#### **term_generation_jobs**
-
-用語生成ジョブを管理します。
-
-```sql
-CREATE TABLE term_generation_jobs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  entity_type VARCHAR(50) NOT NULL,  -- 'subject', 'institution', 'faculty', 'teacher'
-  entity_id UUID NOT NULL,
-  status job_status_enum DEFAULT 'pending',
-  error_message TEXT,
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_term_generation_jobs_entity ON term_generation_jobs(entity_type, entity_id);
-CREATE INDEX idx_term_generation_jobs_status ON term_generation_jobs(status);
-```
-
-#### **term_generation_candidates**
-
-AI生成された用語候補を管理します。
-
-```sql
-CREATE TABLE term_generation_candidates (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  job_id UUID NOT NULL REFERENCES term_generation_jobs(id) ON DELETE CASCADE,
-  term VARCHAR(255) NOT NULL,
-  confidence_score DECIMAL(5,4),
-  source VARCHAR(50),  -- 'ai_generated', 'user_suggested'
-  is_approved BOOLEAN DEFAULT FALSE,
-  approved_by_user_id UUID,
-  approved_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_term_generation_candidates_job_id ON term_generation_candidates(job_id);
-CREATE INDEX idx_term_generation_candidates_approved ON term_generation_candidates(is_approved);
-```
-
-### 7.2 ログテーブル (DB分離設計)
+### 6.1 ログテーブル (DB分離設計)
 
 **物理DB:** `edumint_search_logs`
 
@@ -2104,7 +1863,7 @@ CREATE INDEX idx_search_logs_query_text ON search_logs USING gin(to_tsvector('ja
 CREATE INDEX idx_search_logs_created_at ON search_logs(created_at);
 ```
 
-### 7.3 Elasticsearch設計
+### 6.2 Elasticsearch設計
 
 #### **exams インデックス**
 
@@ -2158,7 +1917,7 @@ CREATE INDEX idx_search_logs_created_at ON search_logs(created_at);
 
 ---
 
-## **8. edumintAiWorker (AI処理サービス)**
+## **7. edumintAiWorker (AI処理サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -2182,7 +1941,7 @@ edumintAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
    ↓
 [edumintAiWorker] AI処理（ステートレス）
    ↓
-[Kafka] ai.results → [edumintContent] 結果反映
+[Kafka] ai.results → [edumintContents] 結果反映
    ↓
 [ELK Stack] ログ収集・分析
 ```
@@ -2218,12 +1977,12 @@ edumintAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
 
 ---
 
-## **10. edumintSocial (ソーシャルサービス)**
+## **8. edumintSocial (ソーシャルサービス)**
 
 ### 設計変更点（v7.0.3）
 
-- **責務の明確化**: 統計情報管理をedumintContentへ移管、純粋なソーシャル機能に特化
-- **削除テーブル**: `exam_likes`, `exam_bads`, `exam_views`（→ edumintContent.exam_interaction_eventsへ統合）
+- **責務の明確化**: 統計情報管理をedumintContentsへ移管、純粋なソーシャル機能に特化
+- **削除テーブル**: `exam_likes`, `exam_bads`, `exam_views`（→ edumintContents.exam_interaction_eventsへ統合）
 - **新規テーブル**: SNS投稿、DM、マッチング機能用テーブルを追加
 - **コメント機能強化**: YouTubeスタイルのスレッド型コメント
 
@@ -2412,7 +2171,7 @@ CREATE UNIQUE INDEX idx_user_matches_unique_pair ON user_matches(user_id_1, user
 
 ### 10.3 イベント駆動フロー
 
-edumintSocialは`content.interaction`イベントを購読し、通知生成のみ実行します。統計情報の更新責務はedumintContentが持ちます。
+edumintSocialは`content.interaction`イベントを購読し、通知生成のみ実行します。統計情報の更新責務はedumintContentsが持ちます。
 
 ```yaml
 # 購読イベント
@@ -2427,11 +2186,11 @@ subscriptions:
 **設計注記:**
 - edumintSocialは統計情報の更新責務を持たない
 - Kafkaイベントを購読して通知生成のみ実行
-- edumintContentが統計情報のSource of Truthとなる
+- edumintContentsが統計情報のSource of Truthとなる
 
 ---
 
-## **11. edumintMonetizeWallet (ウォレット管理サービス)**
+## **9. edumintMonetizeWallet (ウォレット管理サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -2525,7 +2284,7 @@ CREATE INDEX idx_wallet_logs_retention_until ON wallet_logs(retention_until);
 
 ---
 
-## **11. edumintRevenue (収益分配サービス)**
+## **10. edumintRevenue (収益分配サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -2619,7 +2378,7 @@ CREATE INDEX idx_revenue_logs_action ON revenue_logs(action, created_at);
 
 ---
 
-## **12. edumintModeration (通報管理サービス)**
+## **11. edumintModeration (通報管理サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -2628,7 +2387,7 @@ CREATE INDEX idx_revenue_logs_action ON revenue_logs(action, created_at);
 - 全テーブルの主キーをUUIDに変更
 - ログテーブルを物理DB分離
 
-### 12.1 本体DBテーブル (DDL例)
+### 11.1 本体DBテーブル (DDL例)
 
 #### **content_reports**
 
@@ -2708,7 +2467,7 @@ CREATE TABLE report_files (
 CREATE INDEX idx_report_files_report ON report_files(report_type, report_id);
 ```
 
-### 12.2 ログテーブル (DB分離設計)
+### 11.2 ログテーブル (DB分離設計)
 
 **物理DB:** `edumint_moderation_logs`
 
@@ -2743,7 +2502,7 @@ CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
 
 ---
 
-## **13. edumintGateway (ジョブゲートウェイ)**
+## **12. edumintGateways (ジョブゲートウェイ)**
 
 ### 設計変更点（v7.0.0）
 
@@ -2813,7 +2572,271 @@ CREATE INDEX idx_job_logs_status ON job_logs(status, created_at);
 
 ---
 
-## **15. イベント駆動フロー**
+## **13. Debezium CDC レプリケーション設計**
+
+### 概要
+
+v7.1.0では、Debezium CDCを導入し、PostgreSQLからElasticsearchへのリアルタイムデータ同期を実現します。これにより、edumintSearchサービスの無状態化と、データ整合性の自動保証が可能になります。
+
+### アーキテクチャ
+
+```
+┌─────────────────────┐
+│ edumintUsers        │ PostgreSQL (edumint_users)
+│ (Source of Truth)   │
+└──────────┬──────────┘
+           │ Logical Replication
+           ↓
+      ┌────────────────┐
+      │ Debezium CDC   │ Change Data Capture
+      │ Connector      │
+      └────────┬───────┘
+               │ Kafka Topic: dbz.edumint_users.*
+               ↓
+┌─────────────────────┐
+│ edumintContents     │ PostgreSQL (edumint_contents)
+│ (Source of Truth)   │
+└──────────┬──────────┘
+           │ Logical Replication
+           ↓
+      ┌────────────────┐
+      │ Debezium CDC   │ Change Data Capture
+      │ Connector      │
+      └────────┬───────┘
+               │ Kafka Topic: dbz.edumint_contents.*
+               ↓
+         ┌──────────┐
+         │  Kafka   │ Event Streaming Platform
+         └────┬─────┘
+              │
+              ↓
+    ┌──────────────────┐
+    │ edumintSearch    │ Consumer Service
+    │ (Stateless)      │
+    └────────┬─────────┘
+             │
+             ↓
+    ┌──────────────────┐
+    │ Elasticsearch    │ Search Index
+    │ 9.2.4            │
+    └──────────────────┘
+```
+
+### Debezium 設定
+
+#### PostgreSQL 論理レプリケーション設定
+
+```sql
+-- postgresql.conf
+wal_level = logical
+max_replication_slots = 10
+max_wal_senders = 10
+
+-- レプリケーションスロット作成
+SELECT pg_create_logical_replication_slot('debezium_edumint_users', 'pgoutput');
+SELECT pg_create_logical_replication_slot('debezium_edumint_contents', 'pgoutput');
+
+-- パブリケーション作成
+CREATE PUBLICATION dbz_publication_users FOR TABLE 
+  users, user_profiles, oauth_tokens, idp_links;
+
+CREATE PUBLICATION dbz_publication_contents FOR TABLE
+  institutions, faculties, departments, teachers, subjects,
+  exams, questions, sub_questions, keywords, exam_keywords,
+  exam_statistics, exam_interaction_events,
+  subject_terms, institution_terms, faculty_terms, teacher_terms,
+  term_generation_jobs, term_generation_candidates;
+```
+
+#### Debezium Connector 設定（edumintUsers）
+
+```json
+{
+  "name": "debezium-connector-edumint-users",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "edumint-users-db.internal",
+    "database.port": "5432",
+    "database.user": "debezium",
+    "database.password": "${secret:debezium-password}",
+    "database.dbname": "edumint_users",
+    "database.server.name": "edumint_users",
+    "table.include.list": "public.users,public.user_profiles,public.oauth_tokens,public.idp_links",
+    "plugin.name": "pgoutput",
+    "publication.name": "dbz_publication_users",
+    "slot.name": "debezium_edumint_users",
+    "heartbeat.interval.ms": 5000,
+    "snapshot.mode": "initial",
+    "topic.prefix": "dbz.edumint_users",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite"
+  }
+}
+```
+
+#### Debezium Connector 設定（edumintContents）
+
+```json
+{
+  "name": "debezium-connector-edumint-contents",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "edumint-contents-db.internal",
+    "database.port": "5432",
+    "database.user": "debezium",
+    "database.password": "${secret:debezium-password}",
+    "database.dbname": "edumint_contents",
+    "database.server.name": "edumint_contents",
+    "table.include.list": "public.institutions,public.faculties,public.departments,public.teachers,public.subjects,public.exams,public.questions,public.sub_questions,public.keywords,public.exam_keywords,public.exam_statistics,public.exam_interaction_events,public.subject_terms,public.institution_terms,public.faculty_terms,public.teacher_terms",
+    "plugin.name": "pgoutput",
+    "publication.name": "dbz_publication_contents",
+    "slot.name": "debezium_edumint_contents",
+    "heartbeat.interval.ms": 5000,
+    "snapshot.mode": "initial",
+    "topic.prefix": "dbz.edumint_contents",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite"
+  }
+}
+```
+
+### Kafkaトピック設計
+
+| トピック名 | 用途 | データ例 |
+|:---|:---|:---|
+| `dbz.edumint_users.public.users` | ユーザー変更 | INSERT/UPDATE/DELETE on users |
+| `dbz.edumint_users.public.user_profiles` | プロフィール変更 | INSERT/UPDATE/DELETE on user_profiles |
+| `dbz.edumint_contents.public.exams` | 試験変更 | INSERT/UPDATE/DELETE on exams |
+| `dbz.edumint_contents.public.questions` | 問題変更 | INSERT/UPDATE/DELETE on questions |
+| `dbz.edumint_contents.public.exam_statistics` | 統計変更 | INSERT/UPDATE on exam_statistics |
+| `dbz.edumint_contents.public.subject_terms` | 検索用語変更 | INSERT/UPDATE/DELETE on *_terms |
+
+### edumintSearch Consumer実装
+
+```go
+package consumer
+
+import (
+    "context"
+    "encoding/json"
+    "github.com/elastic/go-elasticsearch/v8"
+    "github.com/segmentio/kafka-go"
+)
+
+type SearchIndexer struct {
+    esClient    *elasticsearch.Client
+    kafkaReader *kafka.Reader
+}
+
+func (s *SearchIndexer) ConsumeExamChanges(ctx context.Context) error {
+    for {
+        msg, err := s.kafkaReader.ReadMessage(ctx)
+        if err != nil {
+            return err
+        }
+
+        var change DebeziumChange
+        if err := json.Unmarshal(msg.Value, &change); err != nil {
+            continue
+        }
+
+        switch change.Payload.Op {
+        case "c", "u": // Create or Update
+            s.indexExam(ctx, change.Payload.After)
+        case "d": // Delete
+            s.deleteExam(ctx, change.Payload.Before.ID)
+        }
+    }
+}
+
+type DebeziumChange struct {
+    Payload struct {
+        Op     string          `json:"op"`      // c, u, d, r
+        Before json.RawMessage `json:"before"`
+        After  json.RawMessage `json:"after"`
+    } `json:"payload"`
+}
+```
+
+### 差分同期の保証
+
+1. **WAL（Write-Ahead Log）ベース**: PostgreSQLのトランザクションログから差分抽出
+2. **At-Least-Once配信**: Kafkaオフセット管理による確実な配信
+3. **イベント順序保証**: 同一テーブル内での順序保証（パーティションキー: table名）
+4. **スナップショット初期化**: 初回起動時に既存データ全体を同期
+
+### モニタリング・運用
+
+#### ヘルスチェック
+
+```sql
+-- レプリケーションラグ確認
+SELECT
+    slot_name,
+    active,
+    restart_lsn,
+    confirmed_flush_lsn,
+    pg_current_wal_lsn() - confirmed_flush_lsn AS replication_lag_bytes
+FROM pg_replication_slots
+WHERE slot_name LIKE 'debezium_%';
+
+-- アクティブな接続確認
+SELECT * FROM pg_stat_replication
+WHERE application_name LIKE 'debezium%';
+```
+
+#### Prometheus Metrics
+
+```yaml
+# Debezium Connector Metrics
+- debezium_metrics_MilliSecondsSinceLastEvent
+- debezium_metrics_TotalNumberOfEventsSeen
+- debezium_metrics_NumberOfEventsSkipped
+- debezium_metrics_SnapshotCompleted
+- debezium_metrics_Connected
+```
+
+### トラブルシューティング
+
+#### レプリケーションスロット削除・再作成
+
+```sql
+-- 問題のあるスロット削除
+SELECT pg_drop_replication_slot('debezium_edumint_users');
+
+-- 再作成
+SELECT pg_create_logical_replication_slot('debezium_edumint_users', 'pgoutput');
+```
+
+#### Kafka遅延対策
+
+```bash
+# Consumer Lag確認
+kafka-consumer-groups --bootstrap-server kafka:9092 \
+  --group edumint-search-indexer \
+  --describe
+
+# パーティション数増加（スケールアウト）
+kafka-topics --bootstrap-server kafka:9092 \
+  --alter --topic dbz.edumint_contents.public.exams \
+  --partitions 10
+```
+
+### 設計注記
+
+- **無状態化**: edumintSearchはElasticsearch + ログDBのみ
+- **Source of Truth**: edumintUsers, edumintContentsが唯一の真実
+- **リアルタイム性**: ミリ秒～秒オーダーでの同期
+- **運用コスト削減**: 手動同期処理・バッチジョブ不要
+- **整合性保証**: PostgreSQL ACID特性 + CDC自動反映
+
+---
+
+## **14. イベント駆動フロー**
 
 ### Kafkaトピック設計
 
@@ -2823,21 +2846,21 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 
 | トピック名 | Producer | Consumer | イベント例 | 用途 |
 |-----------|----------|----------|-----------|------|
-| `auth.events` | edumintAuth | edumintUserProfile | `UserRegistered`, `UserLoggedIn`, `TokenRevoked` | 認証イベント通知 |
-| `user.events` | edumintUserProfile | 各サービス | `UserProfileUpdated`, `UserDeleted` | ユーザー情報変更通知 |
-| `content.lifecycle` | edumintContent | edumintSearch, edumintGateway | `ExamCreated`, `ExamPublished`, `ExamDeleted` | コンテンツライフサイクル |
-| `content.jobs` | edumintFile | edumintGateway, edumintAiWorker | `FileUploaded`, `OCRRequested` | ファイル処理要求 |
-| `ai.results` | edumintAiWorker | edumintContent, edumintGateway | `OCRCompleted`, `AIGenerationComplete` | AI処理結果 |
-| `gateway.jobs` | edumintGateway | 各サービス | `JobAssigned`, `JobCompleted` | ジョブオーケストレーション |
-| `gateway.job_status` | 各サービス | edumintGateway | `JobProgressUpdate`, `JobFailed` | ジョブステータス更新 |
+| `auth.events` | edumintUsers | 各サービス | `UserRegistered`, `UserLoggedIn`, `TokenRevoked` | 認証イベント通知 |
+| `user.events` | edumintUsers | 各サービス | `UserProfileUpdated`, `UserDeleted` | ユーザー情報変更通知 |
+| `content.lifecycle` | edumintContents | edumintSearch, edumintGateways | `ExamCreated`, `ExamPublished`, `ExamDeleted` | コンテンツライフサイクル |
+| `content.jobs` | edumintContents | edumintGateways, edumintAiWorker | `FileUploaded`, `OCRRequested` | ファイル処理要求 |
+| `ai.results` | edumintAiWorker | edumintContents, edumintGateways | `OCRCompleted`, `AIGenerationComplete` | AI処理結果 |
+| `gateway.jobs` | edumintGateways | 各サービス | `JobAssigned`, `JobCompleted` | ジョブオーケストレーション |
+| `gateway.job_status` | 各サービス | edumintGateways | `JobProgressUpdate`, `JobFailed` | ジョブステータス更新 |
 | `search.indexed` | edumintSearch | - | `ContentIndexed` | 検索インデックス完了通知 |
 | `search.term_generation` | edumintSearch | edumintAiWorker | `TermGenerationRequested` | 用語生成要求 |
-| **`content.interaction`** | **edumintContent** | **edumintSearch, edumintSocial, edumintRevenue** | **`ExamViewed`, `ExamLiked`, `ExamUnliked`, `ExamBad`, `ExamShared`** | **ユーザーインタラクション統計イベント** |
-| `social.activity` | edumintSocial | edumintUserProfile, edumintContent | `ExamCommented`, `PostCreated`, `DMSent` | ソーシャル活動通知 |
-| `content.feedback` | edumintSocial | edumintContent | `ExamLiked`, `ExamCommented`, `ExamViewed` | ソーシャルフィードバック |
+| **`content.interaction`** | **edumintContents** | **edumintSearch, edumintSocial, edumintRevenue** | **`ExamViewed`, `ExamLiked`, `ExamUnliked`, `ExamBad`, `ExamShared`** | **ユーザーインタラクション統計イベント** |
+| `social.activity` | edumintSocial | edumintUsers, edumintContents | `ExamCommented`, `PostCreated`, `DMSent` | ソーシャル活動通知 |
+| `content.feedback` | edumintSocial | edumintContents | `ExamLiked`, `ExamCommented`, `ExamViewed` | ソーシャルフィードバック |
 | `monetization.transactions` | edumintMonetizeWallet | edumintRevenue | `CoinEarned`, `CoinSpent` | ウォレットトランザクション |
 | `revenue.reports` | edumintRevenue | - | `RevenueCalculated`, `PaymentProcessed` | 収益レポート |
-| `moderation.events` | edumintModeration | edumintContent, edumintUserProfile | `ContentReported`, `ContentTakenDown`, `UserBanned` | モデレーションイベント |
+| `moderation.events` | edumintModeration | edumintContents, edumintUsers | `ContentReported`, `ContentTakenDown`, `UserBanned` | モデレーションイベント |
 
 ### イベントフロー例
 
@@ -2846,15 +2869,15 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 ```
 [ユーザー] ファイルアップロード
    ↓
-[edumintFile] file_inputs作成
+[edumintContents] master_exams作成
    ↓ (Kafka: content.jobs)
-[edumintGateway] ジョブ作成 (job_type: 'file_upload')
+[edumintGateways] ジョブ作成 (job_type: 'file_upload')
    ↓ (Kafka: gateway.jobs)
 [edumintAiWorker] OCR処理実行
    ↓ (Kafka: ai.results)
-[edumintContent] exams/questions作成
+[edumintContents] exams/questions作成
    ↓ (Kafka: content.lifecycle)
-[edumintSearch] Elasticsearch/PostgreSQLインデックス更新
+[edumintSearch] Elasticsearchインデックス更新（Debezium CDC経由）
 ```
 
 #### **2. ソーシャルフィードバックフロー（v7.0.2以前の旧パターン - 参考）**
@@ -2864,11 +2887,11 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
    ↓
 [edumintSocial] exam_likes作成
    ↓ (Kafka: content.feedback)
-[edumintContent] exams.like_count更新
+[edumintContents] exams.like_count更新
    ↓ (Kafka: content.lifecycle)
 [edumintSearch] Elasticsearchランキング更新
    ↓
-[edumintUserProfile] 通知作成 (ExamLiked)
+[edumintUsers] 通知作成 (ExamLiked)
 ```
 
 **注記:** v7.0.3では以下の新しいパターンに移行しました。
@@ -2878,7 +2901,7 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 ```
 [ユーザー] 試験にいいね
    ↓
-[edumintContent API] exam_interaction_eventsに記録（非同期）
+[edumintContents API] exam_interaction_eventsに記録（非同期）
    ↓ (Kafka: content.interaction)
 [edumintSearch] Elasticsearchランキング更新
 [edumintSocial] 通知作成「あなたの試験がいいねされました」
@@ -2903,7 +2926,7 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
    ↓ (Kafka: monetization.transactions)
 [edumintMonetizeWallet] wallet_transactions作成
    ↓
-[edumintUserProfile] 通知作成 (CoinEarned)
+[edumintUsers] 通知作成 (CoinEarned)
 ```
 
 ### Debezium CDC連携
@@ -3434,10 +3457,10 @@ SELECT * FROM exams WHERE status = 'active';
 | **Cold** | Coldline | 91-365日 | 年次アクセスファイル | 90日経過で自動 |
 | **Archive** | Archive | 366日以上 | 長期保存ファイル（法令対応） | 365日経過で自動 |
 
-**edumintFiles専用ライフサイクルポリシー**:
+**edumintContents_files専用ライフサイクルポリシー**:
 
 ```yaml
-# GCS Lifecycle Configuration for edumintFiles bucket
+# GCS Lifecycle Configuration for edumintContents_files bucket
 lifecycle:
   rules:
     - action:
@@ -3497,20 +3520,20 @@ WHERE created_at < NOW() - INTERVAL '7 days'
 **パターン例**:
 
 ```sql
--- edumintContent.examsテーブル（Content管理サービス）
+-- edumintContents.examsテーブル（Content管理サービス）
 CREATE TABLE exams (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,
-  creator_user_id UUID NOT NULL,              -- edumintAuth.usersを論理参照
+  creator_user_id UUID NOT NULL,              -- edumintUsers.usersを論理参照
   -- creator_user_idにはFOREIGN KEY制約を設定しない（サービス境界を越えるため）
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- edumintContent.exam_interaction_eventsテーブル（v7.0.3: 統計情報管理）
+-- edumintContents.exam_interaction_eventsテーブル（v7.0.3: 統計情報管理）
 CREATE TABLE exam_interaction_events (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  exam_id UUID NOT NULL,                      -- edumintContent.examsを論理参照
-  user_id UUID,                               -- edumintAuth.usersを論理参照（NULL許可）
+  exam_id UUID NOT NULL,                      -- edumintContents.examsを論理参照
+  user_id UUID,                               -- edumintUsers.usersを論理参照（NULL許可）
   event_type VARCHAR(20) NOT NULL,            -- 'view', 'like', 'bad', etc.
   -- exam_id, user_idにはFOREIGN KEY制約を設定しない（論理参照のため）
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -3708,7 +3731,7 @@ GROUP BY topic_name;
 3. 手動でメインキューに再投入
 4. 正常処理を確認
 
-#### **16.14.9 edumintFiles データ永続化標準**
+#### **16.14.9 edumintContents_files データ永続化標準**
 
 **ファイルライフサイクル全体図**:
 
@@ -3785,7 +3808,7 @@ WHERE
 ```sql
 CREATE TABLE ai_generation_logs (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  job_id UUID NOT NULL,                       -- ジョブID（edumintGateway.jobs参照）
+  job_id UUID NOT NULL,                       -- ジョブID（edumintGateways.jobs参照）
   model_name VARCHAR(100) NOT NULL,           -- 使用モデル名（例: gemini-1.5-pro）
   prompt_text TEXT NOT NULL,                  -- 入力プロンプト
   response_text TEXT,                         -- 生成結果
@@ -3909,7 +3932,7 @@ WHERE id = $1;
 
 ```sql
 -- ❌ 禁止: サービス境界を越える物理FOREIGN KEY
--- edumintContent.exam_interaction_eventsテーブルで edumintAuth.usersを参照
+-- edumintContents.exam_interaction_eventsテーブルで edumintUsers.usersを参照
 CREATE TABLE exam_interaction_events (
   user_id UUID REFERENCES edumint_auth.users(id),  -- 異なるDB、物理制約不可
 );
@@ -3974,13 +3997,13 @@ CREATE TABLE new_table (
 - [ ] pgvector HNSWパラメータを適切に設定している（m=16, ef_construction=64）
 
 **運用チェック**:
-- [ ] GCSライフサイクルポリシーを設定している（edumintFiles）
+- [ ] GCSライフサイクルポリシーを設定している（edumintContents_files）
 - [ ] BigQueryエクスポート戦略を定義している（AI logs）
 - [ ] Kafka DLQトピックを設定している（イベント駆動）
 - [ ] Schema Registryにスキーマを登録している（イベント駆動）
 
 
-## **17. pgvector + ベクトル検索設計**
+## **16. pgvector + ベクトル検索設計**
 
 ### 17.1 ベクトル型カラム基本設計
 
@@ -4292,12 +4315,12 @@ table "questions" {
 
 ---
 
-## **18. Atlas HCL + sqlcワークフロー**
+## **17. Atlas HCL + sqlcワークフロー**
 
 ### 18.1 統合ディレクトリ構成
 
 ```
-edumintContent/
+edumintContents/
 ├── atlas.hcl                        # Atlas設定
 ├── sqlc.yaml                        # sqlc設定
 ├── go.mod
@@ -4630,7 +4653,7 @@ echo "✓ ワークフロー完了"
 
 ---
 
-## **19. Cloud SQL運用設定**
+## **18. Cloud SQL運用設定**
 
 ### 19.1 推奨インスタンス設定
 
@@ -4935,7 +4958,7 @@ gcloud alpha monitoring policies create   --notification-channels=CHANNEL_ID   -
 
 ---
 
-## **20. 可観測性・監査ログ設計**
+## **19. 可観測性・監査ログ設計**
 
 ### 20.1 OpenTelemetryトレース実装（EduMint固有パターン）
 
@@ -5224,7 +5247,7 @@ func (dae *DailyAuditExporter) ExportYesterdayLogs(ctx context.Context) error {
 
 ---
 
-## **21. テスト・CI/CD設計**
+## **20. テスト・CI/CD設計**
 
 ### 21.1 Testcontainersパターン（EduMint専用）
 
@@ -5611,12 +5634,12 @@ jobs:
 
 ---
 
-## **22. Goインテグレーション**
+## **21. Goインテグレーション**
 
 ### 22.1 推奨プロジェクト構成
 
 ```
-edumintContent/
+edumintContents/
 ├── cmd/
 │   └── api/
 │       └── main.go                     # エントリーポイント
@@ -5811,7 +5834,7 @@ func (eo *ExamOrchestrator) CreateExamWithQuestions(
 
 ---
 
-## **23. AIエージェント協働**
+## **22. AIエージェント協働**
 
 ### 23.1 AIコード生成プロンプトテンプレート
 
