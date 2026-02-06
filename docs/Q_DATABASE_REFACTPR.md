@@ -1145,9 +1145,7 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 
 ## **7. edumintFile (ファイル管理サービス)**
 
-# edumintFiles データモデル定義書 (PostgreSQL 18.1 対応版 - 最終修正版)
-
-## 概要
+### 概要
 
 edumintFiles マイクロサービスの永続化データモデル定義。
 システムが管理するファイル（OCR入力画像、試験ソース等）と通報証拠ファイルのメタデータを管理し、Google Cloud Storage（GCS）への物理ファイル保存と連携する。
@@ -1501,15 +1499,33 @@ ALTER TABLE report_attachment ADD CONSTRAINT chk_report_attachment_file_size
 #### MIMEタイプ制限
 
 ```sql
-CREATE TYPE allowed_mime_type_enum AS ENUM (
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'application/pdf',
-  'image/heic'
-);
+-- exam_raw: PDF及び画像ファイルのみ許可
+ALTER TABLE exam_raw ADD CONSTRAINT chk_exam_raw_mime_type
+  CHECK (mime_type IN (
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+    'image/heic'
+  ));
 
--- 各テーブルでMIMEタイプを制限（実装例）
+-- source_raw: 画像ファイルのみ許可
+ALTER TABLE source_raw ADD CONSTRAINT chk_source_raw_mime_type
+  CHECK (mime_type IN (
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/heic'
+  ));
+
+-- report_attachment: 画像及びPDFのみ許可
+ALTER TABLE report_attachment ADD CONSTRAINT chk_report_attachment_mime_type
+  CHECK (mime_type IN (
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf'
+  ));
 ```
 
 #### ファイルハッシュによる重複検出
