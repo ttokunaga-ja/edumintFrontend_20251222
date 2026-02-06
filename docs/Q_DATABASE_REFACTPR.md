@@ -25,7 +25,7 @@
   - `edumint_contents_search` (検索用DB): 検索用語テーブル群の分離
   - `edumint_contents_master` (マスターDB): OCRテキスト専用（暗号化対象）
   - `edumint_contents_logs` (ログDB): ログデータの分離（既存）
-- **master_exams/materials分離強化**: 独立したDB・IAMロールでセキュリティ向上
+- **master_exams/materials分離強化**: 独立したDB・IAMロールでセキュリティ向上（v7.3.0で統合設計へ移行）
 - **検索用語テーブル分離**: I/O競合解消、Debezium CDC精密制御
 - **Debezium 2コネクタ構成**: edumint_contents と edumint_contents_search の個別同期
 - **段階的スケーリング戦略**: DB単位での独立したスケールアウト対応
@@ -33,8 +33,8 @@
 
 **v7.1.0 主要更新:**
 - **マイクロサービス統合**: edumintAuth + edumintUserProfile → **edumintUsers**に統合（トランザクション整合性・レイテンシ削減）
-- **ファイル管理とOCRテキスト管理の分離**: **edumintFiles**サービスは原本ファイル保存に専念、OCRテキストは**edumintContents**の`master_exams`, `master_materials`で管理
-- **テーブル名変更**: `exam_raw` → **`master_exams`**, `source_raw` → **`master_materials`**（イミュータブル設計）
+- **ファイル管理とOCRテキスト管理の分離**: **edumintFiles**サービスは原本ファイル保存に専念、OCRテキストは**edumintContents**の`master_exams`, `master_materials`で管理（v7.3.0で`master_ocr_contents`に統合）
+- **テーブル名変更**: `exam_raw` → **`master_exams`**, `source_raw` → **`master_materials`**（イミュータブル設計）（v7.3.0で`master_ocr_contents`に統合）
 - **自動暗号化機能**: ファイルアップロード7日後に自動暗号化実装
 - **edumintSearch無状態化**: 物理DB削除、Elasticsearch + ログDBのみに変更
 - **Debezium CDC導入**: PostgreSQL論理レプリケーション、Kafka経由リアルタイム差分同期
@@ -2182,7 +2182,7 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 - **API/イベント駆動連携**:
   - ファイルアップロード完了時: `file.uploaded` イベント発行
   - OCR要求: edumintContentsから `content.ocr` イベント購読
-  - OCR結果保存: edumintContentsの master_exams, master_materials に保存
+  - OCR結果保存: edumintContentsの master_ocr_contents に保存
 - **暗号化対象**: 原本ファイル（GCS保存）とOCRテキスト（edumintContentsのDB）の両方
 
 **設計原則:**
@@ -4275,7 +4275,7 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
    ↓ (Kafka: gateway.jobs)
 [edumintAiWorker] OCR処理実行（edumintFilesからファイル取得）
    ↓ (Kafka: ai.results)
-[edumintContents] master_examsにOCRテキスト保存、exams/questions作成
+[edumintContents] master_ocr_contentsにOCRテキスト保存、exams/questions作成
    ↓ (Kafka: content.lifecycle)
 [edumintSearch] Elasticsearchインデックス更新（Debezium CDC経由）
 ```
@@ -4327,7 +4327,7 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
    ↓
 [edumintFiles] file_metadata暗号化処理（GCS）
    ↓ (Kafka: file.encrypted)
-[edumintContents] master_exams/master_materials暗号化フラグ更新
+[edumintContents] master_ocr_contents暗号化フラグ更新
    ↓
 [edumintContents] OCRテキスト暗号化（DB）
 ```
@@ -7697,12 +7697,13 @@ AI: [テストケース生成]
    - 物理DB: edumint_contents (メインDB), edumint_contents_search (検索用DB), edumint_contents_master (マスターDB), edumint_contents_logs (ログDB)
    - 各DBの役割・特性に応じた最適なインスタンス設定
 
-2. **セキュリティ強化（master_exams/materials分離）**
+2. **セキュリティ強化（OCRテキスト統合管理）**
    - OCRテキスト（機密情報）を独立したDBで管理
    - IAMロール分離による厳格なアクセス制御（書き込み専用SA、読み取り専用SA）
    - イミュータブル設計（追加のみ、更新・削除禁止）
    - 7日後の自動暗号化対応
    - 一般ユーザー・アプリケーションからのアクセス完全遮断
+   - v7.3.0: master_ocr_contents統合テーブルで一元管理
 
 3. **I/O性能改善（検索用語テーブル分離）**
    - 読み取り集中（検索クエリ）と書き込み集中（コンテンツ更新）を物理分離
