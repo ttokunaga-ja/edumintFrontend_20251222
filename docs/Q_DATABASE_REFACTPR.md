@@ -6,7 +6,7 @@
 
 **v7.1.0 主要更新:**
 - **マイクロサービス統合**: edumintAuth + edumintUserProfile → **edumintUsers**に統合（トランザクション整合性・レイテンシ削減）
-- **ファイル管理移管**: edumintFile廃止、全機能を**edumintContents**へ統合
+- **ファイル管理とOCRテキスト管理の分離**: **edumintFiles**サービスは原本ファイル保存に専念、OCRテキストは**edumintContents**の`master_exams`, `master_materials`で管理
 - **テーブル名変更**: `exam_raw` → **`master_exams`**, `source_raw` → **`master_materials`**（イミュータブル設計）
 - **自動暗号化機能**: ファイルアップロード7日後に自動暗号化実装
 - **edumintSearch無状態化**: 物理DB削除、Elasticsearch + ログDBのみに変更
@@ -63,27 +63,28 @@
 **サービス別設計編**
 
 4. [edumintUsers (統合ユーザー管理サービス)](#4-edumintusers-統合ユーザー管理サービス)
-5. [edumintContents (コンテンツ・ファイル統合管理サービス)](#5-edumintcontents-コンテンツ・ファイル統合管理サービス)
-6. [edumintSearch (検索サービス)](#6-edumintsearch-検索サービス)
-7. [edumintAiWorker (AI処理サービス)](#7-edumintaiworker-ai処理サービス)
-8. [edumintSocial (ソーシャルサービス)](#8-edumintsocial-ソーシャルサービス)
-9. [edumintMonetizeWallet (ウォレット管理サービス)](#9-edumintmonetizewallet-ウォレット管理サービス)
-10. [edumintRevenue (収益分配サービス)](#10-edumintrevenue-収益分配サービス)
-11. [edumintModeration (通報管理サービス)](#11-edumintmoderation-通報管理サービス)
-12. [edumintGateways (ジョブゲートウェイ)](#12-edumintgateways-ジョブゲートウェイ)
+5. [edumintContents (コンテンツ・OCRテキスト管理サービス)](#5-edumintcontents-コンテンツocrテキスト管理サービス)
+6. [edumintFiles (ファイルストレージ管理サービス)](#6-edumintfiles-ファイルストレージ管理サービス)
+7. [edumintSearch (検索サービス)](#7-edumintsearch-検索サービス)
+8. [edumintAiWorker (AI処理サービス)](#8-edumintaiworker-ai処理サービス)
+9. [edumintSocial (ソーシャルサービス)](#9-edumintsocial-ソーシャルサービス)
+10. [edumintMonetizeWallet (ウォレット管理サービス)](#10-edumintmonetizewallet-ウォレット管理サービス)
+11. [edumintRevenue (収益分配サービス)](#11-edumintrevenue-収益分配サービス)
+12. [edumintModeration (通報管理サービス)](#12-edumintmoderation-通報管理サービス)
+13. [edumintGateways (ジョブゲートウェイ)](#13-edumintgateways-ジョブゲートウェイ)
 
 **統合設計編**
 
-13. [Debezium CDC レプリケーション設計](#13-debezium-cdc-レプリケーション設計)
-14. [イベント駆動フロー](#14-イベント駆動フロー)
-15. [データベース設計ガイドライン](#15-データベース設計ガイドライン)
-16. [pgvector + ベクトル検索設計](#16-pgvectorベクトル検索設計)
-17. [Atlas HCL + sqlcワークフロー](#17-atlas-hclsqlcワークフロー)
-18. [Cloud SQL運用設定](#18-cloud-sql運用設定)
-19. [可観測性・監査ログ設計](#19-可観測性監査ログ設計)
-20. [テスト・CI/CD設計](#20-テストcicd設計)
-21. [Goインテグレーション](#21-goインテグレーション)
-22. [AIエージェント協働](#22-aiエージェント協働)
+13. [Debezium CDC レプリケーション設計](#14-debezium-cdc-レプリケーション設計)
+14. [イベント駆動フロー](#15-イベント駆動フロー)
+15. [データベース設計ガイドライン](#16-データベース設計ガイドライン)
+16. [pgvector + ベクトル検索設計](#17-pgvectorベクトル検索設計)
+17. [Atlas HCL + sqlcワークフロー](#18-atlas-hclsqlcワークフロー)
+18. [Cloud SQL運用設定](#19-cloud-sql運用設定)
+19. [可観測性・監査ログ設計](#20-可観測性監査ログ設計)
+20. [テスト・CI/CD設計](#21-テストcicd設計)
+21. [Goインテグレーション](#22-goインテグレーション)
+22. [AIエージェント協働](#23-aiエージェント協働)
 
 ---
 
@@ -95,6 +96,10 @@
 *   **イベント駆動統合**: サービス間の協調は Kafka を通じたイベントで実現。
 *   **最終整合性**: ドメインサービス間のデータ同期は結果整合性（Eventual Consistency）を基本とする。ただし金銭取引（ウォレット）は強整合性を維持。
 *   **単一オーナーシップ**: 各テーブルの書き込み権限は、当該サービスのみ。他サービスは API または Kafka イベント経由で参照・反映。
+*   **責務分離の徹底**: 
+  *   **edumintFiles**: 原本ファイルの物理ストレージ管理に専念（PDF、画像等のバイナリデータ）
+  *   **edumintContents**: OCRテキストデータとコンテンツメタデータの管理に専念
+  *   両サービスはAPI/イベント駆動で連携し、各々の責務範囲を明確に分離
 *   **外部API非依存**: 全てのマスタデータは自前のDBで管理し、外部APIへの依存を排除（コスト・レイテンシ削減）。
 *   **ENUM型の積極採用**: 固定値の管理はPostgreSQL ENUM型を使用し、型安全性・パフォーマンス・可読性を向上させる。
 *   **グローバル対応**: 学問分野はUNESCO ISCED-F 2013（11大分類）に準拠し、国際標準に沿った設計とする。
@@ -123,7 +128,7 @@
 
 ### デプロイ段階
 
-*   **Phase 1 (MVP)**: edumintGateways, edumintUsers, edumintContents, edumintAiWorker, edumintSearch
+*   **Phase 1 (MVP)**: edumintGateways, edumintUsers, edumintContents, edumintFiles, edumintAiWorker, edumintSearch
 *   **Phase 2 (製品版)**: + edumintMonetizeWallet, edumintRevenue, edumintSocial, edumintModeration
 *   **Phase 3 (拡張版)**: + 多言語・推薦等
 
@@ -551,9 +556,10 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 | :--- | :--- | :--- | :--- | :--- |
 | **edumintGateways** | ジョブオーケストレーション | `jobs`, `job_logs` (分離DB) | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
 | **edumintUsers** | SSO・認証・ユーザー管理・フォロー・通知（統合） | `oauth_clients`, `oauth_tokens`, `idp_links`, `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `auth_logs` (分離DB), `user_profile_logs` (分離DB) | `auth.events`, `user.events` | `content.feedback`, `monetization.transactions`, **`content.interaction`** |
-| **edumintContents** | 試験・問題・統計・ファイル管理（統合） | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, **`master_exams`, `master_materials`, `report_attachment`, `file_upload_jobs`**, **`subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates`**, **`ad_display_events`, `ad_viewing_history`**, `content_logs` (分離DB), `file_logs` (分離DB) | `content.lifecycle`, `content.interaction`, `content.jobs` (FileUploaded) | `gateway.jobs`, `ai.results`, `search.term_generation` |
+| **edumintContents** | 試験・問題・統計・OCRテキスト管理 | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, **`master_exams` (OCRテキストのみ), `master_materials` (OCRテキストのみ)**, **`subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates`**, **`ad_display_events`, `ad_viewing_history`**, `content_logs` (分離DB) | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
+| **edumintFiles** | ファイルストレージ管理 | `file_metadata`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `file.uploaded`, `file.encrypted` | `content.ocr`, `moderation.evidence` |
 | **edumintSearch** | 検索・インデックス（無状態化） | **Elasticsearch索引のみ（物理DB廃止）**, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle`, `content.interaction` via **Debezium CDC** |
-| **edumintAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `content.jobs`, `search.term_generation` |
+| **edumintAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `file.uploaded`, `content.ocr`, `search.term_generation` |
 | **edumintSocial** | SNS機能（投稿・コメント・DM・マッチング） | `user_posts`, `post_likes`, `post_comments`, `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages`, `dm_read_receipts`, `user_match_preferences`, `user_matches` | `social.activity` | `content.interaction` |
 | **edumintMonetizeWallet** | MintCoin管理 | `wallets`, `wallet_transactions`, `wallet_logs` (分離DB, 7年保持) | `monetization.transactions` | - |
 | **edumintRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions`, `content.interaction` |
@@ -562,7 +568,8 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 
 **主要変更点（v7.1.0）:**
 - **edumintUsers**: edumintAuth + edumintUserProfileを統合。物理DB: `edumint_users`
-- **edumintContents**: edumintFile機能を統合。`exam_raw` → `master_exams`, `source_raw` → `master_materials`にリネーム
+- **edumintContents**: OCRテキスト管理に特化。`exam_raw` → `master_exams`, `source_raw` → `master_materials`にリネーム（OCRテキストのみ保存）
+- **edumintFiles**: 原本ファイルと通報証拠ファイルの保存を継続。物理DB: `edumint_files`
 - **edumintContents**: 検索用語管理テーブル（`*_terms`, `term_generation_*`）を追加
 - **edumintContents**: 広告管理テーブル（`ad_display_events`, `ad_viewing_history`）を新設
 - **edumintSearch**: 物理DB削除、Elasticsearch + ログDBのみに変更。全データはDebezium CDCで同期
@@ -831,20 +838,19 @@ CREATE INDEX idx_user_profile_logs_action ON user_profile_logs(action, created_a
 
 ---
 
-## **5. edumintContents (コンテンツ・ファイル統合管理サービス)**
+## **5. edumintContents (コンテンツ・OCRテキスト管理サービス)**
 
 ### 設計変更点（v7.1.0）
 
 **サービス名変更:**
 - edumintContent → **edumintContents** （複数形に統一）
 
-**ファイル管理機能統合:**
-- edumintFileサービスを廃止し、全機能をedumintContentsへ統合
-- `exam_raw` → **`master_exams`** にリネーム（イミュータブル設計）
-- `source_raw` → **`master_materials`** にリネーム（イミュータブル設計）
-- `report_attachment` テーブルを統合（edumintModerationから移管）
-- `file_upload_jobs` テーブルを追加
-- **自動暗号化機能**: アップロード後7日経過でファイル自動暗号化
+**OCRテキスト管理機能:**
+- **edumintFiles**サービスとの責務分離を明確化
+- `exam_raw` → **`master_exams`** にリネーム（OCRテキスト保存用）
+- `source_raw` → **`master_materials`** にリネーム（OCRテキスト保存用）
+- **原本ファイルはedumintFilesが保存**、OCRテキストのみedumintContentsで管理
+- **自動暗号化対象**: OCRテキストデータ（7日後に暗号化）
 - **イミュータブル設計**: master_exams, master_materialsは編集・削除不可（append-only）
 
 **検索用語管理統合:**
@@ -859,11 +865,12 @@ CREATE INDEX idx_user_profile_logs_action ON user_profile_logs(action, created_a
 - **4段階表示戦略**: question_view, answer_explanation, pdf_download, markdown_download
 - **スキップロジック**: 同一試験2回目以降の閲覧では広告非表示
 
-**統合の利点:**
-- **トランザクション整合性**: 試験メタデータと原本ファイルの一貫性保証
-- **レイテンシ削減**: サービス間通信の排除
+**分離設計の利点:**
+- **責務の明確化**: ファイル保存（edumintFiles）とOCRテキスト管理（edumintContents）を分離
+- **トランザクション整合性**: 試験メタデータとOCRテキストの一貫性保証
+- **セキュリティ向上**: 原本ファイルとOCRテキストで異なるアクセス制御を実施
 - **検索最適化**: CDC による自動同期で検索インデックス更新
-- **運用コスト削減**: サービス・DB数の削減
+- **スケーラビリティ**: ファイル保存とテキスト処理を独立してスケール可能
 
 ### 設計変更点（v7.0.0からの継続）
 
@@ -1366,13 +1373,14 @@ ORDER BY es.quality_score DESC, es.like_count DESC
 LIMIT $1 OFFSET $2;
 ```
 
-#### **master_exams (試験マスターファイル - イミュータブル)**
+#### **master_exams (試験OCRテキスト - イミュータブル)**
 
-試験問題の元となる生ファイル（PDF、画像等）のメタデータを管理します。
+OCR処理された試験問題のテキストデータを管理します。**原本ファイルはedumintFilesで保存**されます。
 
 **設計原則:**
+- **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
 - **イミュータブル設計**: 編集・削除不可（append-only）
-- **自動暗号化**: アップロード後7日経過で自動暗号化
+- **自動暗号化**: OCRテキストは7日経過で自動暗号化
 - **アクセス制御**: 管理者と自動化システムのみアクセス可
 
 ```sql
@@ -1410,18 +1418,22 @@ CREATE INDEX idx_master_exams_created_at ON master_exams(created_at DESC);
 
 **設計注記:**
 - exam_rawから改名（v7.1.0）
+- **原本ファイル保存はedumintFilesが担当**: file_metadata参照、本テーブルはOCRテキストとメタデータのみ
+- **edumintFilesとの連携**: original_filename, stored_filenameは edumintFiles の file_metadata を参照
+- **OCRテキストの保存**: ocr_text フィールドにOCR処理結果を格納
 - LLM学習データとして活用
 - 通報時の検証用ソースとして参照
 - ユーザーは**直接ダウンロード不可**
-- ON DELETE RESTRICT: 試験削除時は物理ファイルも保護
+- ON DELETE RESTRICT: 試験削除時はOCRテキストも保護
 
-#### **master_materials (教材マスターファイル - イミュータブル)**
+#### **master_materials (教材OCRテキスト - イミュータブル)**
 
-問題作成の元となる生ファイル（手書き画像、OCR入力元等）のメタデータを管理します。
+OCR処理された教材のテキストデータを管理します。**原本ファイルはedumintFilesで保存**されます。
 
 **設計原則:**
+- **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
 - **イミュータブル設計**: 編集・削除不可（append-only）
-- **自動暗号化**: アップロード後7日経過で自動暗号化
+- **自動暗号化**: OCRテキストは7日経過で自動暗号化
 - **アクセス制御**: 管理者と自動化システムのみアクセス可
 
 ```sql
@@ -1465,71 +1477,13 @@ CREATE INDEX idx_master_materials_created_at ON master_materials(created_at DESC
 
 **設計注記:**
 - source_rawから改名（v7.1.0）
+- **原本ファイル保存はedumintFilesが担当**: file_metadata参照、本テーブルはOCRテキストとメタデータのみ
+- **edumintFilesとの連携**: original_filename, stored_filenameは edumintFiles の file_metadata を参照
+- **OCRテキストの保存**: ocr_text フィールドにOCR処理結果を格納
 - OCR処理の入力元として使用
 - question_id または sub_question_id のいずれか必須
 - LLM学習データとして活用
 - ユーザーは**直接ダウンロード不可**
-
-#### **report_attachment (通報証拠ファイル)**
-
-通報時にユーザーが添付する証拠ファイルのメタデータを管理します。
-
-```sql
-CREATE TABLE report_attachment (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  report_id UUID NOT NULL,  -- content_reports.idまたはuser_reports.idを参照（論理的）
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  original_filename VARCHAR(512) NOT NULL,
-  stored_filename VARCHAR(512) NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
-  mime_type VARCHAR(100) NOT NULL,
-  storage_path VARCHAR(1024) NOT NULL,
-  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-report-attachments',
-  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
-  access_level VARCHAR(20) DEFAULT 'user_accessible',  -- ユーザーアクセス可能
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_report_attachment_public_id ON report_attachment(public_id);
-CREATE INDEX idx_report_attachment_report_id ON report_attachment(report_id);
-CREATE INDEX idx_report_attachment_uploader_id ON report_attachment(uploader_id);
-CREATE INDEX idx_report_attachment_file_hash ON report_attachment(file_hash);
-CREATE INDEX idx_report_attachment_created_at ON report_attachment(created_at DESC);
-```
-
-**設計注記:**
-- edumintModerationから移管（v7.1.0）
-- **ユーザーがアクセス可能な唯一のファイル種別**
-- 通報者と管理者がダウンロード可能
-- 通報の妥当性検証に使用
-
-#### **file_upload_jobs (ファイルアップロードジョブ)**
-
-ファイルアップロード処理のジョブ状態を管理します。
-
-```sql
-CREATE TABLE file_upload_jobs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  file_id UUID NOT NULL,  -- master_exams, master_materials, report_attachmentのいずれかを参照
-  file_type VARCHAR(50) NOT NULL,  -- 'master_exam', 'master_material', 'report_attachment'
-  job_id UUID,  -- jobs.idを参照（論理的）
-  status job_status_enum DEFAULT 'pending',
-  progress_percentage INT DEFAULT 0 CHECK (progress_percentage BETWEEN 0 AND 100),
-  error_message TEXT,
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_file_upload_jobs_file_id ON file_upload_jobs(file_id, file_type);
-CREATE INDEX idx_file_upload_jobs_job_id ON file_upload_jobs(job_id);
-CREATE INDEX idx_file_upload_jobs_status ON file_upload_jobs(status);
-CREATE INDEX idx_file_upload_jobs_created_at ON file_upload_jobs(created_at DESC);
-```
 
 #### **subject_terms (科目検索用語)**
 
@@ -1775,16 +1729,153 @@ CREATE INDEX idx_content_logs_action ON content_logs(action, created_at);
 CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_at);
 ```
 
+**設計注記:**
+- 全コンテンツの変更履歴を一元管理
+- 本体DBと分離してパフォーマンス確保
+- パーティショニングで大量データに対応
+
+---
+
+## **6. edumintFiles (ファイルストレージ管理サービス)**
+
+### 設計方針（v7.1.0 明確化）
+
+**サービス責務:**
+- **原本ファイル保存**: 入力ファイル（PDF、画像など）の物理ストレージ管理
+- **通報証拠ファイル管理**: 通報時の証拠資料ファイルの保存と管理
+- **ファイルアクセス制御**: セキュアなファイルアップロード・ダウンロード機能
+- **自動暗号化**: アップロード後7日経過でファイル自動暗号化
+
+**edumintContentsとの連携:**
+- **責務分離**: edumintFilesは原本ファイル保存、edumintContentsはOCRテキスト管理
+- **API/イベント駆動連携**:
+  - ファイルアップロード完了時: `file.uploaded` イベント発行
+  - OCR要求: edumintContentsから `content.ocr` イベント購読
+  - OCR結果保存: edumintContentsの master_exams, master_materials に保存
+- **暗号化対象**: 原本ファイル（GCS保存）とOCRテキスト（edumintContentsのDB）の両方
+
+**設計原則:**
+- **ファイル専門サービス**: ファイル保存・取得に専念、メタデータ管理はシンプル化
+- **イベント駆動**: 他サービスとの連携はKafkaイベント経由
+- **セキュリティ重視**: ファイルアクセスは厳格な権限チェック実施
+
+### 6.1 本体DBテーブル (DDL例)
+
+**物理DB:** `edumint_files`
+
+#### **file_metadata (ファイルメタデータ)**
+
+アップロードされた全ファイルのメタデータを一元管理します。
+
+```sql
+CREATE TABLE file_metadata (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  file_type VARCHAR(50) NOT NULL,  -- 'exam_input', 'material_input', 'report_evidence'
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  original_filename VARCHAR(512) NOT NULL,
+  stored_filename VARCHAR(512) NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(1024) NOT NULL,
+  bucket_name VARCHAR(255) NOT NULL,
+  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  is_encrypted BOOLEAN DEFAULT FALSE,
+  encrypted_at TIMESTAMPTZ,
+  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 'admin_only', 'user_accessible'
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_file_metadata_public_id ON file_metadata(public_id);
+CREATE INDEX idx_file_metadata_uploader_id ON file_metadata(uploader_id);
+CREATE INDEX idx_file_metadata_file_type ON file_metadata(file_type);
+CREATE INDEX idx_file_metadata_file_hash ON file_metadata(file_hash);
+CREATE INDEX idx_file_metadata_is_encrypted ON file_metadata(is_encrypted);
+CREATE INDEX idx_file_metadata_created_at ON file_metadata(created_at DESC);
+```
+
+**設計注記:**
+- 入力ファイルと通報証拠ファイルを統一管理
+- file_typeで用途を識別
+- edumintContentsの master_exams, master_materials から参照される
+- GCS (Google Cloud Storage) にファイル本体を保存
+
+#### **report_attachment (通報証拠ファイル)**
+
+通報時にユーザーが添付する証拠ファイルのメタデータを管理します。
+
+```sql
+CREATE TABLE report_attachment (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  report_id UUID NOT NULL,  -- content_reports.idまたはuser_reports.idを参照（論理的）
+  file_metadata_id UUID NOT NULL REFERENCES file_metadata(id) ON DELETE RESTRICT,
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  access_level VARCHAR(20) DEFAULT 'user_accessible',  -- ユーザーアクセス可能
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_report_attachment_public_id ON report_attachment(public_id);
+CREATE INDEX idx_report_attachment_report_id ON report_attachment(report_id);
+CREATE INDEX idx_report_attachment_file_metadata_id ON report_attachment(file_metadata_id);
+CREATE INDEX idx_report_attachment_uploader_id ON report_attachment(uploader_id);
+CREATE INDEX idx_report_attachment_created_at ON report_attachment(created_at DESC);
+```
+
+**設計注記:**
+- file_metadataを参照して証拠ファイル情報を管理
+- **ユーザーがアクセス可能な唯一のファイル種別**
+- 通報者と管理者がダウンロード可能
+- 通報の妥当性検証に使用
+
+#### **file_upload_jobs (ファイルアップロードジョブ)**
+
+ファイルアップロード処理のジョブ状態を管理します。
+
+```sql
+CREATE TABLE file_upload_jobs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  file_metadata_id UUID REFERENCES file_metadata(id) ON DELETE SET NULL,
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  job_status VARCHAR(20) DEFAULT 'pending',  -- 'pending', 'processing', 'completed', 'failed'
+  file_type VARCHAR(50) NOT NULL,  -- 'exam_input', 'material_input', 'report_evidence'
+  error_message TEXT,
+  retry_count INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_file_upload_jobs_public_id ON file_upload_jobs(public_id);
+CREATE INDEX idx_file_upload_jobs_file_metadata_id ON file_upload_jobs(file_metadata_id);
+CREATE INDEX idx_file_upload_jobs_uploader_id ON file_upload_jobs(uploader_id);
+CREATE INDEX idx_file_upload_jobs_status ON file_upload_jobs(job_status, created_at);
+CREATE INDEX idx_file_upload_jobs_created_at ON file_upload_jobs(created_at DESC);
+```
+
+**設計注記:**
+- ファイルアップロードの非同期処理状態管理
+- edumintGatewaysからジョブ状態を監視
+- リトライ処理をサポート
+
+### 6.2 ログDBテーブル (DDL例)
+
+**物理DB:** `edumint_files_logs`
+
 #### **file_logs (ファイル操作ログ)**
 
-ファイル操作履歴を記録します（edumintFileから移管、v7.1.0）。
+ファイル操作履歴を記録します。
 
 ```sql
 CREATE TABLE file_logs (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   file_id UUID NOT NULL,
-  file_type VARCHAR(50) NOT NULL,  -- 'master_exam', 'master_material', 'report_attachment'
-  action VARCHAR(50) NOT NULL,  -- 'upload', 'download', 'delete', 'ocr_complete', 'access_denied', 'encrypt'
+  file_type VARCHAR(50) NOT NULL,  -- 'file_metadata', 'report_attachment'
+  action VARCHAR(50) NOT NULL,
   user_id UUID,
   ip_address INET,
   user_agent TEXT,
@@ -1800,15 +1891,44 @@ CREATE INDEX idx_file_logs_access_result ON file_logs(access_result, created_at)
 ```
 
 **設計注記:**
-- 全コンテンツの変更履歴を一元管理
 - ファイル操作の監査証跡（アクセス制御違反検出）
 - 本体DBと分離してパフォーマンス確保
 - パーティショニングで大量データに対応
 - セキュリティ分析用ログ
 
+### 6.3 イベント発行・購読
+
+**発行するイベント:**
+- **`file.uploaded`**: ファイルアップロード完了
+  - Payload: `{file_id, file_type, uploader_id, storage_path}`
+  - 購読者: edumintContents, edumintAiWorker
+
+- **`file.encrypted`**: ファイル暗号化完了
+  - Payload: `{file_id, encrypted_at}`
+  - 購読者: edumintContents
+
+**購読するイベント:**
+- **`content.ocr`**: OCR処理要求
+  - 送信元: edumintContents
+  - 処理: ファイル取得APIを提供、edumintAiWorkerへファイルパス送信
+
+- **`moderation.evidence`**: 通報証拠ファイル要求
+  - 送信元: edumintModeration
+  - 処理: report_attachmentファイルへのアクセス許可
+
+### 6.4 サービス間API
+
+**提供するAPI:**
+- `GET /files/{file_id}`: ファイルダウンロード（認証済みユーザーのみ）
+- `POST /files/upload`: ファイルアップロード
+- `GET /files/{file_id}/metadata`: ファイルメタデータ取得
+
+**呼び出すAPI:**
+- なし（イベント駆動で他サービスと連携）
+
 ---
 
-## **6. edumintSearch (検索サービス)**
+## **7. edumintSearch (検索サービス)**
 
 ### 設計変更点（v7.1.0）
 
@@ -1917,7 +2037,7 @@ CREATE INDEX idx_search_logs_created_at ON search_logs(created_at);
 
 ---
 
-## **7. edumintAiWorker (AI処理サービス)**
+## **8. edumintAiWorker (AI処理サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -1977,7 +2097,7 @@ edumintAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
 
 ---
 
-## **8. edumintSocial (ソーシャルサービス)**
+## **9. edumintSocial (ソーシャルサービス)**
 
 ### 設計変更点（v7.0.3）
 
@@ -2190,7 +2310,7 @@ subscriptions:
 
 ---
 
-## **9. edumintMonetizeWallet (ウォレット管理サービス)**
+## **10. edumintMonetizeWallet (ウォレット管理サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -2284,7 +2404,7 @@ CREATE INDEX idx_wallet_logs_retention_until ON wallet_logs(retention_until);
 
 ---
 
-## **10. edumintRevenue (収益分配サービス)**
+## **11. edumintRevenue (収益分配サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -2378,7 +2498,7 @@ CREATE INDEX idx_revenue_logs_action ON revenue_logs(action, created_at);
 
 ---
 
-## **11. edumintModeration (通報管理サービス)**
+## **12. edumintModeration (通報管理サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -2502,7 +2622,7 @@ CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
 
 ---
 
-## **12. edumintGateways (ジョブゲートウェイ)**
+## **13. edumintGateways (ジョブゲートウェイ)**
 
 ### 設計変更点（v7.0.0）
 
@@ -2572,7 +2692,7 @@ CREATE INDEX idx_job_logs_status ON job_logs(status, created_at);
 
 ---
 
-## **13. Debezium CDC レプリケーション設計**
+## **14. Debezium CDC レプリケーション設計**
 
 ### 概要
 
@@ -2836,7 +2956,7 @@ kafka-topics --bootstrap-server kafka:9092 \
 
 ---
 
-## **14. イベント駆動フロー**
+## **15. イベント駆動フロー**
 
 ### Kafkaトピック設計
 
@@ -2849,7 +2969,9 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 | `auth.events` | edumintUsers | 各サービス | `UserRegistered`, `UserLoggedIn`, `TokenRevoked` | 認証イベント通知 |
 | `user.events` | edumintUsers | 各サービス | `UserProfileUpdated`, `UserDeleted` | ユーザー情報変更通知 |
 | `content.lifecycle` | edumintContents | edumintSearch, edumintGateways | `ExamCreated`, `ExamPublished`, `ExamDeleted` | コンテンツライフサイクル |
-| `content.jobs` | edumintContents | edumintGateways, edumintAiWorker | `FileUploaded`, `OCRRequested` | ファイル処理要求 |
+| `content.ocr` | edumintContents | edumintAiWorker | `OCRRequested` | OCR処理要求 |
+| `file.uploaded` | edumintFiles | edumintContents, edumintAiWorker | `FileUploaded` | ファイルアップロード完了 |
+| `file.encrypted` | edumintFiles | edumintContents | `FileEncrypted` | ファイル暗号化完了 |
 | `ai.results` | edumintAiWorker | edumintContents, edumintGateways | `OCRCompleted`, `AIGenerationComplete` | AI処理結果 |
 | `gateway.jobs` | edumintGateways | 各サービス | `JobAssigned`, `JobCompleted` | ジョブオーケストレーション |
 | `gateway.job_status` | 各サービス | edumintGateways | `JobProgressUpdate`, `JobFailed` | ジョブステータス更新 |
@@ -2864,21 +2986,26 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 
 ### イベントフロー例
 
-#### **1. 試験アップロードフロー**
+#### **1. 試験アップロードフロー（v7.1.0更新）**
 
 ```
 [ユーザー] ファイルアップロード
    ↓
-[edumintContents] master_exams作成
-   ↓ (Kafka: content.jobs)
+[edumintFiles] file_metadata作成、GCSへ保存
+   ↓ (Kafka: file.uploaded)
 [edumintGateways] ジョブ作成 (job_type: 'file_upload')
    ↓ (Kafka: gateway.jobs)
-[edumintAiWorker] OCR処理実行
+[edumintAiWorker] OCR処理実行（edumintFilesからファイル取得）
    ↓ (Kafka: ai.results)
-[edumintContents] exams/questions作成
+[edumintContents] master_examsにOCRテキスト保存、exams/questions作成
    ↓ (Kafka: content.lifecycle)
 [edumintSearch] Elasticsearchインデックス更新（Debezium CDC経由）
 ```
+
+**ポイント:**
+- **責務分離**: edumintFilesが原本ファイル保存、edumintContentsがOCRテキスト管理
+- **イベント駆動**: file.uploadedイベントでファイルアップロード完了を通知
+- **API連携**: edumintAiWorkerはedumintFiles APIでファイル取得
 
 #### **2. ソーシャルフィードバックフロー（v7.0.2以前の旧パターン - 参考）**
 
@@ -2915,7 +3042,24 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 - リアルタイム性: Kafkaイベントで他サービスが即座に反応
 - 整合性: 定期バッチで統計を正確に集計
 
-#### **3. 収益分配フロー**
+#### **3. ファイル自動暗号化フロー（v7.1.0新規）**
+
+```
+[日次バッチ] 7日経過ファイル検出
+   ↓
+[edumintFiles] file_metadata暗号化処理（GCS）
+   ↓ (Kafka: file.encrypted)
+[edumintContents] master_exams/master_materials暗号化フラグ更新
+   ↓
+[edumintContents] OCRテキスト暗号化（DB）
+```
+
+**ポイント:**
+- **2段階暗号化**: 原本ファイル（edumintFiles）とOCRテキスト（edumintContents）を両方暗号化
+- **自動処理**: アップロード後7日経過で自動実行
+- **イベント連携**: file.encryptedイベントでedumintContentsに通知
+
+#### **4. 収益分配フロー**
 
 ```
 [日次バッチ] 広告インプレッション集計
@@ -2952,7 +3096,7 @@ PostgreSQLの変更をDebezium CDCで捕捉し、Kafkaを経由してElasticsear
 
 ---
 
-## **15. データベース設計ガイドライン**
+## **16. データベース設計ガイドライン**
 
 ### 16.1 命名規則
 
@@ -4003,7 +4147,7 @@ CREATE TABLE new_table (
 - [ ] Schema Registryにスキーマを登録している（イベント駆動）
 
 
-## **16. pgvector + ベクトル検索設計**
+## **17. pgvector + ベクトル検索設計**
 
 ### 17.1 ベクトル型カラム基本設計
 
@@ -4315,7 +4459,7 @@ table "questions" {
 
 ---
 
-## **17. Atlas HCL + sqlcワークフロー**
+## **18. Atlas HCL + sqlcワークフロー**
 
 ### 18.1 統合ディレクトリ構成
 
@@ -4653,7 +4797,7 @@ echo "✓ ワークフロー完了"
 
 ---
 
-## **18. Cloud SQL運用設定**
+## **19. Cloud SQL運用設定**
 
 ### 19.1 推奨インスタンス設定
 
@@ -4958,7 +5102,7 @@ gcloud alpha monitoring policies create   --notification-channels=CHANNEL_ID   -
 
 ---
 
-## **19. 可観測性・監査ログ設計**
+## **20. 可観測性・監査ログ設計**
 
 ### 20.1 OpenTelemetryトレース実装（EduMint固有パターン）
 
@@ -5247,7 +5391,7 @@ func (dae *DailyAuditExporter) ExportYesterdayLogs(ctx context.Context) error {
 
 ---
 
-## **20. テスト・CI/CD設計**
+## **21. テスト・CI/CD設計**
 
 ### 21.1 Testcontainersパターン（EduMint専用）
 
@@ -5634,7 +5778,7 @@ jobs:
 
 ---
 
-## **21. Goインテグレーション**
+## **22. Goインテグレーション**
 
 ### 22.1 推奨プロジェクト構成
 
@@ -5834,7 +5978,7 @@ func (eo *ExamOrchestrator) CreateExamWithQuestions(
 
 ---
 
-## **22. AIエージェント協働**
+## **23. AIエージェント協働**
 
 ### 23.1 AIコード生成プロンプトテンプレート
 
