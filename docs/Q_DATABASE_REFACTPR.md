@@ -1240,9 +1240,6 @@ CREATE INDEX idx_teachers_display_name ON teachers USING gin(to_tsvector('japane
 ```sql
 CREATE TABLE subjects (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-```sql
-CREATE TABLE subjects (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,  -- NanoID
   department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
   teacher_id UUID,  -- teachers.idを参照（論理的）
