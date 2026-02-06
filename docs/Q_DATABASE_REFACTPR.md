@@ -1,8 +1,27 @@
-# **EduMint 統合データモデル設計書 v7.3.0**
+# **EduMint 統合データモデル設計書 v7.4.0**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
 **最終更新日: 2026-02-06**
+
+**v7.4.0 主要更新:**
+- **広告表示回数統計強化**: `exam_statistics` に広告表示カウント、推定収益、最終表示日時カラムを追加
+- **広告視聴進捗管理テーブル新設**: `ad_viewing_progress` テーブル作成、ユーザー別視聴段階記録
+- **広告スキップロジック実装**: 視聴段階に基づく広告表示判定機能の追加
+- **国際化対応強化**: `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `keywords` に国際化サポート追加
+  - `country_code CHAR(2)` カラム追加（ISO 3166-1 alpha-2）
+  - SEO最適化のため `name` カラムを英語化
+  - 既存 `name_main` → `display_name` に移行（多言語表示用）
+  - `display_language VARCHAR(10)` 追加（BCP 47準拠）
+  - `name_sub1`, `name_sub2`, `name_sub3` 削除
+- **閲覧履歴・評価・コメント絞り込み負荷分析**: 
+  - `idx_exam_interaction_events_user_type_time` 複合インデックス追加
+  - 負荷テスト結果と性能評価の追加
+  - スケーリング戦略（リードレプリカ、キャッシュ層、パーティション分割）
+- **Atlas HCL・sqlc・Goコード更新**: 国際化対応クエリとサービス実装例追加
+- **API応答例更新**: 広告視聴進捗と国際化対応のAPI応答サンプル追加
+- **Elasticsearchインデックス更新**: 多言語対応と広告統計フィールド追加
+- **ad_viewing_history削除**: ad_viewing_progressに統合
 
 **v7.3.0 主要更新:**
 - **master_exams/materials統合設計**: 2テーブルから1テーブル（master_ocr_contents）へ統合
@@ -597,7 +616,7 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 | :--- | :--- | :--- | :--- | :--- |
 | **edumintGateways** | ジョブオーケストレーション | `jobs`, `job_logs` (分離DB) | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
 | **edumintUsers** | SSO・認証・ユーザー管理・フォロー・通知（統合） | `oauth_clients`, `oauth_tokens`, `idp_links`, `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `auth_logs` (分離DB), `user_profile_logs` (分離DB) | `auth.events`, `user.events` | `content.feedback`, `monetization.transactions`, **`content.interaction`** |
-| **edumintContents** | 試験・問題・統計・OCRテキスト管理（4DB構成） | **[メインDB: `edumint_contents`]** `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, `ad_display_events`, `ad_viewing_history` / **[検索DB: `edumint_contents_search`]** `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates` / **[マスターDB: `edumint_contents_master`]** `master_ocr_contents` (OCRテキスト統合管理、暗号化対象) / **[ログDB: `edumint_contents_logs`]** `content_logs` | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
+| **edumintContents** | 試験・問題・統計・OCRテキスト管理（4DB構成） | **[メインDB: `edumint_contents`]** `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, `ad_display_events`, `ad_viewing_progress` / **[検索DB: `edumint_contents_search`]** `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates` / **[マスターDB: `edumint_contents_master`]** `master_ocr_contents` (OCRテキスト統合管理、暗号化対象) / **[ログDB: `edumint_contents_logs`]** `content_logs` | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
 | **edumintFiles** | ファイルストレージ管理 | `file_metadata`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `file.uploaded`, `file.encrypted` | `content.ocr`, `moderation.evidence` |
 | **edumintSearch** | 検索・インデックス（無状態化） | **Elasticsearch索引のみ（物理DB廃止）**, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle`, `content.interaction` via **Debezium CDC** |
 | **edumintAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `file.uploaded`, `content.ocr`, `search.term_generation` |
@@ -621,7 +640,7 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 - **edumintContents**: OCRテキスト管理に特化。`exam_raw` → `master_exams`, `source_raw` → `master_materials`にリネーム（OCRテキストのみ保存）→ **v7.3.0でmaster_ocr_contentsに統合**
 - **edumintFiles**: 原本ファイルと通報証拠ファイルの保存を継続。物理DB: `edumint_files`
 - **edumintContents**: 検索用語管理テーブル（`*_terms`, `term_generation_*`）を追加
-- **edumintContents**: 広告管理テーブル（`ad_display_events`, `ad_viewing_history`）を新設
+- **edumintContents**: 広告管理テーブル（`ad_display_events`, `ad_viewing_progress`）を新設（v7.4.0でad_viewing_historyから移行）
 - **edumintSearch**: 物理DB削除、Elasticsearch + ログDBのみに変更。全データはDebezium CDCで同期
 - **edumintGateways**: edumintGateways → edumintGateways（複数形統一）
 - **Debezium CDC**: edumintUsers, edumintContents → edumintSearchへリアルタイム差分同期
@@ -938,7 +957,7 @@ edumintContents (4DB構成)
 │   ├── teachers, subjects
 │   ├── exams, questions, sub_questions, keywords, exam_keywords
 │   ├── exam_statistics
-│   └── exam_interaction_events, ad_display_events, ad_viewing_history
+│   └── exam_interaction_events, ad_display_events, ad_viewing_progress
 │
 ├── edumint_contents_search (検索用DB - 新設)
 │   ├── subject_terms, institution_terms
@@ -1030,7 +1049,7 @@ edumintContents (4DB構成)
 
 **広告管理機能追加:**
 - **`ad_display_events`**: 広告表示イベント記録
-- **`ad_viewing_history`**: ユーザー別広告閲覧履歴
+- **`ad_viewing_progress`**: ユーザー別広告視聴進捗管理（v7.4.0新設）
 - **4段階表示戦略**: question_view, answer_explanation, pdf_download, markdown_download
 - **スキップロジック**: 同一試験2回目以降の閲覧では広告非表示
 
@@ -1071,7 +1090,7 @@ edumintContents (4DB構成)
 - コアメタデータ: institutions, faculties, departments, teachers, subjects
 - 試験・問題: exams, questions, sub_questions, keywords, exam_keywords
 - 統計・イベント: exam_statistics, exam_interaction_events
-- 広告管理: ad_display_events, ad_viewing_history
+- 広告管理: ad_display_events, ad_viewing_progress
 
 #### **institutions (教育機関)**
 
@@ -1081,10 +1100,13 @@ edumintContents (4DB構成)
 CREATE TABLE institutions (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,  -- NanoID
-  name_main VARCHAR(255) NOT NULL,
-  name_sub1 VARCHAR(255),  -- 英語名
-  name_sub2 VARCHAR(255),  -- 読み仮名
-  name_sub3 VARCHAR(255),  -- 略称
+  
+  -- 国際化対応（v7.4.0更新）
+  name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
+  display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
+  display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠（ja, en, zh, ko等）
+  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  
   institution_type institution_type_enum NOT NULL,
   prefecture prefecture_enum,
   address TEXT,
@@ -1097,13 +1119,21 @@ CREATE TABLE institutions (
 CREATE INDEX idx_institutions_public_id ON institutions(public_id);
 CREATE INDEX idx_institutions_type ON institutions(institution_type);
 CREATE INDEX idx_institutions_prefecture ON institutions(prefecture);
-CREATE INDEX idx_institutions_name_main ON institutions USING gin(to_tsvector('japanese', name_main));
+CREATE INDEX idx_institutions_country_code ON institutions(country_code);
+CREATE INDEX idx_institutions_name ON institutions USING gin(to_tsvector('english', name));
+CREATE INDEX idx_institutions_display_name ON institutions USING gin(to_tsvector('japanese', display_name));
 ```
 
 **設計注記:**
 - 大学と大学院は別レコードとして登録（institution_type で区別）
 - established_year削除（検索・表示で不要）
 - mext_code削除（外部API非依存方針）
+- **v7.4.0国際化対応:**
+  - `name`: 英語名（SEO最適化、検索エンジン対応）
+  - `display_name`: 多言語表示名（日本語、英語、中国語等）
+  - `display_language`: 表示言語コード（BCP 47準拠）
+  - `country_code`: 国コード（ISO 3166-1 alpha-2）
+  - `name_sub1`, `name_sub2`, `name_sub3` 削除（単一カラムに統合）
 
 #### **faculties (学部)**
 
@@ -1114,21 +1144,26 @@ CREATE TABLE faculties (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,  -- NanoID
   institution_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
-  name_main VARCHAR(255) NOT NULL,
-  name_sub1 VARCHAR(255),  -- 英語名
-  name_sub2 VARCHAR(255),  -- 読み仮名
-  name_sub3 VARCHAR(255),  -- 略称
+  
+  -- 国際化対応（v7.4.0更新）
+  name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
+  display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
+  display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
+  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  
   academic_field academic_field_enum,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(institution_id, name_main)
+  UNIQUE(institution_id, name)
 );
 
 CREATE INDEX idx_faculties_public_id ON faculties(public_id);
 CREATE INDEX idx_faculties_institution_id ON faculties(institution_id);
 CREATE INDEX idx_faculties_academic_field ON faculties(academic_field);
-CREATE INDEX idx_faculties_name_main ON faculties USING gin(to_tsvector('japanese', name_main));
+CREATE INDEX idx_faculties_country_code ON faculties(country_code);
+CREATE INDEX idx_faculties_name ON faculties USING gin(to_tsvector('english', name));
+CREATE INDEX idx_faculties_display_name ON faculties USING gin(to_tsvector('japanese', display_name));
 ```
 
 #### **departments (学科)**
@@ -1140,22 +1175,27 @@ CREATE TABLE departments (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,  -- NanoID
   faculty_id UUID NOT NULL REFERENCES faculties(id) ON DELETE CASCADE,
-  name_main VARCHAR(255) NOT NULL,
-  name_sub1 VARCHAR(255),  -- 英語名
-  name_sub2 VARCHAR(255),  -- 読み仮名
-  name_sub3 VARCHAR(255),  -- 略称
+  
+  -- 国際化対応（v7.4.0更新）
+  name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
+  display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
+  display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
+  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  
   academic_field academic_field_enum,
   academic_track academic_track_enum,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(faculty_id, name_main)
+  UNIQUE(faculty_id, name)
 );
 
 CREATE INDEX idx_departments_public_id ON departments(public_id);
 CREATE INDEX idx_departments_faculty_id ON departments(faculty_id);
 CREATE INDEX idx_departments_academic_field ON departments(academic_field);
-CREATE INDEX idx_departments_name_main ON departments USING gin(to_tsvector('japanese', name_main));
+CREATE INDEX idx_departments_country_code ON departments(country_code);
+CREATE INDEX idx_departments_name ON departments USING gin(to_tsvector('english', name));
+CREATE INDEX idx_departments_display_name ON departments USING gin(to_tsvector('japanese', display_name));
 ```
 
 #### **teachers (教員)**
@@ -1166,9 +1206,13 @@ CREATE INDEX idx_departments_name_main ON departments USING gin(to_tsvector('jap
 CREATE TABLE teachers (
   id UUID DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL,  -- NanoID
-  name_main VARCHAR(255) NOT NULL,
-  name_sub1 VARCHAR(255),  -- 英語名
-  name_sub2 VARCHAR(255),  -- 読み仮名
+  
+  -- 国際化対応（v7.4.0更新）
+  name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
+  display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
+  display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
+  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  
   department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
   title VARCHAR(100),  -- 教授、准教授、etc.
   specialization TEXT,
@@ -1180,7 +1224,9 @@ CREATE TABLE teachers (
 
 CREATE UNIQUE INDEX idx_teachers_public_id ON teachers(public_id);
 CREATE INDEX idx_teachers_department_id ON teachers(department_id);
-CREATE INDEX idx_teachers_name_main ON teachers USING gin(to_tsvector('japanese', name_main));
+CREATE INDEX idx_teachers_country_code ON teachers(country_code);
+CREATE INDEX idx_teachers_name ON teachers USING gin(to_tsvector('english', name));
+CREATE INDEX idx_teachers_display_name ON teachers USING gin(to_tsvector('japanese', display_name));
 ```
 
 **設計注記:**
@@ -1194,12 +1240,19 @@ CREATE INDEX idx_teachers_name_main ON teachers USING gin(to_tsvector('japanese'
 ```sql
 CREATE TABLE subjects (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
+```sql
+CREATE TABLE subjects (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,  -- NanoID
   department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
   teacher_id UUID,  -- teachers.idを参照（論理的）
-  name_main VARCHAR(255) NOT NULL,
-  name_sub1 VARCHAR(255),  -- 英語名
-  name_sub2 VARCHAR(255),  -- 読み仮名
+  
+  -- 国際化対応（v7.4.0更新）
+  name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
+  display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
+  display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
+  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  
   academic_field academic_field_enum,
   credits INT,
   description TEXT,
@@ -1211,7 +1264,9 @@ CREATE TABLE subjects (
 CREATE INDEX idx_subjects_public_id ON subjects(public_id);
 CREATE INDEX idx_subjects_department_id ON subjects(department_id);
 CREATE INDEX idx_subjects_teacher_id ON subjects(teacher_id);
-CREATE INDEX idx_subjects_name_main ON subjects USING gin(to_tsvector('japanese', name_main));
+CREATE INDEX idx_subjects_country_code ON subjects(country_code);
+CREATE INDEX idx_subjects_name ON subjects USING gin(to_tsvector('english', name));
+CREATE INDEX idx_subjects_display_name ON subjects USING gin(to_tsvector('japanese', display_name));
 ```
 
 #### **exams (試験)**
@@ -1333,18 +1388,25 @@ CREATE INDEX idx_sub_questions_question_id ON sub_questions(question_id, sort_or
 CREATE TABLE keywords (
   id UUID DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL,  -- NanoID
-  name VARCHAR(100) NOT NULL,
-  language_code VARCHAR(10) DEFAULT 'ja',
+  
+  -- 国際化対応（v7.4.0更新）
+  name VARCHAR(100) NOT NULL,  -- 英語キーワード（SEO最適化）
+  display_name VARCHAR(100) NOT NULL,  -- 表示名（多言語対応）
+  display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
+  country_code CHAR(2) DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  
   usage_count INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id, public_id),
-  UNIQUE(name, language_code)
+  UNIQUE(name, country_code)
 );
 
 CREATE UNIQUE INDEX idx_keywords_public_id ON keywords(public_id);
 CREATE INDEX idx_keywords_name ON keywords(name);
+CREATE INDEX idx_keywords_display_name ON keywords(display_name);
 CREATE INDEX idx_keywords_usage_count ON keywords(usage_count DESC);
+CREATE INDEX idx_keywords_country_code ON keywords(country_code);
 ```
 
 #### **exam_keywords (試験キーワード関連付け)**
@@ -1378,6 +1440,11 @@ CREATE TABLE exam_statistics (
   bad_count INT DEFAULT 0,
   comment_count INT DEFAULT 0,
   share_count INT DEFAULT 0,
+  
+  -- 広告表示統計（v7.4.0追加）
+  ad_display_count INT DEFAULT 0,                     -- 広告表示回数
+  ad_revenue_estimated DECIMAL(15,4) DEFAULT 0.00,   -- 推定広告収益（USD）
+  last_ad_displayed_at TIMESTAMPTZ,                   -- 最終広告表示日時
   
   -- 統計指標
   engagement_score DECIMAL(10,2) DEFAULT 0.00,  -- エンゲージメントスコア
@@ -1749,35 +1816,46 @@ CREATE INDEX idx_ad_display_events_displayed_at ON ad_display_events(displayed_a
 - 収益計算・分析用データ
 - BigQueryへエクスポート対応
 
-#### **ad_viewing_history (広告閲覧履歴)**
+#### **ad_viewing_progress (広告視聴進捗管理)**
 
-ユーザーごとの広告閲覧履歴を管理します（v7.1.0新設）。
+ユーザーごとの広告視聴段階を記録し、スキップロジックを実装します（v7.4.0新設、ad_viewing_history統合）。
 
 ```sql
-CREATE TABLE ad_viewing_history (
+CREATE TABLE ad_viewing_progress (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   user_id UUID NOT NULL,  -- users.idを参照（論理的）
   exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
-  display_stage ad_display_stage_enum NOT NULL,
+  
+  -- 視聴段階フラグ
+  last_viewed_stage ad_display_stage_enum,  -- 最後に視聴した段階
+  question_view_completed BOOLEAN DEFAULT false,  -- 問題閲覧段階完了
+  answer_explanation_completed BOOLEAN DEFAULT false,  -- 解答解説段階完了
+  download_completed BOOLEAN DEFAULT false,  -- ダウンロード段階完了
+  
+  -- 視聴回数
+  total_view_count INT DEFAULT 0,  -- 全段階合計視聴回数
+  
+  -- タイムスタンプ
   first_viewed_at TIMESTAMPTZ NOT NULL,
   last_viewed_at TIMESTAMPTZ NOT NULL,
-  view_count INT DEFAULT 1,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, exam_id, display_stage)
+  
+  UNIQUE(user_id, exam_id)
 );
 
-CREATE INDEX idx_ad_viewing_history_user_id ON ad_viewing_history(user_id);
-CREATE INDEX idx_ad_viewing_history_exam_id ON ad_viewing_history(exam_id);
-CREATE INDEX idx_ad_viewing_history_stage ON ad_viewing_history(display_stage);
-CREATE INDEX idx_ad_viewing_history_first_viewed ON ad_viewing_history(first_viewed_at);
+CREATE INDEX idx_ad_viewing_progress_user_id ON ad_viewing_progress(user_id);
+CREATE INDEX idx_ad_viewing_progress_exam_id ON ad_viewing_progress(exam_id);
+CREATE INDEX idx_ad_viewing_progress_stage ON ad_viewing_progress(last_viewed_stage);
+CREATE INDEX idx_ad_viewing_progress_first_viewed ON ad_viewing_progress(first_viewed_at);
 ```
 
 **設計注記:**
-- **スキップロジック実装**: 2回目以降は広告非表示
-- display_stageごとに個別管理
-- view_countで閲覧回数追跡
-- ユーザーエクスペリエンス最適化
+- **統合設計**: ad_viewing_historyを統合し、段階別視聴進捗を1レコードで管理
+- **スキップロジック実装**: 各段階の完了フラグで広告表示判定を効率化
+- display_stageごとに個別フラグ管理（question_view, answer_explanation, download）
+- total_view_countで全体の閲覧回数追跡
+- ユーザーエクスペリエンス最適化（段階別の広告スキップ制御）
 
 #### 5.1.2 edumint_contents_search (検索用DB)
 
