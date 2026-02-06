@@ -1944,13 +1944,21 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 
 ## **6. edumintFiles (ファイルストレージ管理サービス)**
 
-### 設計方針（v7.1.0 明確化）
+### 6.1 設計方針（v7.3.0）
 
 **サービス責務:**
+- **2バケット構成による段階的ストレージ管理**: Staging/Vaultバケットでライフサイクル管理
+- **可変保持期間（N日）管理**: ファイル種別ごとの保持期間に基づく自動移行
 - **原本ファイル保存**: 入力ファイル（PDF、画像など）の物理ストレージ管理
 - **通報証拠ファイル管理**: 通報時の証拠資料ファイルの保存と管理
 - **ファイルアクセス制御**: セキュアなファイルアップロード・ダウンロード機能
-- **自動暗号化**: アップロード後7日経過でファイル自動暗号化
+- **CMEK暗号化**: Customer-Managed Encryption Keysによるデータ保護
+
+**2バケット構成の設計理念:**
+- **Stagingバケット**: 初期保存先。頻繁なアクセスに対応（STANDARD）
+- **Vaultバケット**: 長期保存先。低コスト保存（NEARLINE/COLDLINE/ARCHIVE）
+- **自動移行**: N日経過後にバッチ処理でVaultへ移行
+- **整合性検証**: CRC32C + SHA-256ハッシュで移行時の完全性を保証
 
 **edumintContentsとの連携:**
 - **責務分離**: edumintFilesは原本ファイル保存、edumintContentsはOCRテキスト管理
@@ -1961,157 +1969,939 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 - **暗号化対象**: 原本ファイル（GCS保存）とOCRテキスト（edumintContentsのDB）の両方
 
 **設計原則:**
+- **完全ENUM化**: 全ステータス・カテゴリをENUM型で型安全に管理
 - **ファイル専門サービス**: ファイル保存・取得に専念、メタデータ管理はシンプル化
 - **イベント駆動**: 他サービスとの連携はKafkaイベント経由
 - **セキュリティ重視**: ファイルアクセスは厳格な権限チェック実施
+- **監査証跡**: 全ファイル操作とストレージ遷移を完全記録
 
-### 6.1 本体DBテーブル (DDL例)
+### 6.2 ENUM型定義
+
+v7.3.0では全てのステータス・カテゴリをENUM型で管理し、型安全性とパフォーマンスを向上させます。
+
+```sql
+-- ファイルカテゴリ（v7.3.0: ai_inputを分割）
+CREATE TYPE file_category_enum AS ENUM (
+  'create_exercises',    -- 問題生成用入力ファイル（旧: ai_input）
+  'create_materials',    -- 教材生成用入力ファイル（旧: ai_input）
+  'report_evidence',     -- 通報証拠書類
+  'user_profile',        -- ユーザープロフィール画像
+  'social_attachment'    -- ソーシャル添付ファイル
+);
+
+-- 移行ステータス
+CREATE TYPE migration_status_enum AS ENUM (
+  'staging',      -- Stagingバケットに保存中
+  'migrating',    -- Vaultバケットへ移行中
+  'vaulted',      -- Vaultバケットに保存済み
+  'restoring',    -- Stagingバケットへ復元中
+  'restored'      -- Stagingバケットへ復元完了
+);
+
+-- 移行タイプ
+CREATE TYPE migration_type_enum AS ENUM (
+  'scheduled',    -- スケジュール移行
+  'manual',       -- 手動移行
+  'emergency'     -- 緊急移行
+);
+
+-- 処理結果
+CREATE TYPE processing_result_enum AS ENUM (
+  'success',      -- 成功
+  'failed',       -- 失敗
+  'partial'       -- 部分成功
+);
+
+-- ファイル操作アクション
+CREATE TYPE file_action_enum AS ENUM (
+  'upload',       -- アップロード
+  'download',     -- ダウンロード
+  'delete',       -- 削除
+  'migrate',      -- 移行
+  'restore',      -- 復元
+  'encrypt',      -- 暗号化
+  'view_metadata' -- メタデータ閲覧
+);
+
+-- 監査結果
+CREATE TYPE audit_result_enum AS ENUM (
+  'allowed',      -- 許可
+  'denied',       -- 拒否
+  'error'         -- エラー
+);
+
+-- 遷移理由
+CREATE TYPE transition_reason_enum AS ENUM (
+  'lifecycle_policy',    -- ライフサイクルポリシー
+  'cost_optimization',   -- コスト最適化
+  'compliance',          -- コンプライアンス
+  'manual_request'       -- 手動リクエスト
+);
+
+-- ストレージクラス
+CREATE TYPE storage_class_enum AS ENUM (
+  'STANDARD',     -- 標準ストレージ
+  'NEARLINE',     -- ニアラインストレージ（30日以上）
+  'COLDLINE',     -- コールドラインストレージ（90日以上）
+  'ARCHIVE'       -- アーカイブストレージ（365日以上）
+);
+
+-- アクセスレベル
+CREATE TYPE access_level_enum AS ENUM (
+  'admin_only',        -- 管理者のみ
+  'user_accessible',   -- ユーザーアクセス可能
+  'system_only',       -- システムのみ
+  'public'             -- 公開
+);
+
+-- MIME型カテゴリ
+CREATE TYPE mime_category_enum AS ENUM (
+  'image',       -- 画像
+  'document',    -- ドキュメント
+  'video',       -- ビデオ
+  'audio',       -- オーディオ
+  'other'        -- その他
+);
+```
+
+### 6.3 file_metadataテーブル（完全版）
 
 **物理DB:** `edumint_files`
 
-#### **file_metadata (ファイルメタデータ)**
-
-アップロードされた全ファイルのメタデータを一元管理します。
+アップロードされた全ファイルのメタデータと2バケット構成を一元管理します。
 
 ```sql
 CREATE TABLE file_metadata (
+  -- 基本識別子
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  file_type VARCHAR(50) NOT NULL,  -- 'exam_input', 'material_input', 'report_evidence'
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  original_filename VARCHAR(512) NOT NULL,
-  stored_filename VARCHAR(512) NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
+  
+  -- ファイル分類（完全ENUM化）
+  file_category file_category_enum NOT NULL,
   mime_type VARCHAR(100) NOT NULL,
-  storage_path VARCHAR(1024) NOT NULL,
-  bucket_name VARCHAR(255) NOT NULL,
-  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  mime_category mime_category_enum NOT NULL,
+  
+  -- ユーザー・所有者情報
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  owner_id UUID,  -- 所有者ID（通報時は通報者、それ以外はuploader_id）
+  
+  -- ファイル基本情報
+  original_filename VARCHAR(512) NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  file_hash_sha256 VARCHAR(64) NOT NULL,  -- SHA-256ハッシュ
+  file_hash_crc32c VARCHAR(8),  -- CRC32Cチェックサム
+  
+  -- Stagingバケット情報（初期保存先）
+  staging_bucket VARCHAR(255) NOT NULL,
+  staging_path VARCHAR(1024) NOT NULL,
+  staging_storage_class storage_class_enum DEFAULT 'STANDARD',
+  staging_uploaded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  
+  -- Vaultバケット情報（移行後の保存先）
+  vault_bucket VARCHAR(255),
+  vault_path VARCHAR(1024),
+  vault_storage_class storage_class_enum,
+  vault_uploaded_at TIMESTAMPTZ,
+  
+  -- 移行管理
+  migration_status migration_status_enum DEFAULT 'staging',
+  migrated_at TIMESTAMPTZ,
+  last_migration_job_id UUID,  -- file_migration_logsを参照
+  
+  -- 可変保持期間（N日）管理
+  retention_days INT NOT NULL,  -- ファイル種別ごとの保持期間
+  retention_trigger_date TIMESTAMPTZ NOT NULL,  -- 保持期間の起点日
+  move_scheduled_date TIMESTAMPTZ GENERATED ALWAYS AS (retention_trigger_date + (retention_days || ' days')::INTERVAL) STORED,
+  
+  -- CMEK暗号化情報
   is_encrypted BOOLEAN DEFAULT FALSE,
   encrypted_at TIMESTAMPTZ,
-  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 'admin_only', 'user_accessible'
+  encryption_key_version VARCHAR(255),
+  encryption_algorithm VARCHAR(50),
+  
+  -- アクセス制御
+  access_level access_level_enum DEFAULT 'admin_only',
   is_active BOOLEAN DEFAULT TRUE,
+  
+  -- メタデータ・タグ
+  file_description TEXT,
+  tags TEXT[],
+  search_vector tsvector,  -- 全文検索用
+  
+  -- システム管理（Computed Columns）
+  is_system_managed BOOLEAN GENERATED ALWAYS AS (
+    file_category IN ('create_exercises', 'create_materials')
+  ) STORED,
+  is_llm_training_data BOOLEAN GENERATED ALWAYS AS (
+    file_category IN ('create_exercises', 'create_materials')
+  ) STORED,
+  
+  -- 監査情報
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ  -- 論理削除
 );
 
-CREATE INDEX idx_file_metadata_public_id ON file_metadata(public_id);
-CREATE INDEX idx_file_metadata_uploader_id ON file_metadata(uploader_id);
-CREATE INDEX idx_file_metadata_file_type ON file_metadata(file_type);
-CREATE INDEX idx_file_metadata_file_hash ON file_metadata(file_hash);
-CREATE INDEX idx_file_metadata_is_encrypted ON file_metadata(is_encrypted);
-CREATE INDEX idx_file_metadata_created_at ON file_metadata(created_at DESC);
+COMMENT ON TABLE file_metadata IS 'ファイルメタデータ管理テーブル（v7.3.0: 2バケット構成、完全ENUM化）';
+COMMENT ON COLUMN file_metadata.file_category IS 'ファイルカテゴリ（create_exercises, create_materials, report_evidence, user_profile, social_attachment）';
+COMMENT ON COLUMN file_metadata.retention_days IS 'ファイル種別ごとの保持期間（日数）';
+COMMENT ON COLUMN file_metadata.retention_trigger_date IS '保持期間の起点日（アップロード日またはイベント発生日）';
+COMMENT ON COLUMN file_metadata.move_scheduled_date IS '移行予定日（retention_trigger_date + retention_days日、自動計算）';
+COMMENT ON COLUMN file_metadata.migration_status IS '移行ステータス（staging/migrating/vaulted/restoring/restored）';
+COMMENT ON COLUMN file_metadata.is_system_managed IS 'システム管理ファイル（AI生成用ファイル）';
+COMMENT ON COLUMN file_metadata.is_llm_training_data IS 'LLM学習データ対象ファイル';
 ```
 
-**設計注記:**
-- 入力ファイルと通報証拠ファイルを統一管理
-- file_typeで用途を識別
-- edumintContentsの master_exams, master_materials から参照される
-- GCS (Google Cloud Storage) にファイル本体を保存
+### 6.4 補助テーブル設計
 
-#### **report_attachment (通報証拠ファイル)**
+#### 6.4.1 file_migration_logs（移行ログ）
 
-通報時にユーザーが添付する証拠ファイルのメタデータを管理します。
+移行処理の監査証跡と整合性検証を記録します。
 
 ```sql
-CREATE TABLE report_attachment (
+CREATE TABLE file_migration_logs (
+  -- 基本識別子
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  report_id UUID NOT NULL,  -- content_reports.idまたはuser_reports.idを参照（論理的）
-  file_metadata_id UUID NOT NULL REFERENCES file_metadata(id) ON DELETE RESTRICT,
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  access_level VARCHAR(20) DEFAULT 'user_accessible',  -- ユーザーアクセス可能
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_report_attachment_public_id ON report_attachment(public_id);
-CREATE INDEX idx_report_attachment_report_id ON report_attachment(report_id);
-CREATE INDEX idx_report_attachment_file_metadata_id ON report_attachment(file_metadata_id);
-CREATE INDEX idx_report_attachment_uploader_id ON report_attachment(uploader_id);
-CREATE INDEX idx_report_attachment_created_at ON report_attachment(created_at DESC);
-```
-
-**設計注記:**
-- file_metadataを参照して証拠ファイル情報を管理
-- **ユーザーがアクセス可能な唯一のファイル種別**
-- 通報者と管理者がダウンロード可能
-- 通報の妥当性検証に使用
-
-#### **file_upload_jobs (ファイルアップロードジョブ)**
-
-ファイルアップロード処理のジョブ状態を管理します。
-
-```sql
-CREATE TABLE file_upload_jobs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  file_metadata_id UUID REFERENCES file_metadata(id) ON DELETE SET NULL,
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  job_status VARCHAR(20) DEFAULT 'pending',  -- 'pending', 'processing', 'completed', 'failed'
-  file_type VARCHAR(50) NOT NULL,  -- 'exam_input', 'material_input', 'report_evidence'
+  file_id UUID NOT NULL REFERENCES file_metadata(id) ON DELETE CASCADE,
+  
+  -- 移行情報
+  migration_type migration_type_enum NOT NULL,
+  migration_status migration_status_enum NOT NULL,
+  
+  -- 移行元・移行先
+  source_bucket VARCHAR(255) NOT NULL,
+  source_path VARCHAR(1024) NOT NULL,
+  source_storage_class storage_class_enum NOT NULL,
+  destination_bucket VARCHAR(255) NOT NULL,
+  destination_path VARCHAR(1024) NOT NULL,
+  destination_storage_class storage_class_enum NOT NULL,
+  
+  -- 整合性検証
+  source_hash_sha256 VARCHAR(64) NOT NULL,
+  source_hash_crc32c VARCHAR(8),
+  destination_hash_sha256 VARCHAR(64),
+  destination_hash_crc32c VARCHAR(8),
+  hash_verified BOOLEAN DEFAULT FALSE,
+  verification_result processing_result_enum,
+  
+  -- CMEK暗号化情報
+  is_encrypted BOOLEAN DEFAULT FALSE,
+  encryption_key_version VARCHAR(255),
+  
+  -- 処理結果
+  processing_result processing_result_enum,
   error_message TEXT,
   retry_count INT DEFAULT 0,
+  
+  -- コスト情報
+  estimated_cost_before DECIMAL(10, 4),
+  estimated_cost_after DECIMAL(10, 4),
+  cost_savings DECIMAL(10, 4),
+  
+  -- タイムスタンプ
+  started_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMPTZ,
+  duration_seconds INT
+);
+
+CREATE INDEX idx_file_migration_logs_file_id ON file_migration_logs(file_id, started_at DESC);
+CREATE INDEX idx_file_migration_logs_status ON file_migration_logs(migration_status, started_at DESC);
+CREATE INDEX idx_file_migration_logs_type ON file_migration_logs(migration_type, started_at DESC);
+CREATE INDEX idx_file_migration_logs_result ON file_migration_logs(processing_result, started_at DESC);
+
+COMMENT ON TABLE file_migration_logs IS 'ファイル移行ログテーブル（整合性検証、CMEK暗号化情報）';
+```
+
+#### 6.4.2 copyright_claims（著作権侵害申し立て）
+
+DMCAに基づく著作権侵害申し立てを管理します。
+
+```sql
+CREATE TABLE copyright_claims (
+  -- 基本識別子
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
+  
+  -- 対象ファイル
+  file_id UUID NOT NULL REFERENCES file_metadata(id) ON DELETE RESTRICT,
+  
+  -- 申し立て者情報
+  claimant_name VARCHAR(255) NOT NULL,
+  claimant_email VARCHAR(255) NOT NULL,
+  claimant_organization VARCHAR(255),
+  
+  -- 申し立て内容
+  claim_description TEXT NOT NULL,
+  copyrighted_work_description TEXT NOT NULL,
+  infringement_evidence TEXT,
+  
+  -- DMCA情報
+  dmca_notice_url VARCHAR(1024),
+  dmca_counter_notice_url VARCHAR(1024),
+  
+  -- ステータス
+  claim_status VARCHAR(50) DEFAULT 'pending',  -- 'pending', 'reviewing', 'upheld', 'dismissed'
+  resolution_notes TEXT,
+  
+  -- 処理情報
+  reviewed_by UUID,  -- 管理者ID
+  reviewed_at TIMESTAMPTZ,
+  
+  -- タイムスタンプ
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_file_upload_jobs_public_id ON file_upload_jobs(public_id);
-CREATE INDEX idx_file_upload_jobs_file_metadata_id ON file_upload_jobs(file_metadata_id);
-CREATE INDEX idx_file_upload_jobs_uploader_id ON file_upload_jobs(uploader_id);
-CREATE INDEX idx_file_upload_jobs_status ON file_upload_jobs(job_status, created_at);
-CREATE INDEX idx_file_upload_jobs_created_at ON file_upload_jobs(created_at DESC);
+CREATE INDEX idx_copyright_claims_public_id ON copyright_claims(public_id);
+CREATE INDEX idx_copyright_claims_file_id ON copyright_claims(file_id);
+CREATE INDEX idx_copyright_claims_status ON copyright_claims(claim_status, created_at DESC);
+CREATE INDEX idx_copyright_claims_claimant_email ON copyright_claims(claimant_email);
+
+COMMENT ON TABLE copyright_claims IS '著作権侵害申し立て管理テーブル（DMCA対応）';
 ```
 
-**設計注記:**
-- ファイルアップロードの非同期処理状態管理
-- edumintGatewaysからジョブ状態を監視
-- リトライ処理をサポート
+#### 6.4.3 file_audit_logs（ファイル監査ログ）
 
-### 6.2 ログDBテーブル (DDL例)
+全ファイル操作の監査ログをログDBに記録します。
 
 **物理DB:** `edumint_files_logs`
 
-#### **file_logs (ファイル操作ログ)**
-
-ファイル操作履歴を記録します。
-
 ```sql
-CREATE TABLE file_logs (
+CREATE TABLE file_audit_logs (
+  -- 基本識別子
   id UUID PRIMARY KEY DEFAULT uuidv7(),
+  
+  -- 対象ファイル
   file_id UUID NOT NULL,
-  file_type VARCHAR(50) NOT NULL,  -- 'file_metadata', 'report_attachment'
-  action VARCHAR(50) NOT NULL,
+  file_category file_category_enum,
+  
+  -- 操作情報
+  action file_action_enum NOT NULL,
+  audit_result audit_result_enum NOT NULL,
+  
+  -- ユーザー情報
   user_id UUID,
+  user_role VARCHAR(50),
+  
+  -- リクエスト情報
   ip_address INET,
   user_agent TEXT,
-  access_result VARCHAR(20),  -- 'allowed', 'denied'
-  metadata JSONB,
+  request_id VARCHAR(36),
+  
+  -- 詳細情報
+  action_details JSONB,
+  error_message TEXT,
+  
+  -- タイムスタンプ
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX idx_file_logs_file_id ON file_logs(file_id, file_type, created_at);
-CREATE INDEX idx_file_logs_action ON file_logs(action, created_at);
-CREATE INDEX idx_file_logs_user_id ON file_logs(user_id, created_at);
-CREATE INDEX idx_file_logs_access_result ON file_logs(access_result, created_at);
+CREATE INDEX idx_file_audit_logs_file_id ON file_audit_logs(file_id, created_at DESC);
+CREATE INDEX idx_file_audit_logs_action ON file_audit_logs(action, created_at DESC);
+CREATE INDEX idx_file_audit_logs_user_id ON file_audit_logs(user_id, created_at DESC);
+CREATE INDEX idx_file_audit_logs_result ON file_audit_logs(audit_result, created_at DESC);
+CREATE INDEX idx_file_audit_logs_ip_address ON file_audit_logs(ip_address, created_at DESC);
+
+COMMENT ON TABLE file_audit_logs IS 'ファイル監査ログテーブル（全操作記録、セキュリティ分析用）';
 ```
 
-**設計注記:**
-- ファイル操作の監査証跡（アクセス制御違反検出）
-- 本体DBと分離してパフォーマンス確保
-- パーティショニングで大量データに対応
-- セキュリティ分析用ログ
+#### 6.4.4 storage_class_transitions（ストレージクラス遷移履歴）
 
-### 6.3 イベント発行・購読
+ストレージクラスの遷移履歴をログDBに記録します。
+
+**物理DB:** `edumint_files_logs`
+
+```sql
+CREATE TABLE storage_class_transitions (
+  -- 基本識別子
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  
+  -- 対象ファイル
+  file_id UUID NOT NULL,
+  
+  -- 遷移情報
+  from_storage_class storage_class_enum NOT NULL,
+  to_storage_class storage_class_enum NOT NULL,
+  transition_reason transition_reason_enum NOT NULL,
+  
+  -- バケット情報
+  bucket_name VARCHAR(255) NOT NULL,
+  object_path VARCHAR(1024) NOT NULL,
+  
+  -- コスト情報
+  cost_before DECIMAL(10, 4),
+  cost_after DECIMAL(10, 4),
+  monthly_savings DECIMAL(10, 4),
+  
+  -- タイムスタンプ
+  transitioned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (transitioned_at);
+
+CREATE INDEX idx_storage_transitions_file_id ON storage_class_transitions(file_id, transitioned_at DESC);
+CREATE INDEX idx_storage_transitions_reason ON storage_class_transitions(transition_reason, transitioned_at DESC);
+CREATE INDEX idx_storage_transitions_classes ON storage_class_transitions(from_storage_class, to_storage_class);
+
+COMMENT ON TABLE storage_class_transitions IS 'ストレージクラス遷移履歴テーブル（コスト分析用）';
+```
+
+### 6.5 インデックス設計
+
+v7.3.0では移行バッチ処理と検索性能を最適化したインデックスを設計します。
+
+```sql
+-- === file_metadataテーブルのインデックス ===
+
+-- 基本検索用
+CREATE UNIQUE INDEX idx_file_metadata_public_id ON file_metadata(public_id);
+CREATE INDEX idx_file_metadata_uploader_id ON file_metadata(uploader_id) WHERE is_active = TRUE;
+CREATE INDEX idx_file_metadata_owner_id ON file_metadata(owner_id) WHERE is_active = TRUE;
+
+-- 移行バッチ処理用（最重要）
+CREATE INDEX idx_file_metadata_migration_batch ON file_metadata(
+  migration_status,
+  move_scheduled_date,
+  is_active
+) WHERE migration_status = 'staging' AND is_active = TRUE;
+
+-- ファイルカテゴリ別検索用
+CREATE INDEX idx_file_metadata_category ON file_metadata(file_category, created_at DESC) WHERE is_active = TRUE;
+CREATE INDEX idx_file_metadata_mime_category ON file_metadata(mime_category, created_at DESC) WHERE is_active = TRUE;
+
+-- ユーザーアクセス可能ファイル専用
+CREATE INDEX idx_file_metadata_user_accessible ON file_metadata(
+  uploader_id,
+  file_category,
+  created_at DESC
+) WHERE access_level = 'user_accessible' AND is_active = TRUE;
+
+-- システム管理ファイル専用
+CREATE INDEX idx_file_metadata_system_managed ON file_metadata(
+  file_category,
+  created_at DESC
+) WHERE is_system_managed = TRUE AND is_active = TRUE;
+
+-- 暗号化管理用
+CREATE INDEX idx_file_metadata_encryption ON file_metadata(
+  is_encrypted,
+  encrypted_at
+) WHERE is_active = TRUE;
+
+-- ハッシュ重複検出用
+CREATE INDEX idx_file_metadata_hash ON file_metadata(file_hash_sha256) WHERE is_active = TRUE;
+
+-- 全文検索用（GIN）
+CREATE INDEX idx_file_metadata_search_vector ON file_metadata USING gin(search_vector);
+CREATE INDEX idx_file_metadata_tags ON file_metadata USING gin(tags);
+
+-- Vaultバケットファイル検索用
+CREATE INDEX idx_file_metadata_vaulted ON file_metadata(
+  vault_bucket,
+  vault_path,
+  migration_status
+) WHERE migration_status IN ('vaulted', 'restoring', 'restored');
+
+-- 論理削除管理用
+CREATE INDEX idx_file_metadata_deleted ON file_metadata(deleted_at) WHERE deleted_at IS NOT NULL;
+```
+
+### 6.6 トリガー定義
+
+#### 6.6.1 更新日時自動更新トリガー
+
+```sql
+-- トリガー関数: updated_atを自動更新
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- file_metadataテーブルに適用
+CREATE TRIGGER trigger_file_metadata_updated_at
+BEFORE UPDATE ON file_metadata
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- copyright_claimsテーブルに適用
+CREATE TRIGGER trigger_copyright_claims_updated_at
+BEFORE UPDATE ON copyright_claims
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+```
+
+#### 6.6.2 ファイル変更監査トリガー（ENUM対応版）
+
+```sql
+-- トリガー関数: ファイル変更を監査ログに記録
+CREATE OR REPLACE FUNCTION audit_file_changes()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_action file_action_enum;
+  v_action_details JSONB;
+BEGIN
+  -- 操作種別の判定
+  IF TG_OP = 'INSERT' THEN
+    v_action := 'upload';
+    v_action_details := jsonb_build_object(
+      'file_category', NEW.file_category,
+      'file_size_bytes', NEW.file_size_bytes,
+      'staging_bucket', NEW.staging_bucket
+    );
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF OLD.migration_status != NEW.migration_status THEN
+      v_action := 'migrate';
+      v_action_details := jsonb_build_object(
+        'old_status', OLD.migration_status,
+        'new_status', NEW.migration_status
+      );
+    ELSIF OLD.is_encrypted != NEW.is_encrypted AND NEW.is_encrypted = TRUE THEN
+      v_action := 'encrypt';
+      v_action_details := jsonb_build_object(
+        'encryption_algorithm', NEW.encryption_algorithm
+      );
+    ELSE
+      RETURN NEW;  -- その他の更新は記録しない
+    END IF;
+  ELSIF TG_OP = 'DELETE' THEN
+    v_action := 'delete';
+    v_action_details := jsonb_build_object(
+      'file_category', OLD.file_category,
+      'deleted_at', OLD.deleted_at
+    );
+  END IF;
+
+  -- 監査ログに記録
+  INSERT INTO edumint_files_logs.file_audit_logs (
+    file_id,
+    file_category,
+    action,
+    audit_result,
+    user_id,
+    action_details
+  ) VALUES (
+    COALESCE(NEW.id, OLD.id),
+    COALESCE(NEW.file_category, OLD.file_category),
+    v_action,
+    'allowed',
+    COALESCE(NEW.uploader_id, OLD.uploader_id),
+    v_action_details
+  );
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+-- file_metadataテーブルに適用
+CREATE TRIGGER trigger_audit_file_changes
+AFTER INSERT OR UPDATE OR DELETE ON file_metadata
+FOR EACH ROW
+EXECUTE FUNCTION audit_file_changes();
+```
+
+### 6.7 Row-Level Security (RLS) ポリシー
+
+v7.3.0ではロールベースのアクセス制御をRLSで実装します。
+
+```sql
+-- RLSを有効化
+ALTER TABLE file_metadata ENABLE ROW LEVEL SECURITY;
+ALTER TABLE file_migration_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE copyright_claims ENABLE ROW LEVEL SECURITY;
+
+-- === file_metadataテーブルのRLSポリシー ===
+
+-- 管理者: 全ファイルアクセス可能
+CREATE POLICY policy_file_metadata_admin ON file_metadata
+FOR ALL
+TO edumint_admin_role
+USING (TRUE)
+WITH CHECK (TRUE);
+
+-- ユーザー: 自分のアップロードファイル + user_accessibleファイル
+CREATE POLICY policy_file_metadata_user_select ON file_metadata
+FOR SELECT
+TO edumint_user_role
+USING (
+  uploader_id = current_setting('app.current_user_id')::UUID
+  OR access_level = 'user_accessible'
+);
+
+-- ユーザー: 自分のファイルのみ更新可能
+CREATE POLICY policy_file_metadata_user_update ON file_metadata
+FOR UPDATE
+TO edumint_user_role
+USING (uploader_id = current_setting('app.current_user_id')::UUID)
+WITH CHECK (uploader_id = current_setting('app.current_user_id')::UUID);
+
+-- システム: システム管理ファイルのみアクセス
+CREATE POLICY policy_file_metadata_system ON file_metadata
+FOR ALL
+TO edumint_system_role
+USING (is_system_managed = TRUE)
+WITH CHECK (is_system_managed = TRUE);
+
+-- LLM学習システム: 学習データ対象ファイルのみ読み取り
+CREATE POLICY policy_file_metadata_llm_training ON file_metadata
+FOR SELECT
+TO edumint_llm_training_role
+USING (is_llm_training_data = TRUE AND migration_status = 'staging');
+
+-- Vaultバケット専用ポリシー: 移行完了ファイルは管理者のみアクセス
+CREATE POLICY policy_file_metadata_vaulted ON file_metadata
+FOR SELECT
+TO edumint_user_role
+USING (migration_status != 'vaulted' OR access_level = 'user_accessible');
+
+-- === file_migration_logsテーブルのRLSポリシー ===
+
+-- 管理者: 全移行ログ閲覧可能
+CREATE POLICY policy_migration_logs_admin ON file_migration_logs
+FOR SELECT
+TO edumint_admin_role
+USING (TRUE);
+
+-- システム: 移行ログ作成可能
+CREATE POLICY policy_migration_logs_system ON file_migration_logs
+FOR INSERT
+TO edumint_system_role
+WITH CHECK (TRUE);
+
+-- === copyright_claimsテーブルのRLSポリシー ===
+
+-- 管理者: 全著作権申し立て管理可能
+CREATE POLICY policy_copyright_claims_admin ON copyright_claims
+FOR ALL
+TO edumint_admin_role
+USING (TRUE)
+WITH CHECK (TRUE);
+
+-- 申し立て者: 自分の申し立てのみ閲覧可能
+CREATE POLICY policy_copyright_claims_claimant ON copyright_claims
+FOR SELECT
+TO edumint_user_role
+USING (claimant_email = current_setting('app.current_user_email')::TEXT);
+```
+
+### 6.8 GCSバケット設計
+
+#### 6.8.1 Stagingバケット
+
+**バケット名:** `edumint-files-staging-{env}`
+
+**ライフサイクルポリシー:**
+```json
+{
+  "lifecycle": {
+    "rule": [
+      {
+        "action": {
+          "type": "Delete"
+        },
+        "condition": {
+          "daysSinceCustomTime": 7,
+          "matchesPrefix": ["migrated/"]
+        }
+      }
+    ]
+  }
+}
+```
+
+**設定:**
+- ストレージクラス: STANDARD
+- リージョン: asia-northeast1
+- 暗号化: Google管理キー（デフォルト）
+- バージョニング: 無効
+- オブジェクトロック: 無効
+- 公開アクセス: ブロック
+
+#### 6.8.2 Vaultバケット
+
+**バケット名:** `edumint-files-vault-{env}`
+
+**ライフサイクルポリシー:**
+```json
+{
+  "lifecycle": {
+    "rule": [
+      {
+        "action": {
+          "type": "SetStorageClass",
+          "storageClass": "NEARLINE"
+        },
+        "condition": {
+          "daysSinceCustomTime": 30
+        }
+      },
+      {
+        "action": {
+          "type": "SetStorageClass",
+          "storageClass": "COLDLINE"
+        },
+        "condition": {
+          "daysSinceCustomTime": 90
+        }
+      },
+      {
+        "action": {
+          "type": "SetStorageClass",
+          "storageClass": "ARCHIVE"
+        },
+        "condition": {
+          "daysSinceCustomTime": 365
+        }
+      }
+    ]
+  }
+}
+```
+
+**設定:**
+- ストレージクラス: STANDARD → NEARLINE → COLDLINE → ARCHIVE（自動遷移）
+- リージョン: asia-northeast1
+- 暗号化: CMEK（Customer-Managed Encryption Keys）
+- バージョニング: 有効
+- オブジェクトロック: 有効（WORM）
+- 公開アクセス: ブロック
+
+### 6.9 IAMロール設計
+
+#### 6.9.1 サービスアカウント構成
+
+```yaml
+# アプリケーション用SA
+edumint-files-app@{project-id}.iam.gserviceaccount.com:
+  roles:
+    - roles/storage.objectViewer  # Stagingバケット読み取り
+    - roles/storage.objectCreator  # Stagingバケット書き込み
+  bucket_permissions:
+    - edumint-files-staging-{env}
+
+# バッチ処理用SA
+edumint-files-batch@{project-id}.iam.gserviceaccount.com:
+  roles:
+    - roles/storage.objectAdmin  # 両バケット管理
+    - roles/cloudkms.cryptoKeyEncrypterDecrypter  # CMEK暗号化
+  bucket_permissions:
+    - edumint-files-staging-{env}
+    - edumint-files-vault-{env}
+
+# 管理者用SA
+edumint-files-admin@{project-id}.iam.gserviceaccount.com:
+  roles:
+    - roles/storage.admin  # 全バケット管理
+    - roles/cloudkms.admin  # KMS管理
+  bucket_permissions:
+    - edumint-files-staging-{env}
+    - edumint-files-vault-{env}
+
+# 監査ログ用SA
+edumint-files-audit@{project-id}.iam.gserviceaccount.com:
+  roles:
+    - roles/storage.objectViewer  # 読み取り専用
+  bucket_permissions:
+    - edumint-files-staging-{env}
+    - edumint-files-vault-{env}
+```
+
+### 6.10 バッチ処理設計
+
+#### 6.10.1 日次移行バッチ（Cloud Run Jobs）
+
+**ジョブ名:** `file-migration-daily-job`
+
+**処理フロー:**
+```sql
+-- 1. 移行対象ファイルの抽出
+SELECT 
+  id,
+  public_id,
+  file_category,
+  staging_bucket,
+  staging_path,
+  vault_bucket,
+  retention_days,
+  move_scheduled_date
+FROM file_metadata
+WHERE migration_status = 'staging'
+  AND move_scheduled_date <= CURRENT_TIMESTAMP
+  AND is_active = TRUE
+ORDER BY move_scheduled_date ASC
+LIMIT 1000;
+
+-- 2. 移行処理の実行（Go）
+// GCSファイルコピー
+gsutil cp gs://{staging_bucket}/{staging_path} gs://{vault_bucket}/{vault_path}
+
+// 整合性検証
+source_hash := getFileSHA256(staging_path)
+dest_hash := getFileSHA256(vault_path)
+verified := source_hash == dest_hash
+
+-- 3. 移行ログの記録
+INSERT INTO file_migration_logs (
+  file_id,
+  migration_type,
+  migration_status,
+  source_bucket,
+  destination_bucket,
+  source_hash_sha256,
+  destination_hash_sha256,
+  hash_verified,
+  processing_result
+) VALUES (...);
+
+-- 4. file_metadataの更新
+UPDATE file_metadata
+SET 
+  migration_status = 'vaulted',
+  vault_bucket = $1,
+  vault_path = $2,
+  vault_storage_class = 'STANDARD',
+  vault_uploaded_at = CURRENT_TIMESTAMP,
+  migrated_at = CURRENT_TIMESTAMP,
+  last_migration_job_id = $3
+WHERE id = $4;
+```
+
+**スケジュール:** 毎日 02:00 JST
+
+**リトライポリシー:**
+- 最大リトライ回数: 3回
+- リトライ間隔: 5分
+
+#### 6.10.2 CMEK暗号化適用
+
+Vaultバケットへの移行時にCMEK暗号化を自動適用します。
+
+```go
+// CMEK暗号化の適用
+object := bucket.Object(vaultPath)
+attrs, err := object.Attrs(ctx)
+if err != nil {
+    return err
+}
+
+// KMSキーで暗号化
+kmsKeyName := "projects/{project}/locations/{location}/keyRings/{ring}/cryptoKeys/{key}"
+_, err = object.CopierFrom(object).Run(ctx)
+if err != nil {
+    return err
+}
+
+// メタデータ更新
+_, err = db.Exec(`
+    UPDATE file_metadata
+    SET 
+        is_encrypted = TRUE,
+        encrypted_at = CURRENT_TIMESTAMP,
+        encryption_key_version = $1,
+        encryption_algorithm = 'AES256'
+    WHERE id = $2
+`, kmsKeyName, fileID)
+```
+
+### 6.11 ファイル種別ごとの保持期間設定
+
+v7.3.0では各ファイルカテゴリに適切な保持期間を設定します。
+
+| ファイルカテゴリ | 保持期間（Staging） | 保持期間の起点 | 移行後の保存先 |
+|-----------------|-------------------|---------------|---------------|
+| create_exercises | 7日 | アップロード日 | Vault（NEARLINE） |
+| create_materials | 7日 | アップロード日 | Vault（NEARLINE） |
+| report_evidence | 90日 | 通報処理完了日 | Vault（COLDLINE） |
+| user_profile | 最終ログイン1年 or 退会後90日 | 最終ログイン日 or 退会日 | Vault（NEARLINE） |
+| social_attachment | 1年 | 送信日 | Vault（COLDLINE） |
+
+**実装例:**
+```sql
+-- ファイルアップロード時の保持期間設定
+INSERT INTO file_metadata (
+  file_category,
+  retention_days,
+  retention_trigger_date,
+  ...
+) VALUES (
+  'create_exercises',
+  7,  -- 7日間
+  CURRENT_TIMESTAMP,  -- アップロード日を起点
+  ...
+);
+
+-- 通報証拠書類の保持期間更新（通報処理完了時）
+UPDATE file_metadata
+SET 
+  retention_trigger_date = CURRENT_TIMESTAMP,  -- 処理完了日を起点に変更
+  retention_days = 90
+WHERE file_category = 'report_evidence'
+  AND id = $1;
+```
+
+### 6.12 コスト見積もり
+
+#### 6.12.1 前提条件
+- 平均ファイルサイズ: 5 MB
+- 月間アップロード数: 1,000ファイル
+- リージョン: asia-northeast1
+
+#### 6.12.2 Stagingバケットコスト（1ヶ月目）
+
+| 項目 | 容量 | 単価 | 月額 |
+|-----|------|------|------|
+| STANDARD ストレージ | 5 GB | $0.020/GB | $0.10 |
+| Class A オペレーション（書き込み） | 1,000回 | $0.05/1万回 | $0.005 |
+| Class B オペレーション（読み取り） | 2,000回 | $0.004/1万回 | $0.0008 |
+| データ転送（GCS→Cloud Run） | 5 GB | $0.12/GB | $0.60 |
+| **Stagingバケット合計** | - | - | **$0.71** |
+
+#### 6.12.3 Vaultバケットコスト（1年目）
+
+| 項目 | 容量 | 単価 | 月額 |
+|-----|------|------|------|
+| NEARLINE ストレージ（7日後） | 50 GB | $0.010/GB | $0.50 |
+| COLDLINE ストレージ（90日後） | 200 GB | $0.004/GB | $0.80 |
+| ARCHIVE ストレージ（365日後） | 0 GB | $0.0012/GB | $0.00 |
+| データ取得（Nearline） | 5 GB | $0.01/GB | $0.05 |
+| **Vaultバケット合計** | - | - | **$1.35** |
+
+#### 6.12.4 CMEK暗号化コスト
+
+| 項目 | 回数/容量 | 単価 | 月額 |
+|-----|----------|------|------|
+| KMSキー使用料 | 1キー | $0.06/キー/月 | $0.06 |
+| 暗号化オペレーション | 1,000回 | $0.03/1万回 | $0.003 |
+| **CMEK合計** | - | - | **$0.063** |
+
+#### 6.12.5 総コスト
+
+| 項目 | 月額 |
+|-----|------|
+| Stagingバケット | $0.71 |
+| Vaultバケット | $1.35 |
+| CMEK暗号化 | $0.063 |
+| **合計（1年目平均）** | **$2.12** |
+
+**コスト削減効果:**
+- v7.1.0（単一バケット）: $3.50/月
+- v7.3.0（2バケット構成）: $2.12/月
+- **月間削減額: $1.38（39%削減）**
+
+### 6.13 イベント発行・購読
 
 **発行するイベント:**
 - **`file.uploaded`**: ファイルアップロード完了
-  - Payload: `{file_id, file_type, uploader_id, storage_path}`
+  - Payload: `{file_id, file_category, uploader_id, staging_path}`
   - 購読者: edumintContents, edumintAiWorker
 
+- **`file.migrated`**: ファイル移行完了
+  - Payload: `{file_id, migration_status, vault_path}`
+  - 購読者: edumintContents, edumintMonitoring
+
 - **`file.encrypted`**: ファイル暗号化完了
-  - Payload: `{file_id, encrypted_at}`
-  - 購読者: edumintContents
+  - Payload: `{file_id, encrypted_at, encryption_key_version}`
+  - 購読者: edumintContents, edumintSecurity
 
 **購読するイベント:**
 - **`content.ocr`**: OCR処理要求
@@ -2120,14 +2910,20 @@ CREATE INDEX idx_file_logs_access_result ON file_logs(access_result, created_at)
 
 - **`moderation.evidence`**: 通報証拠ファイル要求
   - 送信元: edumintModeration
-  - 処理: report_attachmentファイルへのアクセス許可
+  - 処理: report_evidenceファイルへのアクセス許可
 
-### 6.4 サービス間API
+- **`user.deleted`**: ユーザー削除
+  - 送信元: edumintUsers
+  - 処理: ユーザーのファイルを論理削除
+
+### 6.14 サービス間API
 
 **提供するAPI:**
 - `GET /files/{file_id}`: ファイルダウンロード（認証済みユーザーのみ）
-- `POST /files/upload`: ファイルアップロード
+- `POST /files/upload`: ファイルアップロード（Stagingバケット）
 - `GET /files/{file_id}/metadata`: ファイルメタデータ取得
+- `POST /files/{file_id}/restore`: Vaultファイルの復元（管理者のみ）
+- `GET /files/migration-status`: 移行ステータス取得
 
 **呼び出すAPI:**
 - なし（イベント駆動で他サービスと連携）
