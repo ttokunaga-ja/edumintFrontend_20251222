@@ -1143,56 +1143,206 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 
 ---
 
-## **6. edumintFile (ファイル管理サービス)**
+## **7. edumintFile (ファイル管理サービス)**
 
-### 設計変更点（v7.0.0）
+# edumintFiles データモデル定義書 (PostgreSQL 18.1 対応版 - 最終修正版)
 
-- 全テーブルの主キーをUUIDに変更
-- ログテーブルを物理DB分離
+## 概要
 
-### 6.1 本体DBテーブル (DDL例)
+edumintFiles マイクロサービスの永続化データモデル定義。
+システムが管理するファイル（OCR入力画像、試験ソース等）と通報証拠ファイルのメタデータを管理し、Google Cloud Storage（GCS）への物理ファイル保存と連携する。
 
-#### **file_inputs**
+**重要な前提**:
+- ユーザーは通常、自分がアップロードしたファイルに直接アクセス**できない**
+- ユーザーがアクセス可能なファイルは**通報証拠ファイル（report_attachment）のみ**
+- `exam_raw`, `source_raw` はLLM学習と通報時の確認用途専用
+- これらのファイルは管理者と自動化システムのみがアクセス可能
 
-アップロードされたファイル情報を管理します。
+### 設計変更点（v7.0.2）
+
+- **PostgreSQL 18.1、pgx v5.8.0、Atlas v1.0.0、sqlc 1.30.0対応**
+- **全テーブルの主キーをuuidv7()で統一（gen_random_uuid()廃止）**
+- **file_type_enum導入によるファイル種別の型安全化**
+- **exam_raw, source_raw テーブルの明示的分離**
+- **report_attachment テーブルの追加（通報証拠専用）**
+- **アクセス制御の明確化（ユーザー直接アクセス不可の原則）**
+- **ログテーブルを物理DB分離（edumint_file_logs）**
+
+### 所有サービス
+
+**edumintFiles**: ファイルメタデータ管理・GCS連携・OCR処理連携
+
+### 技術スタック
+
+| 項目 | バージョン | 備考 |
+|:---|:---|:---|
+| PostgreSQL | 18.1 | uuidv7()、非同期I/O対応 |
+| pgx | v5.8.0 | Go PostgreSQLドライバ |
+| Atlas | v1.0.0 | スキーママイグレーション |
+| sqlc | 1.30.0 | Go型生成 |
+| Google Cloud Storage | - | 物理ファイル保存 |
+
+### 7.1 ファイル種別ENUM
 
 ```sql
-CREATE TABLE file_inputs (
+CREATE TYPE file_type_enum AS ENUM (
+  'exam_raw',          -- 試験ソース生ファイル（PDF/画像）
+  'source_raw',        -- 問題ソース生ファイル（手書き/OCR入力）
+  'report_attachment'  -- 通報証拠ファイル（ユーザーアクセス可能）
+);
+```
+
+**設計注記:**
+- `exam_raw`: 試験問題の元ファイル（PDF、画像など）
+- `source_raw`: OCR入力元となる手書き画像など
+- `report_attachment`: 通報時にユーザーが添付する証拠ファイル
+- ユーザーが直接ダウンロード可能なのは `report_attachment` **のみ**
+
+### 7.2 本体DBテーブル (DDL例)
+
+#### **exam_raw (試験ソース生ファイル)**
+
+試験問題の元となる生ファイル（PDF、画像等）のメタデータを管理します。
+
+```sql
+CREATE TABLE exam_raw (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
   uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  file_type file_type_enum NOT NULL DEFAULT 'exam_raw',
   original_filename VARCHAR(512) NOT NULL,
   stored_filename VARCHAR(512) NOT NULL,
   file_size_bytes BIGINT NOT NULL,
-  mime_type VARCHAR(100),
-  storage_path VARCHAR(1024),
-  bucket_name VARCHAR(255),
-  file_hash VARCHAR(64),  -- SHA-256
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(1024) NOT NULL,
+  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-exam-raw',
+  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
   ocr_processed BOOLEAN DEFAULT FALSE,
   ocr_text TEXT,
   language_code VARCHAR(10) DEFAULT 'ja',
+  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_exam_raw_file_type CHECK (file_type = 'exam_raw')
 );
 
-CREATE INDEX idx_file_inputs_public_id ON file_inputs(public_id);
-CREATE INDEX idx_file_inputs_uploader_id ON file_inputs(uploader_id);
-CREATE INDEX idx_file_inputs_file_hash ON file_inputs(file_hash);
-CREATE INDEX idx_file_inputs_ocr_processed ON file_inputs(ocr_processed);
+CREATE INDEX idx_exam_raw_public_id ON exam_raw(public_id);
+CREATE INDEX idx_exam_raw_exam_id ON exam_raw(exam_id);
+CREATE INDEX idx_exam_raw_uploader_id ON exam_raw(uploader_id);
+CREATE INDEX idx_exam_raw_file_hash ON exam_raw(file_hash);
+CREATE INDEX idx_exam_raw_ocr_processed ON exam_raw(ocr_processed);
+CREATE INDEX idx_exam_raw_created_at ON exam_raw(created_at DESC);
 ```
 
-#### **file_upload_jobs**
+**設計注記:**
+- 試験問題の元ファイルを保存
+- アクセス制御: 管理者と自動化システムのみ
+- LLM学習データとして活用
+- 通報時の検証用ソースとして参照
+- ユーザーは**直接ダウンロード不可**
 
-ファイルアップロードジョブを管理します。
+#### **source_raw (問題ソース生ファイル)**
+
+問題作成の元となる生ファイル（手書き画像、OCR入力元等）のメタデータを管理します。
+
+```sql
+CREATE TABLE source_raw (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  question_id UUID,  -- questions.idを参照（論理的）
+  sub_question_id UUID,  -- sub_questions.idを参照（論理的）
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  file_type file_type_enum NOT NULL DEFAULT 'source_raw',
+  original_filename VARCHAR(512) NOT NULL,
+  stored_filename VARCHAR(512) NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(1024) NOT NULL,
+  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-source-raw',
+  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  ocr_processed BOOLEAN DEFAULT FALSE,
+  ocr_text TEXT,
+  language_code VARCHAR(10) DEFAULT 'ja',
+  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_source_raw_file_type CHECK (file_type = 'source_raw'),
+  CONSTRAINT chk_source_raw_question_ref CHECK (
+    (question_id IS NOT NULL AND sub_question_id IS NULL) OR
+    (question_id IS NULL AND sub_question_id IS NOT NULL)
+  )
+);
+
+CREATE INDEX idx_source_raw_public_id ON source_raw(public_id);
+CREATE INDEX idx_source_raw_question_id ON source_raw(question_id);
+CREATE INDEX idx_source_raw_sub_question_id ON source_raw(sub_question_id);
+CREATE INDEX idx_source_raw_uploader_id ON source_raw(uploader_id);
+CREATE INDEX idx_source_raw_file_hash ON source_raw(file_hash);
+CREATE INDEX idx_source_raw_ocr_processed ON source_raw(ocr_processed);
+CREATE INDEX idx_source_raw_created_at ON source_raw(created_at DESC);
+```
+
+**設計注記:**
+- 問題・小問の元ファイルを保存
+- OCR処理の入力元として使用
+- question_id または sub_question_id のいずれか必須
+- アクセス制御: 管理者と自動化システムのみ
+- LLM学習データとして活用
+- ユーザーは**直接ダウンロード不可**
+
+#### **report_attachment (通報証拠ファイル)**
+
+通報時にユーザーが添付する証拠ファイルのメタデータを管理します。
+
+```sql
+CREATE TABLE report_attachment (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  report_id UUID NOT NULL,  -- reports.idを参照（論理的）
+  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
+  file_type file_type_enum NOT NULL DEFAULT 'report_attachment',
+  original_filename VARCHAR(512) NOT NULL,
+  stored_filename VARCHAR(512) NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  storage_path VARCHAR(1024) NOT NULL,
+  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-report-attachments',
+  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  access_level VARCHAR(20) DEFAULT 'user_accessible',  -- ユーザーアクセス可能
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_report_attachment_file_type CHECK (file_type = 'report_attachment')
+);
+
+CREATE INDEX idx_report_attachment_public_id ON report_attachment(public_id);
+CREATE INDEX idx_report_attachment_report_id ON report_attachment(report_id);
+CREATE INDEX idx_report_attachment_uploader_id ON report_attachment(uploader_id);
+CREATE INDEX idx_report_attachment_file_hash ON report_attachment(file_hash);
+CREATE INDEX idx_report_attachment_created_at ON report_attachment(created_at DESC);
+```
+
+**設計注記:**
+- 通報時の証拠ファイルを保存
+- **ユーザーがアクセス可能な唯一のファイル種別**
+- 通報者と管理者がダウンロード可能
+- 通報の妥当性検証に使用
+
+#### **file_upload_jobs (ファイルアップロードジョブ)**
+
+ファイルアップロード処理のジョブ状態を管理します。
 
 ```sql
 CREATE TABLE file_upload_jobs (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  file_input_id UUID NOT NULL REFERENCES file_inputs(id) ON DELETE CASCADE,
+  file_id UUID NOT NULL,  -- exam_raw, source_raw, report_attachmentのいずれかを参照
+  file_type file_type_enum NOT NULL,
   job_id UUID,  -- jobs.idを参照（論理的）
   status job_status_enum DEFAULT 'pending',
-  progress_percentage INT DEFAULT 0,
+  progress_percentage INT DEFAULT 0 CHECK (progress_percentage BETWEEN 0 AND 100),
   error_message TEXT,
   started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
@@ -1200,34 +1350,371 @@ CREATE TABLE file_upload_jobs (
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_file_upload_jobs_file_input_id ON file_upload_jobs(file_input_id);
+CREATE INDEX idx_file_upload_jobs_file_id ON file_upload_jobs(file_id, file_type);
 CREATE INDEX idx_file_upload_jobs_job_id ON file_upload_jobs(job_id);
 CREATE INDEX idx_file_upload_jobs_status ON file_upload_jobs(status);
+CREATE INDEX idx_file_upload_jobs_created_at ON file_upload_jobs(created_at DESC);
 ```
 
-### 6.2 ログテーブル (DB分離設計)
+**設計注記:**
+- ファイルアップロードの非同期処理を管理
+- file_type で対象テーブルを識別
+- ジョブステータスで処理進捗を追跡
+
+### 7.3 ログテーブル (DB分離設計)
 
 **物理DB:** `edumint_file_logs`
 
-#### **file_logs**
+#### **file_logs (ファイル操作ログ)**
 
 ファイル操作履歴を記録します。
 
 ```sql
 CREATE TABLE file_logs (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  file_input_id UUID NOT NULL,
-  action VARCHAR(50) NOT NULL,  -- 'upload', 'download', 'delete', 'ocr_complete'
+  file_id UUID NOT NULL,
+  file_type file_type_enum NOT NULL,
+  action VARCHAR(50) NOT NULL,  -- 'upload', 'download', 'delete', 'ocr_complete', 'access_denied'
   user_id UUID,
   ip_address INET,
   user_agent TEXT,
+  access_result VARCHAR(20),  -- 'allowed', 'denied'
   metadata JSONB,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX idx_file_logs_file_input_id ON file_logs(file_input_id, created_at);
+CREATE INDEX idx_file_logs_file_id ON file_logs(file_id, file_type, created_at);
 CREATE INDEX idx_file_logs_action ON file_logs(action, created_at);
+CREATE INDEX idx_file_logs_user_id ON file_logs(user_id, created_at);
+CREATE INDEX idx_file_logs_access_result ON file_logs(access_result, created_at);
 ```
+
+**設計注記:**
+- ファイル操作の監査証跡
+- アクセス制御違反の検出
+- セキュリティ分析用ログ
+- パーティショニングで大量データに対応
+
+### 7.4 アクセス制御設計
+
+#### アクセス権限マトリクス
+
+| ファイル種別 | ユーザー | 管理者 | システム | 用途 |
+|:---|:---:|:---:|:---:|:---|
+| exam_raw | ❌ | ✅ | ✅ | LLM学習・通報検証 |
+| source_raw | ❌ | ✅ | ✅ | LLM学習・通報検証 |
+| report_attachment | ✅ | ✅ | ✅ | 通報証拠（通報者のみ） |
+
+#### アクセス制御の実装
+
+```sql
+-- アクセス制御チェック関数例
+CREATE OR REPLACE FUNCTION check_file_access(
+  p_file_type file_type_enum,
+  p_user_id UUID,
+  p_file_id UUID,
+  p_is_admin BOOLEAN
+) RETURNS BOOLEAN AS $$
+BEGIN
+  -- 管理者は全ファイルにアクセス可能
+  IF p_is_admin THEN
+    RETURN TRUE;
+  END IF;
+  
+  -- report_attachmentのみユーザーアクセス可（通報者のみ）
+  IF p_file_type = 'report_attachment' THEN
+    RETURN EXISTS (
+      SELECT 1 FROM report_attachment
+      WHERE id = p_file_id AND uploader_id = p_user_id
+    );
+  END IF;
+  
+  -- exam_raw, source_rawはユーザーアクセス不可
+  RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql STABLE;
+```
+
+### 7.5 GCS連携設計
+
+#### バケット構成
+
+```
+edumint-exam-raw/           # 試験ソースファイル
+  ├── {year}/
+  │   └── {month}/
+  │       └── {uuid}.{ext}
+  
+edumint-source-raw/         # 問題ソースファイル
+  ├── {year}/
+  │   └── {month}/
+  │       └── {uuid}.{ext}
+  
+edumint-report-attachments/ # 通報証拠ファイル
+  ├── {year}/
+  │   └── {month}/
+  │       └── {uuid}.{ext}
+```
+
+#### ストレージクラス設定
+
+| バケット | ストレージクラス | 保持期間 | 理由 |
+|:---|:---|:---|:---|
+| exam-raw | STANDARD | 永続 | LLM学習データ |
+| source-raw | STANDARD | 永続 | LLM学習データ |
+| report-attachments | NEARLINE | 1年 | 通報証拠（低頻度アクセス） |
+
+### 7.6 OCR処理連携
+
+```sql
+-- OCR処理完了時の更新例
+UPDATE exam_raw
+SET
+  ocr_processed = TRUE,
+  ocr_text = :ocr_result_text,
+  updated_at = CURRENT_TIMESTAMP
+WHERE id = :file_id;
+```
+
+**OCR処理フロー:**
+1. ファイルアップロード → GCS保存
+2. Kafka イベント発行（edumintAiWorker へ）
+3. OCR処理実行（Vision API等）
+4. 結果をDBに保存（ocr_text）
+5. ベクトル化（検索インデックス更新）
+
+### 7.7 セキュリティ対策
+
+#### ファイルサイズ制限
+
+```sql
+ALTER TABLE exam_raw ADD CONSTRAINT chk_exam_raw_file_size
+  CHECK (file_size_bytes <= 104857600);  -- 100MB
+
+ALTER TABLE source_raw ADD CONSTRAINT chk_source_raw_file_size
+  CHECK (file_size_bytes <= 52428800);   -- 50MB
+
+ALTER TABLE report_attachment ADD CONSTRAINT chk_report_attachment_file_size
+  CHECK (file_size_bytes <= 10485760);   -- 10MB
+```
+
+#### MIMEタイプ制限
+
+```sql
+CREATE TYPE allowed_mime_type_enum AS ENUM (
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+  'image/heic'
+);
+
+-- 各テーブルでMIMEタイプを制限（実装例）
+```
+
+#### ファイルハッシュによる重複検出
+
+```sql
+-- 重複ファイルの検出
+SELECT file_hash, COUNT(*) as duplicate_count
+FROM (
+  SELECT file_hash FROM exam_raw
+  UNION ALL
+  SELECT file_hash FROM source_raw
+  UNION ALL
+  SELECT file_hash FROM report_attachment
+) AS all_files
+GROUP BY file_hash
+HAVING COUNT(*) > 1;
+```
+
+### 7.8 Atlas HCL + sqlc 連携
+
+#### Atlas HCL スキーマ定義例
+
+```hcl
+// schema.hcl - edumintFiles
+table "exam_raw" {
+  schema = schema.edumint_files
+  
+  column "id" {
+    type = uuid
+    default = sql("uuidv7()")
+  }
+  column "public_id" {
+    type = varchar(16)
+    null = false
+  }
+  column "file_type" {
+    type = enum.file_type_enum
+    default = "exam_raw"
+  }
+  // ... 他のカラム定義
+  
+  primary_key {
+    columns = [column.id]
+  }
+  
+  index "idx_exam_raw_public_id" {
+    unique = true
+    columns = [column.public_id]
+  }
+}
+```
+
+#### sqlc クエリ例
+
+```sql
+-- name: CreateExamRaw :one
+INSERT INTO exam_raw (
+  public_id,
+  exam_id,
+  uploader_id,
+  file_type,
+  original_filename,
+  stored_filename,
+  file_size_bytes,
+  mime_type,
+  storage_path,
+  bucket_name,
+  file_hash
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+) RETURNING *;
+
+-- name: GetExamRawByID :one
+SELECT * FROM exam_raw
+WHERE id = $1 AND is_active = TRUE;
+
+-- name: ListExamRawByExamID :many
+SELECT * FROM exam_raw
+WHERE exam_id = $1 AND is_active = TRUE
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: UpdateOCRResult :exec
+UPDATE exam_raw
+SET
+  ocr_processed = TRUE,
+  ocr_text = $2,
+  updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+```
+
+### 7.9 Goインテグレーション例
+
+```go
+// models/file.go
+type FileType string
+
+const (
+    FileTypeExamRaw         FileType = "exam_raw"
+    FileTypeSourceRaw       FileType = "source_raw"
+    FileTypeReportAttachment FileType = "report_attachment"
+)
+
+// services/file_service.go
+type FileService struct {
+    queries *db.Queries
+    storage *gcs.Client
+}
+
+func (s *FileService) UploadExamRaw(
+    ctx context.Context,
+    examID uuid.UUID,
+    uploaderID uuid.UUID,
+    file io.Reader,
+    filename string,
+) (*db.ExamRaw, error) {
+    // 1. GCSにアップロード
+    storedPath, err := s.uploadToGCS(ctx, file, "edumint-exam-raw", filename)
+    if err != nil {
+        return nil, err
+    }
+    
+    // 2. DBにメタデータ保存
+    examRaw, err := s.queries.CreateExamRaw(ctx, db.CreateExamRawParams{
+        PublicID:        nanoid.New(),
+        ExamID:          examID,
+        UploaderID:      uploaderID,
+        FileType:        string(FileTypeExamRaw),
+        OriginalFilename: filename,
+        StoredFilename:  storedPath,
+        // ... その他のパラメータ
+    })
+    if err != nil {
+        return nil, err
+    }
+    
+    // 3. OCR処理用Kafkaイベント発行
+    s.publishOCREvent(ctx, examRaw.ID)
+    
+    return &examRaw, nil
+}
+
+func (s *FileService) CheckFileAccess(
+    ctx context.Context,
+    fileType FileType,
+    fileID uuid.UUID,
+    userID uuid.UUID,
+    isAdmin bool,
+) (bool, error) {
+    // アクセス制御ロジック
+    if isAdmin {
+        return true, nil
+    }
+    
+    if fileType == FileTypeReportAttachment {
+        // 通報者のみアクセス可
+        attachment, err := s.queries.GetReportAttachmentByID(ctx, fileID)
+        if err != nil {
+            return false, err
+        }
+        return attachment.UploaderID == userID, nil
+    }
+    
+    // exam_raw, source_rawはユーザーアクセス不可
+    return false, nil
+}
+```
+
+### 7.10 監査・運用設計
+
+#### 監査ログ記録
+
+```sql
+-- アクセス拒否の記録
+INSERT INTO file_logs (
+  file_id,
+  file_type,
+  action,
+  user_id,
+  ip_address,
+  access_result,
+  metadata
+) VALUES (
+  :file_id,
+  :file_type,
+  'access_denied',
+  :user_id,
+  :ip_address,
+  'denied',
+  jsonb_build_object('reason', 'insufficient_permission')
+);
+```
+
+#### 定期メンテナンス
+
+```sql
+-- 非アクティブファイルの削除候補抽出
+SELECT id, public_id, original_filename, file_size_bytes
+FROM exam_raw
+WHERE is_active = FALSE
+  AND updated_at < CURRENT_TIMESTAMP - INTERVAL '90 days'
+ORDER BY updated_at;
+```
+
+---
 
 ---
 
