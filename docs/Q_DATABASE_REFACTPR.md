@@ -1,6 +1,13 @@
-# **EduMint 統合データモデル設計書 v7.0.2**
+# **EduMint 統合データモデル設計書 v7.0.3**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
+
+**v7.0.3 主要更新:**
+- **edumintSocialの責務再定義**: 統計情報管理をedumintContentへ移管、ソーシャル機能に特化
+- **edumintContentに統計管理機能追加**: `exam_statistics`, `exam_interaction_events`テーブル新設
+- **SNS機能拡張**: ユーザー投稿、DM、マッチング機能用テーブル追加
+- **イベント駆動フロー強化**: `content.interaction`トピック新設、統計更新の非同期化
+- **検索・推薦システムの改善**: 統計情報への直接アクセスによる性能向上
 
 **v7.0.2 主要更新:**
 - **技術スタックを2026年2月最新版に更新**
@@ -524,21 +531,22 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 | :--- | :--- | :--- | :--- | :--- |
 | **edumintGateway** | ジョブオーケストレーション | `jobs`, `job_logs` (分離DB) | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
 | **edumintAuth** | SSO・認証 | `oauth_clients`, `oauth_tokens`, `idp_links`, `auth_logs` (分離DB) | `auth.events` | - |
-| **edumintUserProfile** | ユーザー管理・フォロー・通知 | `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `user_profile_logs` (分離DB) | `user.events` | `auth.events` |
-| **edumintFile** | ファイル管理 | `file_inputs`, `file_upload_jobs`, `file_logs` (分離DB) | `content.jobs` (FileUploaded) | `gateway.jobs` |
-| **edumintContent** | 試験・問題データ (Source of Truth) | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `content_logs` (分離DB) | `content.lifecycle` | `gateway.jobs`, `ai.results` |
-| **edumintSearch** | 検索・インデックス | `*_terms` (subject, institution, faculty, teacher), `term_generation_jobs`, `term_generation_candidates`, Elasticsearch索引, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle` |
+| **edumintUserProfile** | ユーザー管理・フォロー・通知 | `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `user_profile_logs` (分離DB) | `user.events` | `auth.events`, `content.feedback`, `monetization.transactions` |
+| **edumintFile** | ファイル管理 | `exam_raw`, `source_raw`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `content.jobs` (FileUploaded) | `gateway.jobs` |
+| **edumintContent** | 試験・問題データ + 統計管理 (Source of Truth) | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, **`exam_statistics`, `exam_interaction_events`**, `content_logs` (分離DB) | `content.lifecycle`, **`content.interaction`** | `gateway.jobs`, `ai.results` |
+| **edumintSearch** | 検索・インデックス | `*_terms` (subject, institution, faculty, teacher), `term_generation_jobs`, `term_generation_candidates`, Elasticsearch索引, `search_logs` (分離DB) | `search.indexed` | `content.lifecycle`, **`content.interaction`**, `search.term_generation` |
 | **edumintAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `content.jobs`, `search.term_generation` |
-| **edumintSocial** | SNS機能（コメント・いいね） | `exam_likes`, `exam_bads`, `exam_comments`, `exam_views` | `content.feedback` | - |
+| **edumintSocial** | SNS機能（投稿・コメント・DM・マッチング） | **`user_posts`, `post_likes`, `post_comments`, `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages`, `dm_read_receipts`, `user_match_preferences`, `user_matches`** | `social.activity` | **`content.interaction`** |
 | **edumintMonetizeWallet** | MintCoin管理 | `wallets`, `wallet_transactions`, `wallet_logs` (分離DB, 7年保持) | `monetization.transactions` | - |
-| **edumintRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions` |
-| **edumintModeration** | 通報管理 | `content_reports`, `user_reports`, `report_files`, `moderation_logs` (分離DB) | `moderation.events` | - |
+| **edumintRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions`, **`content.interaction`** |
+| **edumintModeration** | 通報管理 | `content_reports`, `user_reports`, `report_attachment`, `moderation_logs` (分離DB) | `moderation.events` | - |
 | **edumintAdmin** | 管理UI統合 | （他サービスのAPIを集約） | - | - |
 
-**注記:**
-- すべてのログテーブルは物理的に分離されたデータベースに配置
-- ログDBは長期保存・分析用途に最適化（パーティショニング、圧縮）
-- edumintAiWorkerは完全ステートレス化、ログはELKスタックで管理
+**主要変更点（v7.0.3）:**
+- **edumintContent**: `exam_statistics`, `exam_interaction_events`を新規追加（統計情報管理の責務を追加）
+- **edumintSocial**: `exam_likes`, `exam_bads`, `exam_views`を削除（edumintContentへ移管）
+- **edumintSocial**: SNS投稿、DM、マッチング機能用テーブルを追加
+- **Kafkaトピック**: `content.interaction`を新規追加（統計イベント専用）
 
 ---
 
@@ -1109,6 +1117,204 @@ CREATE TABLE exam_keywords (
 
 CREATE INDEX idx_exam_keywords_exam_id ON exam_keywords(exam_id);
 CREATE INDEX idx_exam_keywords_keyword_id ON exam_keywords(keyword_id);
+```
+
+### 5.3 統計情報管理テーブル (v7.0.3新規追加)
+
+#### **exam_statistics (試験統計集約テーブル)**
+
+試験ごとの統計情報を集約管理します。検索ランキング・推薦システムで高速参照可能。
+
+```sql
+CREATE TABLE exam_statistics (
+  exam_id UUID PRIMARY KEY REFERENCES exams(id) ON DELETE CASCADE,
+  
+  -- カウンター（集約値）
+  view_count INT DEFAULT 0,
+  unique_viewer_count INT DEFAULT 0,
+  like_count INT DEFAULT 0,
+  bad_count INT DEFAULT 0,
+  comment_count INT DEFAULT 0,
+  share_count INT DEFAULT 0,
+  
+  -- 統計指標
+  engagement_score DECIMAL(10,2) DEFAULT 0.00,  -- エンゲージメントスコア
+  quality_score DECIMAL(10,2) DEFAULT 0.00,     -- 品質スコア
+  trending_score DECIMAL(10,2) DEFAULT 0.00,    -- トレンドスコア（時間減衰付き）
+  
+  -- 最終更新情報
+  last_viewed_at TIMESTAMPTZ,
+  last_liked_at TIMESTAMPTZ,
+  last_commented_at TIMESTAMPTZ,
+  
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_exam_statistics_engagement ON exam_statistics(engagement_score DESC);
+CREATE INDEX idx_exam_statistics_quality ON exam_statistics(quality_score DESC);
+CREATE INDEX idx_exam_statistics_trending ON exam_statistics(trending_score DESC, updated_at DESC);
+CREATE INDEX idx_exam_statistics_view_count ON exam_statistics(view_count DESC);
+CREATE INDEX idx_exam_statistics_like_count ON exam_statistics(like_count DESC);
+```
+
+**設計注記:**
+- 試験ごとの統計情報を集約（Source of Truth）
+- 検索ランキング・推薦システムで高速参照可能
+- エンゲージメントスコア: `(like_count * 1.0 + comment_count * 2.0 - bad_count * 0.5) / NULLIF(view_count, 0)`
+- 品質スコア: コンテンツ品質指標（AI評価、通報率等を統合）
+- トレンドスコア: 時間減衰を考慮した人気度指標
+
+#### **exam_interaction_events (個別イベントテーブル)**
+
+個別のユーザーアクション（いいね、閲覧等）を記録します。高頻度書き込みに対応。
+
+```sql
+CREATE TABLE exam_interaction_events (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
+  user_id UUID,           -- NULL許可（非ログインユーザーの閲覧）
+  event_type VARCHAR(20) NOT NULL,  -- 'view', 'like', 'unlike', 'bad', 'unbad', 'share'
+  session_id VARCHAR(255),
+  ip_address INET,
+  user_agent TEXT,
+  referrer TEXT,
+  view_duration_seconds INT,  -- 閲覧時間（viewイベントのみ）
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
+
+-- パーティション例（月次）
+CREATE TABLE exam_interaction_events_2026_02 PARTITION OF exam_interaction_events
+  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+
+CREATE TABLE exam_interaction_events_2026_03 PARTITION OF exam_interaction_events
+  FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+
+CREATE INDEX idx_exam_interaction_events_exam_id ON exam_interaction_events(exam_id, created_at DESC);
+CREATE INDEX idx_exam_interaction_events_user_id ON exam_interaction_events(user_id, created_at DESC);
+CREATE INDEX idx_exam_interaction_events_type ON exam_interaction_events(event_type, created_at DESC);
+CREATE INDEX idx_exam_interaction_events_session ON exam_interaction_events(session_id, created_at DESC);
+```
+
+**設計注記:**
+- 個別のユーザーアクション（いいね、閲覧等）を記録
+- 高頻度書き込みに対応（パーティショニング、月次）
+- 定期バッチ（1分ごと）で`exam_statistics`を更新
+- 分析・機械学習の入力データとして使用
+- BigQueryへの定期エクスポート対象（90日後にPostgreSQLから削除）
+
+#### **統計更新バッチ処理**
+
+```sql
+-- 統計更新バッチ（1分ごと実行）
+CREATE OR REPLACE FUNCTION update_exam_statistics()
+RETURNS void AS $$
+BEGIN
+  WITH recent_events AS (
+    SELECT 
+      exam_id,
+      event_type,
+      COUNT(*) as event_count,
+      COUNT(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL) as unique_users,
+      MAX(created_at) as last_event_at
+    FROM exam_interaction_events
+    WHERE created_at >= NOW() - INTERVAL '1 minute'
+    GROUP BY exam_id, event_type
+  )
+  INSERT INTO exam_statistics (
+    exam_id, 
+    view_count, 
+    like_count, 
+    bad_count, 
+    unique_viewer_count,
+    last_viewed_at,
+    last_liked_at
+  )
+  SELECT 
+    exam_id,
+    COALESCE(SUM(event_count) FILTER (WHERE event_type = 'view'), 0) as view_count,
+    COALESCE(SUM(event_count) FILTER (WHERE event_type = 'like'), 0) as like_count,
+    COALESCE(SUM(event_count) FILTER (WHERE event_type = 'bad'), 0) as bad_count,
+    MAX(unique_users) FILTER (WHERE event_type = 'view') as unique_viewer_count,
+    MAX(last_event_at) FILTER (WHERE event_type = 'view') as last_viewed_at,
+    MAX(last_event_at) FILTER (WHERE event_type = 'like') as last_liked_at
+  FROM recent_events
+  GROUP BY exam_id
+  ON CONFLICT (exam_id) DO UPDATE
+  SET
+    view_count = exam_statistics.view_count + EXCLUDED.view_count,
+    like_count = exam_statistics.like_count + EXCLUDED.like_count,
+    bad_count = exam_statistics.bad_count + EXCLUDED.bad_count,
+    unique_viewer_count = GREATEST(exam_statistics.unique_viewer_count, EXCLUDED.unique_viewer_count),
+    last_viewed_at = GREATEST(exam_statistics.last_viewed_at, EXCLUDED.last_viewed_at),
+    last_liked_at = GREATEST(exam_statistics.last_liked_at, EXCLUDED.last_liked_at),
+    engagement_score = (
+      (exam_statistics.like_count + EXCLUDED.like_count) * 1.0 + 
+      exam_statistics.comment_count * 2.0 - 
+      (exam_statistics.bad_count + EXCLUDED.bad_count) * 0.5
+    ) / NULLIF(exam_statistics.view_count + EXCLUDED.view_count, 0),
+    updated_at = CURRENT_TIMESTAMP;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### **sqlcクエリ例**
+
+```sql
+-- name: GetExamWithStatistics :one
+SELECT 
+  e.*,
+  es.view_count,
+  es.like_count,
+  es.bad_count,
+  es.comment_count,
+  es.engagement_score,
+  es.quality_score,
+  es.trending_score
+FROM exams e
+LEFT JOIN exam_statistics es ON e.id = es.exam_id
+WHERE e.id = $1 AND e.is_deleted = FALSE;
+
+-- name: RecordExamInteraction :exec
+INSERT INTO exam_interaction_events (
+  exam_id,
+  user_id,
+  event_type,
+  session_id,
+  ip_address,
+  user_agent,
+  referrer,
+  view_duration_seconds
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8
+);
+
+-- name: GetTrendingExams :many
+SELECT 
+  e.*,
+  es.view_count,
+  es.like_count,
+  es.engagement_score,
+  es.trending_score
+FROM exams e
+INNER JOIN exam_statistics es ON e.id = es.exam_id
+WHERE e.status = 'active' AND e.is_deleted = FALSE
+ORDER BY es.trending_score DESC, es.updated_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: GetTopRatedExams :many
+SELECT 
+  e.*,
+  es.view_count,
+  es.like_count,
+  es.quality_score
+FROM exams e
+INNER JOIN exam_statistics es ON e.id = es.exam_id
+WHERE e.status = 'active' AND e.is_deleted = FALSE
+  AND es.view_count >= $3
+ORDER BY es.quality_score DESC, es.like_count DESC
+LIMIT $1 OFFSET $2;
 ```
 
 ### 5.2 ログテーブル (DB分離設計)
@@ -2014,57 +2220,38 @@ edumintAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
 
 ## **10. edumintSocial (ソーシャルサービス)**
 
-### 設計変更点（v7.0.0）
+### 設計変更点（v7.0.3）
 
-- 全テーブルの主キーをUUIDに変更
-- **ログテーブル不要**: 既存テーブルがログの役割を兼ねる
-- exam_badsテーブル追加（いいねの逆）
+- **責務の明確化**: 統計情報管理をedumintContentへ移管、純粋なソーシャル機能に特化
+- **削除テーブル**: `exam_likes`, `exam_bads`, `exam_views`（→ edumintContent.exam_interaction_eventsへ統合）
+- **新規テーブル**: SNS投稿、DM、マッチング機能用テーブルを追加
+- **コメント機能強化**: YouTubeスタイルのスレッド型コメント
 
-### 9.1 本体DBテーブル (DDL例)
+### 10.1 サービス責務
 
-#### **exam_likes**
+edumintSocialは以下のソーシャル機能を提供します：
 
-試験へのいいね情報を管理します。
+1. **試験コメント機能**: 試験に対するユーザーコメント、返信、いいね
+2. **SNS投稿機能**: ユーザーのタイムライン、投稿、シェア
+3. **DM機能**: 1対1・グループチャット、既読管理
+4. **マッチング機能**: 学習パートナー探し（Phase 3）
 
-```sql
-CREATE TABLE exam_likes (
-  user_id UUID NOT NULL,  -- users.idを参照（論理的）
-  exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (user_id, exam_id)
-);
+### 10.2 本体DBテーブル (DDL例)
 
-CREATE INDEX idx_exam_likes_user_id ON exam_likes(user_id, created_at DESC);
-CREATE INDEX idx_exam_likes_exam_id ON exam_likes(exam_id, created_at DESC);
-```
+#### **exam_comments (試験コメント)**
 
-#### **exam_bads**
-
-試験への低評価情報を管理します。
-
-```sql
-CREATE TABLE exam_bads (
-  user_id UUID NOT NULL,  -- users.idを参照（論理的）
-  exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (user_id, exam_id)
-);
-
-CREATE INDEX idx_exam_bads_user_id ON exam_bads(user_id, created_at DESC);
-CREATE INDEX idx_exam_bads_exam_id ON exam_bads(exam_id, created_at DESC);
-```
-
-#### **exam_comments**
-
-試験へのコメントを管理します。
+試験へのコメントを管理します。YouTubeスタイルのスレッド型コメント機能。
 
 ```sql
 CREATE TABLE exam_comments (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
-  user_id UUID NOT NULL,  -- users.idを参照（論理的）
+  exam_id UUID NOT NULL,
+  user_id UUID NOT NULL,
   parent_comment_id UUID REFERENCES exam_comments(id) ON DELETE CASCADE,
   comment_text TEXT NOT NULL,
+  like_count INT DEFAULT 0,
+  reply_count INT DEFAULT 0,
+  is_pinned BOOLEAN DEFAULT FALSE,
   is_edited BOOLEAN DEFAULT FALSE,
   edited_at TIMESTAMPTZ,
   is_deleted BOOLEAN DEFAULT FALSE,
@@ -2074,36 +2261,173 @@ CREATE TABLE exam_comments (
 );
 
 CREATE INDEX idx_exam_comments_exam_id ON exam_comments(exam_id, created_at DESC);
+CREATE INDEX idx_exam_comments_parent_id ON exam_comments(parent_comment_id, created_at DESC);
 CREATE INDEX idx_exam_comments_user_id ON exam_comments(user_id, created_at DESC);
-CREATE INDEX idx_exam_comments_parent_id ON exam_comments(parent_comment_id);
+CREATE INDEX idx_exam_comments_pinned ON exam_comments(exam_id, is_pinned, created_at DESC) 
+  WHERE is_pinned = TRUE AND is_deleted = FALSE;
 ```
 
-#### **exam_views**
-
-試験の閲覧履歴を管理します。
+#### **comment_likes (コメントいいね)**
 
 ```sql
-CREATE TABLE exam_views (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
-  user_id UUID,  -- NULL許可（非ログインユーザー）
-  session_id VARCHAR(255),
-  ip_address INET,
-  user_agent TEXT,
-  referrer TEXT,
-  view_duration_seconds INT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE comment_likes (
+  comment_id UUID NOT NULL REFERENCES exam_comments(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (comment_id, user_id)
 );
 
-CREATE INDEX idx_exam_views_exam_id ON exam_views(exam_id, created_at);
-CREATE INDEX idx_exam_views_user_id ON exam_views(user_id, created_at);
-CREATE INDEX idx_exam_views_session_id ON exam_views(session_id);
+CREATE INDEX idx_comment_likes_user_id ON comment_likes(user_id, created_at DESC);
+```
+
+#### **user_posts (ユーザー投稿)**
+
+```sql
+CREATE TABLE user_posts (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(8) NOT NULL UNIQUE,
+  user_id UUID NOT NULL,
+  post_type VARCHAR(20) NOT NULL,
+  content TEXT,
+  attached_exam_id UUID,
+  media_urls TEXT[],
+  hashtags VARCHAR(50)[],
+  like_count INT DEFAULT 0,
+  comment_count INT DEFAULT 0,
+  share_count INT DEFAULT 0,
+  visibility VARCHAR(20) DEFAULT 'public',
+  is_deleted BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_posts_public_id ON user_posts(public_id);
+CREATE INDEX idx_user_posts_user_id ON user_posts(user_id, created_at DESC) WHERE is_deleted = FALSE;
+CREATE INDEX idx_user_posts_visibility ON user_posts(visibility, created_at DESC) WHERE is_deleted = FALSE;
+CREATE INDEX idx_user_posts_hashtags ON user_posts USING gin(hashtags) WHERE is_deleted = FALSE;
+```
+
+#### **post_likes, post_comments**
+
+```sql
+CREATE TABLE post_likes (
+  post_id UUID NOT NULL REFERENCES user_posts(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (post_id, user_id)
+);
+
+CREATE TABLE post_comments (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  post_id UUID NOT NULL REFERENCES user_posts(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  parent_comment_id UUID REFERENCES post_comments(id) ON DELETE CASCADE,
+  comment_text TEXT NOT NULL,
+  like_count INT DEFAULT 0,
+  is_deleted BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### **DM機能テーブル**
+
+```sql
+CREATE TABLE dm_conversations (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,
+  conversation_type VARCHAR(20) DEFAULT 'direct',
+  conversation_name VARCHAR(255),
+  created_by_user_id UUID NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE dm_participants (
+  conversation_id UUID NOT NULL REFERENCES dm_conversations(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  joined_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  left_at TIMESTAMPTZ,
+  last_read_message_id UUID,
+  is_muted BOOLEAN DEFAULT FALSE,
+  PRIMARY KEY (conversation_id, user_id)
+);
+
+CREATE TABLE dm_messages (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  conversation_id UUID NOT NULL REFERENCES dm_conversations(id) ON DELETE CASCADE,
+  sender_user_id UUID NOT NULL,
+  message_text TEXT,
+  media_urls TEXT[],
+  reply_to_message_id UUID,
+  is_system_message BOOLEAN DEFAULT FALSE,
+  is_deleted BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE dm_messages_2026_02 PARTITION OF dm_messages
+  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+
+CREATE INDEX idx_dm_messages_conversation_id ON dm_messages(conversation_id, created_at DESC);
+```
+
+#### **マッチング機能テーブル（Phase 3）**
+
+```sql
+CREATE TABLE user_match_preferences (
+  user_id UUID PRIMARY KEY,
+  looking_for VARCHAR(50),
+  institution_id UUID,
+  faculty_id UUID,
+  academic_fields academic_field_enum[],
+  preferred_languages VARCHAR(10)[],
+  availability_hours JSONB,
+  bio TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_matches (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id_1 UUID NOT NULL,
+  user_id_2 UUID NOT NULL,
+  match_type VARCHAR(50) NOT NULL,
+  compatibility_score DECIMAL(5,2),
+  match_reason JSONB,
+  status VARCHAR(20) DEFAULT 'pending',
+  conversation_id UUID,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMPTZ,
+  CHECK (user_id_1 < user_id_2)
+);
+
+CREATE UNIQUE INDEX idx_user_matches_unique_pair ON user_matches(user_id_1, user_id_2, match_type) 
+  WHERE status != 'rejected';
+```
+
+### 10.3 イベント駆動フロー
+
+edumintSocialは`content.interaction`イベントを購読し、通知生成のみ実行します。統計情報の更新責務はedumintContentが持ちます。
+
+```yaml
+# 購読イベント
+subscriptions:
+  - content.interaction.ExamLiked:
+      action: 通知生成「あなたの試験がいいねされました」
+  
+  - content.interaction.ExamCommented:
+      action: 通知生成「あなたの試験にコメントがつきました」
 ```
 
 **設計注記:**
-- これらのテーブル自体がアクティビティログの役割を果たす
-- 別途ログテーブルは不要
-- exam_viewsは分析・推薦システムで利用
+- edumintSocialは統計情報の更新責務を持たない
+- Kafkaイベントを購読して通知生成のみ実行
+- edumintContentが統計情報のSource of Truthとなる
 
 ---
 
@@ -2508,6 +2832,8 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 | `gateway.job_status` | 各サービス | edumintGateway | `JobProgressUpdate`, `JobFailed` | ジョブステータス更新 |
 | `search.indexed` | edumintSearch | - | `ContentIndexed` | 検索インデックス完了通知 |
 | `search.term_generation` | edumintSearch | edumintAiWorker | `TermGenerationRequested` | 用語生成要求 |
+| **`content.interaction`** | **edumintContent** | **edumintSearch, edumintSocial, edumintRevenue** | **`ExamViewed`, `ExamLiked`, `ExamUnliked`, `ExamBad`, `ExamShared`** | **ユーザーインタラクション統計イベント** |
+| `social.activity` | edumintSocial | edumintUserProfile, edumintContent | `ExamCommented`, `PostCreated`, `DMSent` | ソーシャル活動通知 |
 | `content.feedback` | edumintSocial | edumintContent | `ExamLiked`, `ExamCommented`, `ExamViewed` | ソーシャルフィードバック |
 | `monetization.transactions` | edumintMonetizeWallet | edumintRevenue | `CoinEarned`, `CoinSpent` | ウォレットトランザクション |
 | `revenue.reports` | edumintRevenue | - | `RevenueCalculated`, `PaymentProcessed` | 収益レポート |
@@ -2531,7 +2857,7 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 [edumintSearch] Elasticsearch/PostgreSQLインデックス更新
 ```
 
-#### **2. ソーシャルフィードバックフロー**
+#### **2. ソーシャルフィードバックフロー（v7.0.2以前の旧パターン - 参考）**
 
 ```
 [ユーザー] 試験にいいね
@@ -2544,6 +2870,27 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
    ↓
 [edumintUserProfile] 通知作成 (ExamLiked)
 ```
+
+**注記:** v7.0.3では以下の新しいパターンに移行しました。
+
+#### **2. ユーザーインタラクションフロー（v7.0.3新規）**
+
+```
+[ユーザー] 試験にいいね
+   ↓
+[edumintContent API] exam_interaction_eventsに記録（非同期）
+   ↓ (Kafka: content.interaction)
+[edumintSearch] Elasticsearchランキング更新
+[edumintSocial] 通知作成「あなたの試験がいいねされました」
+[edumintRevenue] エンゲージメント収益計算
+   ↓
+[定期バッチ 1分ごと] exam_statistics更新
+```
+
+**ポイント:**
+- APIレスポンス速度優先: イベント記録は非同期、統計更新は後回し
+- リアルタイム性: Kafkaイベントで他サービスが即座に反応
+- 整合性: 定期バッチで統計を正確に集計
 
 #### **3. 収益分配フロー**
 
@@ -3059,7 +3406,7 @@ CREATE INDEX idx_logical_delete_example_not_deleted
 - ユーザーデータ: `users`, `user_profiles`, `user_settings`
 - コンテンツデータ: `exams`, `questions`, `sub_questions`, `teachers`, `subjects`
 - トランザクションデータ: `wallet_transactions`, `revenue_reports`（法令保持義務あり）
-- ソーシャルデータ: `exam_likes`, `comments`, `follows`
+- ソーシャルデータ: `exam_comments`, `user_posts`, `dm_messages`
 
 **物理削除を適用すべきテーブル**:
 - ログデータ: 全ログテーブル（保持期間経過後の自動削除）
@@ -3159,19 +3506,19 @@ CREATE TABLE exams (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- edumintSocial.exam_likesテーブル（Social管理サービス）
-CREATE TABLE exam_likes (
+-- edumintContent.exam_interaction_eventsテーブル（v7.0.3: 統計情報管理）
+CREATE TABLE exam_interaction_events (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   exam_id UUID NOT NULL,                      -- edumintContent.examsを論理参照
-  user_id UUID NOT NULL,                      -- edumintAuth.usersを論理参照
-  -- exam_id, user_idにはFOREIGN KEY制約を設定しない（サービス境界を越えるため）
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(exam_id, user_id)
-);
+  user_id UUID,                               -- edumintAuth.usersを論理参照（NULL許可）
+  event_type VARCHAR(20) NOT NULL,            -- 'view', 'like', 'bad', etc.
+  -- exam_id, user_idにはFOREIGN KEY制約を設定しない（論理参照のため）
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
 
 -- インデックスは必須（外部キー制約がなくても）
-CREATE INDEX idx_exam_likes_exam_id ON exam_likes(exam_id);
-CREATE INDEX idx_exam_likes_user_id ON exam_likes(user_id);
+CREATE INDEX idx_exam_interaction_events_exam_id ON exam_interaction_events(exam_id);
+CREATE INDEX idx_exam_interaction_events_user_id ON exam_interaction_events(user_id);
 ```
 
 **同一サービス内の参照**:
@@ -3562,16 +3909,16 @@ WHERE id = $1;
 
 ```sql
 -- ❌ 禁止: サービス境界を越える物理FOREIGN KEY
--- edumintSocial.exam_likesテーブルで edumintContent.examsを参照
-CREATE TABLE exam_likes (
-  exam_id UUID REFERENCES edumint_content.exams(id),  -- 異なるDB、物理制約不可
+-- edumintContent.exam_interaction_eventsテーブルで edumintAuth.usersを参照
+CREATE TABLE exam_interaction_events (
+  user_id UUID REFERENCES edumint_auth.users(id),  -- 異なるDB、物理制約不可
 );
 
 -- ✅ 正しい: 論理参照のみ
-CREATE TABLE exam_likes (
-  exam_id UUID NOT NULL,  -- 論理参照のみ、制約なし
+CREATE TABLE exam_interaction_events (
+  user_id UUID,  -- 論理参照のみ、制約なし（NULL許可）
 );
-CREATE INDEX idx_exam_likes_exam_id ON exam_likes(exam_id);  -- インデックスは必須
+CREATE INDEX idx_exam_interaction_events_user_id ON exam_interaction_events(user_id);  -- インデックスは必須
 ```
 
 ##### **❌ ENUM型のVARCHAR代替（全面廃止）**
