@@ -3146,6 +3146,21 @@ SET log_min_duration_statement = 1000;  -- 1秒以上のクエリをログ
 -- デッドロック検出
 ALTER DATABASE edumint_content_prod 
 SET deadlock_timeout = '1s';
+
+-- PostgreSQL 18.1新機能: AIO (Asynchronous I/O) 最適化
+ALTER DATABASE edumint_content_prod 
+SET effective_io_concurrency = 200;
+
+ALTER DATABASE edumint_content_prod 
+SET maintenance_io_concurrency = 100;
+
+-- B-tree Skip Scan最適化
+ALTER DATABASE edumint_content_prod 
+SET enable_skip_scan = on;
+
+-- pgvector 0.8.1最適化設定
+ALTER DATABASE edumint_content_prod 
+SET hnsw.ef_search = 40;  -- デフォルト検索精度
 ```
 
 ### 19.2 IAM認証設定
@@ -3208,114 +3223,152 @@ GRANT SELECT ON TABLES TO readonly_role;
 CREATE USER "edumint-analyst@edumint-prod.iam" WITH LOGIN IN ROLE readonly_role;
 ```
 
-### 19.3 Doppler + Secret Manager統合
+### 19.3 .env + Secret Manager統合
 
-#### **Doppler設定ファイル**
+#### **.env設定ファイル（Dev環境）**
 
-```yaml
-# doppler.yaml
-setup:
-  project: edumint-content
-  config: dev
+```bash
+# .env.development
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=edumint_content_dev
+DATABASE_USER=edumint
+DATABASE_PASSWORD=localdevpassword
+DATABASE_SSL_MODE=disable
+DATABASE_MAX_CONNS=10
+DATABASE_MIN_CONNS=2
 
-configs:
-  dev:
-    DATABASE_HOST: localhost
-    DATABASE_PORT: 5432
-    DATABASE_NAME: edumint_content_dev
-    DATABASE_USER: edumint
-    DATABASE_PASSWORD: ${DEV_DB_PASSWORD}
-    DATABASE_SSL_MODE: disable
-    DATABASE_MAX_CONNS: 10
-    DATABASE_MIN_CONNS: 2
-  
-  staging:
-    DATABASE_HOST: /cloudsql/edumint-staging:asia-northeast1:edumint-content
-    DATABASE_PORT: 5432
-    DATABASE_NAME: edumint_content_staging
-    DATABASE_USER: edumint-content-sa@edumint-staging.iam
-    DATABASE_PASSWORD: ""  # IAM認証時は空
-    DATABASE_SSL_MODE: require
-    DATABASE_IAM_AUTH: true
-    DATABASE_MAX_CONNS: 50
-    DATABASE_MIN_CONNS: 10
-  
-  production:
-    DATABASE_HOST: /cloudsql/edumint-prod:asia-northeast1:edumint-content
-    DATABASE_PORT: 5432
-    DATABASE_NAME: edumint_content_prod
-    DATABASE_USER: edumint-content-sa@edumint-prod.iam
-    DATABASE_PASSWORD: ""
-    DATABASE_SSL_MODE: require
-    DATABASE_IAM_AUTH: true
-    DATABASE_MAX_CONNS: 100
-    DATABASE_MIN_CONNS: 20
-    DATABASE_CONN_MAX_LIFETIME: 3600
-    DATABASE_CONN_MAX_IDLE_TIME: 1800
+# Echo v5.0.1設定
+SERVER_PORT=8080
+SERVER_READ_TIMEOUT=30s
+SERVER_WRITE_TIMEOUT=30s
+SERVER_SHUTDOWN_TIMEOUT=10s
+
+# pgvector 0.8.1設定
+VECTOR_SEARCH_EF=40
+VECTOR_DIMENSION=1536
 ```
 
-#### **Go接続プール設定（Doppler統合）**
+#### **Secret Manager設定（Production環境）**
+
+```bash
+# Google Cloud Secret Managerに保存
+# Secret名: edumint-content-db-config
+
+{
+  "DATABASE_HOST": "/cloudsql/edumint-prod:asia-northeast1:edumint-content",
+  "DATABASE_PORT": "5432",
+  "DATABASE_NAME": "edumint_content_prod",
+  "DATABASE_USER": "edumint-content-sa@edumint-prod.iam",
+  "DATABASE_PASSWORD": "",
+  "DATABASE_SSL_MODE": "require",
+  "DATABASE_IAM_AUTH": "true",
+  "DATABASE_MAX_CONNS": "100",
+  "DATABASE_MIN_CONNS": "20",
+  "DATABASE_CONN_MAX_LIFETIME": "3600",
+  "DATABASE_CONN_MAX_IDLE_TIME": "1800",
+  "VECTOR_SEARCH_EF": "64",
+  "VECTOR_DIMENSION": "1536"
+}
+```
+
+#### **Go設定読み込み実装**
 
 ```go
-package dbconn
+package config
 
 import (
     "context"
+    "encoding/json"
     "fmt"
     "os"
     "strconv"
     "time"
-    
-    "github.com/jackc/pgx/v5/pgxpool"
-    "cloud.google.com/go/cloudsqlconn"
+
+    secretmanager "cloud.google.com/go/secretmanager/apiv1"
+    "cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
+    "github.com/joho/godotenv"
 )
 
-func NewCloudSQLPool(ctx context.Context) (*pgxpool.Pool, error) {
-    
-    var dsn string
-    
-    // IAM認証が有効な場合はCloud SQL Connectorを使用
-    if os.Getenv("DATABASE_IAM_AUTH") == "true" {
-        dsn = buildCloudSQLDSN()
-    } else {
-        dsn = buildStandardDSN()
-    }
-    
-    config, err := pgxpool.ParseConfig(dsn)
-    if err != nil {
-        return nil, fmt.Errorf("parse config error: %w", err)
-    }
-    
-    // Doppler環境変数から接続プール設定
-    config.MaxConns = getEnvInt("DATABASE_MAX_CONNS", 20)
-    config.MinConns = getEnvInt("DATABASE_MIN_CONNS", 5)
-    config.MaxConnLifetime = getEnvDuration("DATABASE_CONN_MAX_LIFETIME", "1h")
-    config.MaxConnIdleTime = getEnvDuration("DATABASE_CONN_MAX_IDLE_TIME", "30m")
-    config.HealthCheckPeriod = 1 * time.Minute
-    
-    pool, err := pgxpool.NewWithConfig(ctx, config)
-    if err != nil {
-        return nil, fmt.Errorf("create pool error: %w", err)
-    }
-    
-    // 接続テスト
-    if err := pool.Ping(ctx); err != nil {
-        pool.Close()
-        return nil, fmt.Errorf("ping error: %w", err)
-    }
-    
-    return pool, nil
+type DatabaseConfig struct {
+    Host              string
+    Port              string
+    Name              string
+    User              string
+    Password          string
+    SSLMode           string
+    IAMAuth           bool
+    MaxConns          int32
+    MinConns          int32
+    ConnMaxLifetime   time.Duration
+    ConnMaxIdleTime   time.Duration
+    VectorSearchEF    int
+    VectorDimension   int
 }
 
-func buildCloudSQLDSN() string {
-    return fmt.Sprintf(
-        "host=%s port=%s dbname=%s user=%s sslmode=%s",
-        os.Getenv("DATABASE_HOST"),
-        os.Getenv("DATABASE_PORT"),
-        os.Getenv("DATABASE_NAME"),
-        os.Getenv("DATABASE_USER"),
-        os.Getenv("DATABASE_SSL_MODE"),
-    )
+// Dev環境: .envファイルから読み込み
+func LoadConfigFromEnv() (*DatabaseConfig, error) {
+    if err := godotenv.Load(); err != nil {
+        return nil, fmt.Errorf("failed to load .env: %w", err)
+    }
+
+    return &DatabaseConfig{
+        Host:            os.Getenv("DATABASE_HOST"),
+        Port:            os.Getenv("DATABASE_PORT"),
+        Name:            os.Getenv("DATABASE_NAME"),
+        User:            os.Getenv("DATABASE_USER"),
+        Password:        os.Getenv("DATABASE_PASSWORD"),
+        SSLMode:         os.Getenv("DATABASE_SSL_MODE"),
+        IAMAuth:         os.Getenv("DATABASE_IAM_AUTH") == "true",
+        MaxConns:        getEnvInt("DATABASE_MAX_CONNS", 10),
+        MinConns:        getEnvInt("DATABASE_MIN_CONNS", 2),
+        ConnMaxLifetime: getEnvDuration("DATABASE_CONN_MAX_LIFETIME", "1h"),
+        ConnMaxIdleTime: getEnvDuration("DATABASE_CONN_MAX_IDLE_TIME", "30m"),
+        VectorSearchEF:  getEnvInt("VECTOR_SEARCH_EF", 40),
+        VectorDimension: getEnvInt("VECTOR_DIMENSION", 1536),
+    }, nil
+}
+
+// Production環境: Secret Managerから読み込み
+func LoadConfigFromSecretManager(ctx context.Context, projectID, secretName string) (*DatabaseConfig, error) {
+    client, err := secretmanager.NewClient(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("failed to create secret manager client: %w", err)
+    }
+    defer client.Close()
+
+    req := &secretmanagerpb.AccessSecretVersionRequest{
+        Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest", projectID, secretName),
+    }
+
+    result, err := client.AccessSecretVersion(ctx, req)
+    if err != nil {
+        return nil, fmt.Errorf("failed to access secret: %w", err)
+    }
+
+    var secretData map[string]string
+    if err := json.Unmarshal(result.Payload.Data, &secretData); err != nil {
+        return nil, fmt.Errorf("failed to parse secret: %w", err)
+    }
+
+    maxLifetime, _ := time.ParseDuration(secretData["DATABASE_CONN_MAX_LIFETIME"] + "s")
+    maxIdleTime, _ := time.ParseDuration(secretData["DATABASE_CONN_MAX_IDLE_TIME"] + "s")
+
+    return &DatabaseConfig{
+        Host:            secretData["DATABASE_HOST"],
+        Port:            secretData["DATABASE_PORT"],
+        Name:            secretData["DATABASE_NAME"],
+        User:            secretData["DATABASE_USER"],
+        Password:        secretData["DATABASE_PASSWORD"],
+        SSLMode:         secretData["DATABASE_SSL_MODE"],
+        IAMAuth:         secretData["DATABASE_IAM_AUTH"] == "true",
+        MaxConns:        parseInt32(secretData["DATABASE_MAX_CONNS"], 100),
+        MinConns:        parseInt32(secretData["DATABASE_MIN_CONNS"], 20),
+        ConnMaxLifetime: maxLifetime,
+        ConnMaxIdleTime: maxIdleTime,
+        VectorSearchEF:  parseInt(secretData["VECTOR_SEARCH_EF"], 64),
+        VectorDimension: parseInt(secretData["VECTOR_DIMENSION"], 1536),
+    }, nil
 }
 
 func getEnvInt(key string, defaultVal int) int32 {
@@ -3335,6 +3388,20 @@ func getEnvDuration(key string, defaultVal string) time.Duration {
     }
     duration, _ := time.ParseDuration(defaultVal)
     return duration
+}
+
+func parseInt32(s string, defaultVal int32) int32 {
+    if val, err := strconv.ParseInt(s, 10, 32); err == nil {
+        return int32(val)
+    }
+    return defaultVal
+}
+
+func parseInt(s string, defaultVal int) int {
+    if val, err := strconv.Atoi(s); err == nil {
+        return val
+    }
+    return defaultVal
 }
 ```
 
@@ -3879,9 +3946,9 @@ on:
     branches: [main, develop]
 
 env:
-  GO_VERSION: '1.23.6'
-  ATLAS_CLI_VERSION: '0.20.0'
-  SQLC_VERSION: 'v1.26.0'
+  GO_VERSION: '1.25.7'
+  ATLAS_CLI_VERSION: 'v1.0.0'
+  SQLC_VERSION: 'v1.30.0'
   POSTGRES_IMAGE: 'pgvector/pgvector:pg18'
 
 jobs:
@@ -3899,6 +3966,18 @@ jobs:
       - name: HCLスキーマ構文チェック
         run: |
           atlas schema inspect             --env local             --url "file://internal/db/schema"
+      
+      - name: Schema Statistics生成
+        run: |
+          atlas schema stats \
+            --env local \
+            --output json > schema-stats.json
+
+      - name: Upload Schema Statistics
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-statistics
+          path: schema-stats.json
       
       - name: 破壊的変更検出
         run: |
@@ -4061,16 +4140,19 @@ edumintContent/
 ```go
 module github.com/edumint/edumint-content
 
-go 1.23
+go 1.25
 
 require (
     // データベース
-    github.com/jackc/pgx/v5 v5.5.5
+    github.com/jackc/pgx/v5 v5.8.0
     github.com/pgvector/pgvector-go v0.1.1
     
     // HTTP/ルーティング
-    github.com/go-chi/chi/v5 v5.0.12
-    github.com/go-chi/cors v1.2.1
+    github.com/labstack/echo/v5 v5.0.1
+    
+    // 設定管理
+    github.com/joho/godotenv v1.5.1
+    cloud.google.com/go/secretmanager v1.11.5
     
     // 可観測性
     go.opentelemetry.io/otel v1.24.0
@@ -4427,11 +4509,42 @@ AI: [テストケース生成]
 
 ---
 
-**本ドキュメントの終わり**
+**v7.0.2 更新日**: 2026-02-06
+
+**v7.0.2 主要変更点のまとめ:**
+
+1. **技術スタックを2026年2月最新版に更新**
+   - Go 1.25.7、PostgreSQL 18.1、pgvector 0.8.1、Atlas v1.0.0、sqlc 1.30.0、pgx v5.8.0、Echo v5.0.1
+   
+2. **Webフレームワーク: Echo v5.0.1に統一**
+   - Chi, Gin, Echo v4を全面禁止
+   - エラーハンドリングの刷新、ルーターの最適化
+   
+3. **設定管理: .env + Secret Managerに統一**
+   - Dev環境: `.env`ファイル
+   - Production環境: Google Cloud Secret Manager
+   - Doppler廃止
+   
+4. **pgvector 0.8.1の新機能対応**
+   - 反復インデックススキャン (Iterative Index Scans)
+   - HNSWインデックス構築の高速化（最大30%削減）
+   
+5. **Atlas v1.0.0の新機能対応**
+   - Monitoring as Code
+   - Schema Statistics機能
+   - Production環境での自動監視
+   
+6. **PostgreSQL 18.1の最適化**
+   - AIO (Asynchronous I/O) 設定
+   - B-tree Skip Scan有効化
+   - pgvector 0.8.1用パラメータ最適化
+   
+7. **Go 1.25.7対応**
+   - 最新のセキュリティ修正
+   - コンパイラ最適化
+   - pgx v5.8.0との完全統合
 
 ---
-
-**本ドキュメントの終わり**
 
 **v7.0.1 更新日**: 2025-02-06
 
