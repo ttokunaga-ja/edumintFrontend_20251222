@@ -6887,236 +6887,531 @@ func (dae *DailyAuditExporter) ExportYesterdayLogs(ctx context.Context) error {
 
 ## **21. テスト・CI/CD設計**
 
-### 21.1 Testcontainersパターン（EduMint専用）
+### 基本方針
+
+**分散モノリス化の防止**: テスト実行専用マイクロサービスの作成は禁止します。各サービスは独立してテスト可能（Deployable）であることを担保します。
+
+**テストハニカムモデル**: E2E（最小限）、Component（主軸）、Contract、Unitの4層構成を採用します。
+
+**独立性の保証**: 各サービスが独立してテスト可能であり、他サービスへの依存は契約テストとモックで担保します。
+
+---
+
+## **21.1 テクノロジースタック & 指定ライブラリ (Strict)**
+
+**Coding Agentへの指示:** 以下のバージョンとライブラリを厳守すること。存在しない関数や非推奨のパッケージを使用しないこと。
+
+| カテゴリ | 技術/バージョン | 推奨ライブラリ (Import Path) | 備考 |
+| :--- | :--- | :--- | :--- |
+| **Language** | **Go 1.25.7** | `testing` (Standard) | Table Driven Testを標準とする。 |
+| **Assertion** | - | `github.com/stretchr/testify/assert` | 可読性向上のため使用。 |
+| **Web Framework** | **Echo v5.0.1** | `github.com/labstack/echo/v5` | `net/http` 互換モードで使用。 |
+| **Database** | **PostgreSQL 18.1** | `github.com/jackc/pgx/v5` | DBドライバはpgxを使用。 |
+| **Container Test** | - | `github.com/testcontainers/testcontainers-go` | DB統合テストで必須。 |
+| **Migration** | **Atlas** | `ariga.io/atlas-go-sdk` | テスト起動時にスキーマ適用に使用。 |
+| **Contract** | **Pact** | `github.com/pact-foundation/pact-go/v2` | v2 (Rust core wrapper) を使用。 |
+| **UUID** | **UUIDv7** | `github.com/google/uuid` | `uuid.NewV7()` を使用。 |
+| **Mocking** | - | `go.uber.org/mock/gomock` | 外部API/Interfaceのモック生成に使用。 |
+
+**設計原則:**
+- **UUIDv7の使用**: ID生成には必ず `github.com/google/uuid` の `NewV7()` を使用
+- **時刻の扱い**: テスト内で `time.Now()` を直接使用禁止（Clock DIパターン採用）
+- **並列実行**: `t.Parallel()` を積極的に使用
+- **Flaky Test排除**: `time.Sleep()` 禁止、ポーリング（`Eventually` パターン）またはチャネル同期を使用
+
+---
+
+## **21.2 コンポーネント/統合テスト (Component Tests)**
+
+**最も重要なレイヤーです。** ハンドラからDBまでを貫通させますが、他マイクロサービスへの通信はモックします。
+
+### 実装ルール
+
+1. **Testcontainers** で `postgres:18.1` を起動する。
+2. **Atlas** でスキーマ定義(`schema.hcl`等)をコンテナに適用する。
+3. Echoの `httptest.NewRequest` でリクエストを投げる。
+4. 外部サービス（例: 決済API）へのClient Interfaceは `gomock` でモック化する。
+
+### EduMint専用実装テンプレート
 
 ```go
-// tests/integration/testhelpers/pg_container.go
+// tests/component/user_handler_test.go
+package component_test
+
+import (
+    "context"
+    "net/http"
+    "net/http/httptest"
+    "strings"
+    "testing"
+    
+    "github.com/google/uuid"
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/labstack/echo/v5"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+    "github.com/testcontainers/testcontainers-go"
+    "github.com/testcontainers/testcontainers-go/modules/postgres"
+    "go.uber.org/mock/gomock"
+    
+    "github.com/edumint/content/internal/handler"
+    "github.com/edumint/content/internal/service/mock"
+)
+
+func TestCreateUser_Component(t *testing.T) {
+    t.Parallel() // 並列実行を有効化
+    
+    ctx := context.Background()
+
+    // 1. Start PostgreSQL 18.1 Container
+    pgContainer, err := postgres.RunContainer(ctx,
+        testcontainers.WithImage("postgres:18.1"),
+        postgres.WithDatabase("testdb"),
+        postgres.WithUsername("user"),
+        postgres.WithPassword("pass"),
+    )
+    require.NoError(t, err)
+    defer pgContainer.Terminate(ctx)
+
+    connStr, err := pgContainer.ConnectionString(ctx)
+    require.NoError(t, err)
+
+    // 2. Apply Schema via Atlas
+    err = applyAtlasSchema(ctx, connStr)
+    require.NoError(t, err)
+
+    // 3. Create DB Connection Pool
+    pool, err := pgxpool.New(ctx, connStr)
+    require.NoError(t, err)
+    defer pool.Close()
+
+    // 4. Setup Mocks (gomock)
+    ctrl := gomock.NewController(t)
+    defer ctrl.Finish()
+    
+    mockPayment := mock.NewMockPaymentClient(ctrl)
+    mockPayment.EXPECT().Charge(gomock.Any(), gomock.Any()).Return(nil)
+
+    // 5. Setup Echo & Handler
+    e := echo.New()
+    userHandler := handler.NewUserHandler(pool, mockPayment)
+
+    // 6. Execute Request
+    userID := uuid.New() // UUIDv7は uuid.NewV7() で生成推奨
+    reqBody := `{"name":"test user","email":"test@example.com"}`
+    req := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(reqBody))
+    req.Header.Set("Content-Type", "application/json")
+    rec := httptest.NewRecorder()
+    
+    c := e.NewContext(req, rec)
+    
+    // 7. Execute Handler
+    err = userHandler.CreateUser(c)
+    require.NoError(t, err)
+
+    // 8. Verify Response
+    assert.Equal(t, http.StatusCreated, rec.Code)
+    
+    // 9. Verify DB State (Optional)
+    var count int
+    err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE email = $1", "test@example.com").Scan(&count)
+    require.NoError(t, err)
+    assert.Equal(t, 1, count)
+}
+
+// Helper: Atlas Schema Application
+func applyAtlasSchema(ctx context.Context, connStr string) error {
+    // Atlas CLIまたはGo SDKを使用してスキーマを適用
+    // 実装例:
+    // cmd := exec.CommandContext(ctx, "atlas", "schema", "apply", "--url", connStr, "--to", "file://schema.hcl")
+    // return cmd.Run()
+    return nil // 簡略化のため省略
+}
+```
+
+### テストデータ管理
+
+```go
+// tests/component/testhelpers/fixtures.go
 package testhelpers
 
 import (
     "context"
-    "fmt"
     "testing"
-    "time"
     
+    "github.com/google/uuid"
     "github.com/jackc/pgx/v5/pgxpool"
-    "github.com/testcontainers/testcontainers-go"
-    "github.com/testcontainers/testcontainers-go/modules/postgres"
-    "github.com/testcontainers/testcontainers-go/wait"
-)
-
-type EduMintTestDatabase struct {
-    container testcontainers.Container
-    pool      *pgxpool.Pool
-    connStr   string
-}
-
-func SetupEduMintTestDB(t *testing.T) *EduMintTestDatabase {
-    ctx := context.Background()
-    
-    // PostgreSQL 18.1 + pgvector有効化
-    pgContainer, err := postgres.RunContainer(ctx,
-        testcontainers.WithImage("pgvector/pgvector:pg18"),
-        postgres.WithDatabase("edumint_test"),
-        postgres.WithUsername("test_user"),
-        postgres.WithPassword("test_pass"),
-        testcontainers.WithWaitStrategy(
-            wait.ForLog("database system is ready").WithOccurrence(2).WithStartupTimeout(60*time.Second),
-        ),
-    )
-    if err != nil {
-        t.Fatalf("Could not start postgres container: %v", err)
-    }
-    
-    connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-    if err != nil {
-        t.Fatalf("Could not get connection string: %v", err)
-    }
-    
-    // 接続プール作成
-    pool, err := pgxpool.New(ctx, connStr)
-    if err != nil {
-        t.Fatalf("Could not create pool: %v", err)
-    }
-    
-    // pgvector拡張を有効化
-    _, err = pool.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS vector")
-    if err != nil {
-        t.Fatalf("Could not enable pgvector: %v", err)
-    }
-    
-    // Atlasマイグレーション適用
-    if err := applyAtlasMigrations(t, connStr); err != nil {
-        t.Fatalf("Migration failed: %v", err)
-    }
-    
-    return &EduMintTestDatabase{
-        container: pgContainer,
-        pool:      pool,
-        connStr:   connStr,
-    }
-}
-
-func (etd *EduMintTestDatabase) Cleanup() {
-    ctx := context.Background()
-    etd.pool.Close()
-    etd.container.Terminate(ctx)
-}
-
-func (etd *EduMintTestDatabase) SeedTestData(t *testing.T) {
-    ctx := context.Background()
-    
-    // テスト用機関データ
-    _, err := etd.pool.Exec(ctx, `
-        INSERT INTO institutions (id, public_id, name_main, institution_type)
-        VALUES (uuidv7(), 'INST0001', '東京テスト大学', 'university')
-    `)
-    if err != nil {
-        t.Fatalf("Failed to seed test data: %v", err)
-    }
-}
-```
-
-#### **統合テスト実装例**
-
-```go
-// tests/integration/question_repository_test.go
-package integration_test
-
-import (
-    "context"
-    "testing"
-    
-    "github.com/pgvector/pgvector-go"
-    "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
 )
 
-func TestQuestionRepository_VectorSearch(t *testing.T) {
-    // テストDB準備
-    testDB := testhelpers.SetupEduMintTestDB(t)
-    defer testDB.Cleanup()
-    
-    testDB.SeedTestData(t)
-    
-    repo := NewQuestionRepository(testDB.pool)
+type EduMintTestDatabase struct {
+    Pool      *pgxpool.Pool
+    Container testcontainers.Container
+}
+
+func (db *EduMintTestDatabase) SeedInstitution(t *testing.T, name string) uuid.UUID {
     ctx := context.Background()
     
-    // テストデータ: ベクトル埋め込み付き問題を作成
-    embedding1 := make([]float32, 1536)
-    for i := range embedding1 {
-        embedding1[i] = 0.1
-    }
+    institutionID := uuid.NewV7() // UUIDv7使用
+    publicID := generateNanoID(8)
     
-    q1, err := repo.CreateWithEmbedding(ctx, CreateQuestionParams{
-        PublicID:         "Q0000001",
-        ExamID:           testExamID,
-        QuestionText:     "物理学の運動方程式について説明せよ",
-        ContentEmbedding: pgvector.NewVector(embedding1),
-        SortOrder:        1,
-    })
-    require.NoError(t, err)
-    
-    // 類似ベクトルで検索
-    queryVector := make([]float32, 1536)
-    for i := range queryVector {
-        queryVector[i] = 0.11 // わずかに異なるベクトル
-    }
-    
-    results, err := repo.SearchSimilarByVector(ctx, SearchParams{
-        QueryVector: pgvector.NewVector(queryVector),
-        Limit:       5,
-    })
+    _, err := db.Pool.Exec(ctx, `
+        INSERT INTO institutions (id, public_id, name_main, institution_type)
+        VALUES ($1, $2, $3, 'university')
+    `, institutionID, publicID, name)
     
     require.NoError(t, err)
-    assert.Len(t, results, 1)
-    assert.Equal(t, q1.PublicID, results[0].PublicID)
-    assert.Greater(t, results[0].SimilarityScore, float64(0.95))
-}
-```
-
-### 21.2 E2Eテストフレームワーク
-
-```go
-// tests/e2e/framework/edumint_test_env.go
-package framework
-
-type EduMintE2EEnvironment struct {
-    APIBaseURL     string
-    TestUserToken  string
-    AdminToken     string
-    TestInstitutionID string
-    CleanupFuncs   []func()
+    return institutionID
 }
 
-func NewE2EEnvironment(t *testing.T) *EduMintE2EEnvironment {
-    baseURL := os.Getenv("E2E_API_URL")
-    if baseURL == "" {
-        baseURL = "http://localhost:8080"
-    }
+func (db *EduMintTestDatabase) SeedExam(t *testing.T, institutionID uuid.UUID, year int32) uuid.UUID {
+    ctx := context.Background()
     
-    env := &EduMintE2EEnvironment{
-        APIBaseURL:   baseURL,
-        CleanupFuncs: make([]func(), 0),
-    }
+    examID := uuid.NewV7()
+    publicID := generateNanoID(8)
     
-    // テストユーザー認証
-    env.TestUserToken = env.authenticateTestUser("e2e_user@test.edumint.jp", "test_password_123")
-    env.AdminToken = env.authenticateTestUser("admin@test.edumint.jp", "admin_password_456")
+    _, err := db.Pool.Exec(ctx, `
+        INSERT INTO exams (id, public_id, institution_id, exam_year, status)
+        VALUES ($1, $2, $3, $4, 'draft')
+    `, examID, publicID, institutionID, year)
     
-    // テスト機関作成
-    env.TestInstitutionID = env.createTestInstitution("E2Eテスト大学")
-    
-    return env
-}
-
-func (env *EduMintE2EEnvironment) CleanupAll() {
-    for _, cleanup := range env.CleanupFuncs {
-        cleanup()
-    }
-}
-
-func (env *EduMintE2EEnvironment) CreateExamWithQuestions(t *testing.T, examYear int32, questionCount int) string {
-    // 試験作成APIリクエスト
-    examPayload := map[string]interface{}{
-        "institution_id": env.TestInstitutionID,
-        "exam_year":      examYear,
-        "status":         "draft",
-    }
-    
-    examResp := env.postJSON("/api/v1/exams", examPayload, env.TestUserToken)
-    require.Equal(t, http.StatusCreated, examResp.StatusCode)
-    
-    var examData map[string]interface{}
-    json.NewDecoder(examResp.Body).Decode(&examData)
-    examID := examData["exam_id"].(string)
-    
-    // クリーンアップ登録
-    env.CleanupFuncs = append(env.CleanupFuncs, func() {
-        env.deleteJSON(fmt.Sprintf("/api/v1/exams/%s", examID), env.AdminToken)
-    })
-    
-    // 問題追加
-    for i := 0; i < questionCount; i++ {
-        questionPayload := map[string]interface{}{
-            "exam_id":       examID,
-            "question_text": fmt.Sprintf("テスト問題 %d", i+1),
-            "sort_order":    i + 1,
-        }
-        
-        questionResp := env.postJSON("/api/v1/questions", questionPayload, env.TestUserToken)
-        require.Equal(t, http.StatusCreated, questionResp.StatusCode)
-    }
-    
+    require.NoError(t, err)
     return examID
 }
 ```
 
-### 21.3 CI/CDパイプライン（完全版）
+### 並列実行とトランザクション分離
+
+```go
+func TestUserOperations_Parallel(t *testing.T) {
+    t.Parallel()
+    
+    // 各テストケースで独立したDBスキーマまたはトランザクションを使用
+    t.Run("CreateUser", func(t *testing.T) {
+        t.Parallel()
+        // ... テストロジック
+    })
+    
+    t.Run("UpdateUser", func(t *testing.T) {
+        t.Parallel()
+        // ... テストロジック
+    })
+}
+```
+
+---
+
+## **21.3 契約テスト (Contract Tests)**
+
+**通信相手との「約束」を守っているか検証します。**
+
+### HTTP API契約テスト（Consumer Driven）
+
+#### Consumer側（edumintGateways）
+
+```go
+// tests/contract/user_api_consumer_test.go
+package contract_test
+
+import (
+    "fmt"
+    "net/http"
+    "testing"
+    
+    "github.com/pact-foundation/pact-go/v2/consumer"
+    "github.com/pact-foundation/pact-go/v2/matchers"
+    "github.com/stretchr/testify/assert"
+)
+
+func TestUserAPIContract_Consumer(t *testing.T) {
+    // Pact Mock Serverセットアップ
+    mockProvider, err := consumer.NewV2Pact(consumer.MockHTTPProviderConfig{
+        Consumer: "edumintGateways",
+        Provider: "edumintUsers",
+        Host:     "127.0.0.1",
+    })
+    assert.NoError(t, err)
+
+    // 契約定義: GET /api/v1/users/{id}
+    err = mockProvider.
+        AddInteraction().
+        Given("User with ID abc12345 exists").
+        UponReceiving("A request to get user by ID").
+        WithRequest("GET", "/api/v1/users/abc12345").
+        WillRespondWith(200).
+        WithJSONBody(matchers.Map{
+            "user_id":  matchers.String("abc12345"),
+            "username": matchers.String("testuser"),
+            "email":    matchers.Email("test@example.com"),
+            "role":     matchers.Term("free", "free|premium|admin"),
+            "created_at": matchers.ISO8601DateTime(),
+        }).
+        ExecuteTest(t, func(config consumer.MockServerConfig) error {
+            // 実際のAPIクライアントでリクエスト
+            client := NewUserAPIClient(fmt.Sprintf("http://%s:%d", config.Host, config.Port))
+            user, err := client.GetUserByID("abc12345")
+            
+            assert.NoError(t, err)
+            assert.Equal(t, "abc12345", user.UserID)
+            assert.Equal(t, "testuser", user.Username)
+            return nil
+        })
+
+    assert.NoError(t, err)
+}
+```
+
+#### Provider側（edumintUsers）
+
+```go
+// tests/contract/user_api_provider_test.go
+package contract_test
+
+import (
+    "fmt"
+    "net/http"
+    "testing"
+    
+    "github.com/pact-foundation/pact-go/v2/provider"
+    "github.com/stretchr/testify/assert"
+)
+
+func TestUserAPIContract_Provider(t *testing.T) {
+    // テストサーバー起動（Testcontainers + 実際のHandler）
+    testServer := setupTestServer(t)
+    defer testServer.Close()
+
+    // State Setup（Given句のセットアップ）
+    stateHandlers := provider.StateHandlers{
+        "User with ID abc12345 exists": func(setup bool, s provider.ProviderState) (provider.ProviderStateResponse, error) {
+            if setup {
+                // テストDBにユーザーデータをシード
+                seedUserData(t, "abc12345", "testuser", "test@example.com")
+            }
+            return provider.ProviderStateResponse{}, nil
+        },
+    }
+
+    // Pact検証実行
+    _, err := provider.NewVerifier().
+        VerifyProvider(t, provider.VerifyRequest{
+            ProviderBaseURL:        testServer.URL,
+            PactURLs:               []string{"../pacts/edumintGateways-edumintUsers.json"},
+            StateHandlers:          stateHandlers,
+            BrokerURL:              "https://pact-broker.edumint.internal",
+            PublishVerificationResults: true,
+            ProviderVersion:        "1.0.0",
+        })
+
+    assert.NoError(t, err)
+}
+```
+
+### Kafka Event契約テスト（Publisher/Subscriber）
+
+#### Publisher側（edumintContents）
+
+```go
+// tests/contract/exam_created_event_publisher_test.go
+package contract_test
+
+import (
+    "encoding/json"
+    "testing"
+    
+    "github.com/pact-foundation/pact-go/v2/message"
+    "github.com/pact-foundation/pact-go/v2/matchers"
+    "github.com/stretchr/testify/assert"
+)
+
+func TestExamCreatedEvent_Publisher(t *testing.T) {
+    // メッセージPactセットアップ
+    p, err := message.NewMessagePact(message.Config{
+        Consumer: "edumintSearch",
+        Provider: "edumintContents",
+    })
+    assert.NoError(t, err)
+
+    // 契約定義
+    err = p.
+        AddMessage().
+        Given("Exam is created").
+        ExpectsToReceive("ExamCreated event").
+        WithMetadata(map[string]interface{}{
+            "topic":      "content.lifecycle",
+            "eventType":  "ExamCreated",
+        }).
+        WithJSONContent(matchers.Map{
+            "exam_id":    matchers.UUID(),
+            "public_id":  matchers.String("EXAM0001"),
+            "status":     matchers.Term("draft", "draft|active|archived"),
+            "created_at": matchers.ISO8601DateTime(),
+        }).
+        AsType(&ExamCreatedEvent{}).
+        ConsumedBy(func(m message.Body) error {
+            // イベント生成ロジックの検証
+            event := m.(*ExamCreatedEvent)
+            assert.NotEmpty(t, event.ExamID)
+            assert.NotEmpty(t, event.PublicID)
+            return nil
+        }).
+        Verify(t)
+
+    assert.NoError(t, err)
+}
+```
+
+#### Subscriber側（edumintSearch）
+
+```go
+// tests/contract/exam_created_event_subscriber_test.go
+package contract_test
+
+import (
+    "testing"
+    
+    "github.com/pact-foundation/pact-go/v2/message"
+    "github.com/stretchr/testify/assert"
+)
+
+func TestExamCreatedEvent_Subscriber(t *testing.T) {
+    // Pactファイルから契約を読み込み
+    p, err := message.NewMessageConsumer(message.Config{
+        Consumer: "edumintSearch",
+        Provider: "edumintContents",
+        PactURLs: []string{"../pacts/edumintSearch-edumintContents.json"},
+    })
+    assert.NoError(t, err)
+
+    // イベントハンドラの検証
+    err = p.Verify(t, message.VerifyMessageRequest{
+        Handler: func(m message.Body) error {
+            event := m.(*ExamCreatedEvent)
+            
+            // Elasticsearchへのインデックス登録をシミュレーション
+            err := indexExamToElasticsearch(event)
+            return err
+        },
+    })
+
+    assert.NoError(t, err)
+}
+```
+
+### 契約テストの実行タイミング
+
+| フェーズ | Consumer | Provider |
+|:---|:---|:---|
+| **開発中** | Pactファイル生成 | - |
+| **PR作成時** | Pact Broker公開 | Pactファイル取得・検証実行 |
+| **CI/CD** | 契約変更検出 | 契約変更に対する互換性確認 |
+
+---
+
+## **21.4 E2Eテスト (Minimal)**
+
+**E2Eテストは最小限に抑制します。** ユーザーの重要導線のみをカバーし、詳細な検証はコンポーネントテストと契約テストに委ねます。
+
+### 実行方針
+
+*   **所有**: フロントエンドリポジトリ
+*   **ツール**: Playwright (TypeScript)
+*   **対象**: Release環境 (Staging)
+*   **頻度**: リリース前のみ実行
+*   **禁止事項**:
+    - 全網羅的なテスト（コンポーネントテストでカバー済み）
+    - DBの中身を直接確認すること（画面上の表示で判断する）
+    - テスト専用マイクロサービスの作成
+
+### 対象シナリオ例
+
+1. **ユーザー登録〜ログイン導線**
+2. **試験アップロード〜問題閲覧導線**
+3. **検索〜結果表示導線**
+4. **MintCoin獲得〜使用導線**
+
+### 実装例（TypeScript + Playwright）
+
+```typescript
+// tests/e2e/critical-paths/exam-upload.spec.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('試験アップロード導線', () => {
+  test('ログイン後、試験をアップロードし、問題一覧が表示される', async ({ page }) => {
+    // 1. ログイン
+    await page.goto('https://staging.edumint.jp/login');
+    await page.fill('input[name="email"]', 'test@example.com');
+    await page.fill('input[name="password"]', 'testpass123');
+    await page.click('button[type="submit"]');
+    
+    await expect(page).toHaveURL('https://staging.edumint.jp/dashboard');
+    
+    // 2. 試験アップロードページへ遷移
+    await page.click('a[href="/exams/upload"]');
+    await expect(page).toHaveURL('https://staging.edumint.jp/exams/upload');
+    
+    // 3. ファイル選択・アップロード
+    await page.setInputFiles('input[type="file"]', 'fixtures/sample-exam.pdf');
+    await page.fill('input[name="examYear"]', '2025');
+    await page.selectOption('select[name="institution"]', { label: '東京大学' });
+    await page.click('button[type="submit"]');
+    
+    // 4. 問題一覧が表示されることを確認（画面上の表示で判断）
+    await expect(page.locator('h2:has-text("問題一覧")')).toBeVisible();
+    await expect(page.locator('.question-item')).toHaveCount(10, { timeout: 30000 });
+  });
+});
+```
+
+### E2Eテストの限界と割り切り
+
+- **全機能の網羅は不可**: コンポーネントテストでカバー
+- **環境依存のデバッグ困難**: Staging環境の監視と組み合わせる
+- **実行時間の長さ**: クリティカルパスのみに限定
+
+---
+
+## **21.5 テスト実行場所と責任範囲（Matrix）**
+
+| テスト種別 | 誰が書く？ | どのRepo？ | いつ走る？ | 依存リソース | カバレッジ目標 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Unit** | Service Dev | Service Repo | Push / PR | なし (CPUのみ) | 70%以上 |
+| **Component** | Service Dev | Service Repo | Push / PR | **Docker** (Testcontainers) | 80%以上 |
+| **Contract (Consumer)** | Gateway Dev | Gateway Repo | PR | なし (Pact Mock) | 100% (定義済み契約) |
+| **Contract (Provider)** | Service Dev | Service Repo | PR | **Docker** (Testcontainers - DB用) | 100% (定義済み契約) |
+| **E2E** | Frontend Dev | Frontend Repo | Release Branch | **GCP Staging Env** | クリティカルパスのみ |
+
+### 各レイヤーの責務
+
+#### Unit Test
+- **目的**: ドメインロジック・ユーティリティ関数の単体検証
+- **スコープ**: 外部依存なし（モックする）
+- **実行速度**: 高速（< 1秒/テスト）
+
+#### Component Test
+- **目的**: ハンドラ〜DB間の統合動作検証
+- **スコープ**: 実際のDB使用、外部サービスはモック
+- **実行速度**: 中速（< 10秒/テスト）
+
+#### Contract Test
+- **目的**: API/Messageスキーマの整合性担保
+- **スコープ**: Consumer/Provider間の契約検証
+- **実行速度**: 高速（< 5秒/テスト）
+
+#### E2E Test
+- **目的**: ユーザー導線の動作確認
+- **スコープ**: Staging環境全体
+- **実行速度**: 低速（> 1分/テスト）
+
+---
+
+## **21.6 CI/CDパイプライン（Testcontainers対応版）**
+
+### GitHub Actions完全版
 
 ```yaml
-# .github/workflows/edumint_pipeline.yml
-name: EduMint Database CI/CD
+# .github/workflows/edumint_service_test.yml
+name: EduMint Service Test & Deploy
 
 on:
   push:
@@ -7127,72 +7422,13 @@ on:
 env:
   GO_VERSION: '1.25.7'
   ATLAS_CLI_VERSION: 'v1.0.0'
-  SQLC_VERSION: 'v1.30.0'
-  POSTGRES_IMAGE: 'pgvector/pgvector:pg18'
+  PACT_CLI_VERSION: '1.92.0'
 
 jobs:
-  database-schema-validation:
-    name: スキーマ検証
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      
-      - name: Atlas CLI Setup
-        run: |
-          curl -sSf https://atlasgo.sh | sh -s -- --version ${ATLAS_CLI_VERSION}
-      
-      - name: HCLスキーマ構文チェック
-        run: |
-          atlas schema inspect             --env local             --url "file://internal/db/schema"
-      
-      - name: Schema Statistics生成
-        run: |
-          atlas schema stats \
-            --env local \
-            --output json > schema-stats.json
-
-      - name: Upload Schema Statistics
-        uses: actions/upload-artifact@v4
-        with:
-          name: schema-statistics
-          path: schema-stats.json
-      
-      - name: 破壊的変更検出
-        run: |
-          atlas migrate lint             --env production             --dev-url "docker://postgres/18.1"             --latest 1
-  
-  sqlc-generation-check:
-    name: sqlc生成確認
-    runs-on: ubuntu-latest
-    needs: database-schema-validation
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      
-      - name: Install sqlc
-        run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
-      
-      - name: Generate & Verify
-        run: |
-          sqlc generate
-          git diff --exit-code internal/db/dbgen/
-      
-      - name: Go Build Check
-        run: |
-          go build ./internal/db/dbgen/...
-  
+  # Stage 1: Unit Tests（最速）
   unit-tests:
-    name: ユニットテスト
+    name: Unit Tests
     runs-on: ubuntu-latest
-    needs: sqlc-generation-check
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -7205,18 +7441,23 @@ jobs:
       
       - name: Run Unit Tests
         run: |
-          go test -v -race -coverprofile=unit_coverage.out             -covermode=atomic             ./internal/service/...             ./internal/api/...
+          go test -v -race -short \
+            -coverprofile=unit_coverage.out \
+            -covermode=atomic \
+            ./internal/service/... \
+            ./internal/domain/...
       
       - name: Upload Coverage
         uses: codecov/codecov-action@v4
         with:
           files: ./unit_coverage.out
           flags: unittests
-  
-  integration-tests:
-    name: 統合テスト（Testcontainers）
+
+  # Stage 2: Component Tests（Docker必須）
+  component-tests:
+    name: Component Tests (Testcontainers)
     runs-on: ubuntu-latest
-    needs: sqlc-generation-check
+    needs: unit-tests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -7227,22 +7468,31 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       
-      - name: Run Integration Tests
+      - name: Start Docker (for Testcontainers)
         run: |
-          go test -v -tags=integration             -coverprofile=integration_coverage.out             ./tests/integration/...
+          sudo systemctl start docker
+          docker --version
+      
+      - name: Run Component Tests
+        run: |
+          go test -v -tags=component \
+            -coverprofile=component_coverage.out \
+            ./tests/component/...
         env:
-          TESTCONTAINERS_POSTGRES_IMAGE: ${{ env.POSTGRES_IMAGE }}
+          TESTCONTAINERS_RYUK_DISABLED: false
+          TESTCONTAINERS_POSTGRES_IMAGE: postgres:18.1
       
       - name: Upload Coverage
         uses: codecov/codecov-action@v4
         with:
-          files: ./integration_coverage.out
-          flags: integration
-  
-  e2e-tests:
-    name: E2Eテスト
+          files: ./component_coverage.out
+          flags: component
+
+  # Stage 3: Contract Tests - Consumer
+  contract-tests-consumer:
+    name: Contract Tests (Consumer)
     runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests]
+    needs: unit-tests
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
@@ -7253,21 +7503,410 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       
-      - name: Start Services (Docker Compose)
+      - name: Install Pact CLI
         run: |
-          docker-compose -f docker-compose.test.yml up -d
-          sleep 10
+          curl -fsSL https://raw.githubusercontent.com/pact-foundation/pact-ruby-standalone/master/install.sh | bash -s -- v${PACT_CLI_VERSION}
       
-      - name: Run E2E Tests
+      - name: Run Consumer Contract Tests
         run: |
-          go test -v -tags=e2e ./tests/e2e/...
+          go test -v -tags=contract_consumer ./tests/contract/consumer/...
+      
+      - name: Publish Pact to Broker
+        run: |
+          pact-broker publish ./pacts \
+            --consumer-app-version=${{ github.sha }} \
+            --broker-base-url=https://pact-broker.edumint.internal \
+            --broker-token=${{ secrets.PACT_BROKER_TOKEN }}
+
+  # Stage 4: Contract Tests - Provider
+  contract-tests-provider:
+    name: Contract Tests (Provider)
+    runs-on: ubuntu-latest
+    needs: component-tests
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: Start Docker (for Testcontainers)
+        run: |
+          sudo systemctl start docker
+      
+      - name: Run Provider Contract Tests
+        run: |
+          go test -v -tags=contract_provider ./tests/contract/provider/...
         env:
-          E2E_API_URL: http://localhost:8080
+          PACT_BROKER_BASE_URL: https://pact-broker.edumint.internal
+          PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+
+  # Stage 5: Schema Validation
+  schema-validation:
+    name: Atlas Schema Validation
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       
-      - name: Cleanup
-        if: always()
+      - name: Install Atlas
         run: |
-          docker-compose -f docker-compose.test.yml down -v
+          curl -sSf https://atlasgo.sh | sh -s -- --version ${ATLAS_CLI_VERSION}
+      
+      - name: Validate Schema
+        run: |
+          atlas schema inspect \
+            --env local \
+            --url "file://internal/db/schema"
+      
+      - name: Detect Breaking Changes
+        run: |
+          atlas migrate lint \
+            --env production \
+            --dev-url "docker://postgres/18.1" \
+            --latest 1
+
+  # Stage 6: Build & Push Image
+  build-image:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [component-tests, contract-tests-provider, schema-validation]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: edumint-prod
+      
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker asia-northeast1-docker.pkg.dev
+      
+      - name: Build & Push
+        run: |
+          docker build -t asia-northeast1-docker.pkg.dev/edumint-prod/edumint-services/edumint-contents:${{ github.sha }} .
+          docker push asia-northeast1-docker.pkg.dev/edumint-prod/edumint-services/edumint-contents:${{ github.sha }}
+```
+
+### Docker-in-Docker権限設定
+
+**Cloud Build用（GCP）**
+
+```yaml
+# cloudbuild.yaml
+steps:
+  # Step 1: Run Component Tests with Docker-in-Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'run'
+      - '--privileged'
+      - '-v'
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - 'golang:1.25.7'
+      - 'go'
+      - 'test'
+      - '-v'
+      - '-tags=component'
+      - './tests/component/...'
+    env:
+      - 'TESTCONTAINERS_RYUK_DISABLED=false'
+```
+
+### Debeziumテスト戦略
+
+**Outboxパターンの検証**
+
+```go
+// tests/component/outbox_pattern_test.go
+func TestExamCreation_WritesToOutbox(t *testing.T) {
+    t.Parallel()
+    
+    // Component Testでは、Outboxテーブルにレコードが書かれることまでを検証
+    // 実際にKafkaに流れる部分はStaging環境で検証
+    
+    ctx := context.Background()
+    db := setupTestDB(t)
+    defer db.Cleanup()
+    
+    // 試験作成
+    examID := uuid.NewV7()
+    err := createExam(ctx, db.Pool, examID, "Test Exam")
+    require.NoError(t, err)
+    
+    // Outboxテーブルにイベントが記録されているか確認
+    var eventCount int
+    err = db.Pool.QueryRow(ctx, `
+        SELECT COUNT(*) FROM outbox_events
+        WHERE aggregate_id = $1 AND event_type = 'ExamCreated'
+    `, examID).Scan(&eventCount)
+    
+    require.NoError(t, err)
+    assert.Equal(t, 1, eventCount)
+    
+    // Kafka送信の実際の動作はStaging環境の監視で担保
+}
+```
+
+---
+
+## **21.7 コーディング規約・ベストプラクティス (AI向け指示書)**
+
+### 1. UUIDv7の使用
+
+```go
+// ✅ 正しい: UUIDv7を使用
+import "github.com/google/uuid"
+
+func generateID() uuid.UUID {
+    return uuid.NewV7() // タイムスタンプベース、ソート可能
+}
+
+// ❌ 誤り: UUIDv4を使用（ランダム、インデックス断片化）
+func generateID() uuid.UUID {
+    return uuid.New() // UUIDv4相当、非推奨
+}
+```
+
+**テストデータのID生成**
+
+```go
+// ✅ 正しい: 生成関数を通す
+func TestCreateExam(t *testing.T) {
+    examID := uuid.NewV7()
+    // ...
+}
+
+// ❌ 誤り: ハードコードされたUUID
+func TestCreateExam(t *testing.T) {
+    examID := uuid.MustParse("123e4567-e89b-12d3-a456-426614174000")
+    // ...
+}
+```
+
+### 2. 時刻の扱い
+
+```go
+// ✅ 正しい: Clock DIパターン
+type Clock interface {
+    Now() time.Time
+}
+
+type RealClock struct{}
+
+func (c *RealClock) Now() time.Time {
+    return time.Now()
+}
+
+type FixedClock struct {
+    FixedTime time.Time
+}
+
+func (c *FixedClock) Now() time.Time {
+    return c.FixedTime
+}
+
+// テストコード
+func TestCreateExam_WithFixedTime(t *testing.T) {
+    clock := &FixedClock{FixedTime: time.Date(2026, 2, 6, 12, 0, 0, 0, time.UTC)}
+    service := NewExamService(db, clock)
+    
+    exam, err := service.CreateExam(ctx, req)
+    require.NoError(t, err)
+    assert.Equal(t, clock.FixedTime, exam.CreatedAt)
+}
+
+// ❌ 誤り: time.Now()を直接使用
+func TestCreateExam(t *testing.T) {
+    before := time.Now()
+    exam, _ := service.CreateExam(ctx, req)
+    after := time.Now()
+    
+    // 不安定なテスト（Flaky）
+    assert.True(t, exam.CreatedAt.After(before) && exam.CreatedAt.Before(after))
+}
+```
+
+### 3. 並列実行
+
+```go
+// ✅ 正しい: t.Parallel()を使用
+func TestUserOperations(t *testing.T) {
+    t.Parallel() // テーブルレベルで並列実行
+    
+    t.Run("CreateUser", func(t *testing.T) {
+        t.Parallel() // サブテストも並列実行
+        // 独立したDBコンテナまたはトランザクションを使用
+        db := setupTestDB(t)
+        defer db.Cleanup()
+        
+        // ... テストロジック
+    })
+    
+    t.Run("UpdateUser", func(t *testing.T) {
+        t.Parallel()
+        db := setupTestDB(t)
+        defer db.Cleanup()
+        
+        // ... テストロジック
+    })
+}
+
+// ❌ 誤り: 並列実行なし（実行時間が長い）
+func TestUserOperations(t *testing.T) {
+    t.Run("CreateUser", func(t *testing.T) {
+        // ... テストロジック
+    })
+    
+    t.Run("UpdateUser", func(t *testing.T) {
+        // ... テストロジック
+    })
+}
+```
+
+### 4. Flaky Testの排除
+
+```go
+// ✅ 正しい: Eventuallyパターン（ポーリング）
+func TestAsyncOperation(t *testing.T) {
+    // 非同期処理をトリガー
+    triggerAsyncJob(ctx, jobID)
+    
+    // 完了を待機（最大10秒、100msごとにチェック）
+    require.Eventually(t, func() bool {
+        status, _ := getJobStatus(ctx, jobID)
+        return status == "completed"
+    }, 10*time.Second, 100*time.Millisecond)
+}
+
+// ❌ 誤り: time.Sleep()を使用
+func TestAsyncOperation(t *testing.T) {
+    triggerAsyncJob(ctx, jobID)
+    
+    time.Sleep(5 * time.Second) // 固定待機（不安定）
+    
+    status, _ := getJobStatus(ctx, jobID)
+    assert.Equal(t, "completed", status)
+}
+```
+
+**チャネル同期パターン**
+
+```go
+// ✅ 正しい: チャネルで同期
+func TestAsyncEventPublish(t *testing.T) {
+    done := make(chan bool)
+    
+    // イベントリスナー
+    go func() {
+        event := <-eventChan
+        assert.Equal(t, "ExamCreated", event.Type)
+        done <- true
+    }()
+    
+    // イベント発行
+    publishEvent(ctx, ExamCreatedEvent{})
+    
+    // 完了待機（タイムアウト付き）
+    select {
+    case <-done:
+        // テスト成功
+    case <-time.After(5 * time.Second):
+        t.Fatal("timeout waiting for event")
+    }
+}
+```
+
+### 5. 環境変数とDI
+
+```go
+// ✅ 正しい: 設定構造体を注入
+type Config struct {
+    DBHost     string
+    DBPort     int
+    DBName     string
+    DBUser     string
+    DBPassword string
+}
+
+func TestCreateUser_WithConfig(t *testing.T) {
+    config := &Config{
+        DBHost:     "localhost",
+        DBPort:     5432,
+        DBName:     "testdb",
+        DBUser:     "testuser",
+        DBPassword: "testpass",
+    }
+    
+    service := NewUserService(config)
+    // ... テストロジック
+}
+
+// ❌ 誤り: 環境変数に依存
+func TestCreateUser(t *testing.T) {
+    os.Setenv("DB_HOST", "localhost") // 副作用あり、並列実行不可
+    defer os.Unsetenv("DB_HOST")
+    
+    service := NewUserService()
+    // ... テストロジック
+}
+```
+
+### 6. Table Driven Test
+
+```go
+// ✅ 正しい: Table Driven Test
+func TestValidateEmail(t *testing.T) {
+    t.Parallel()
+    
+    tests := []struct {
+        name     string
+        email    string
+        wantErr  bool
+        errMsg   string
+    }{
+        {
+            name:    "valid email",
+            email:   "test@example.com",
+            wantErr: false,
+        },
+        {
+            name:    "invalid format",
+            email:   "invalid-email",
+            wantErr: true,
+            errMsg:  "invalid email format",
+        },
+        {
+            name:    "empty email",
+            email:   "",
+            wantErr: true,
+            errMsg:  "email is required",
+        },
+    }
+    
+    for _, tt := range tests {
+        tt := tt // ループ変数のキャプチャ
+        t.Run(tt.name, func(t *testing.T) {
+            t.Parallel()
+            
+            err := ValidateEmail(tt.email)
+            
+            if tt.wantErr {
+                require.Error(t, err)
+                assert.Contains(t, err.Error(), tt.errMsg)
+            } else {
+                require.NoError(t, err)
+            }
+        })
+    }
+}
 ```
 
 ---
@@ -7776,6 +8415,52 @@ AI: [テストケース生成]
    - 最新のセキュリティ修正
    - コンパイラ最適化
    - pgx v5.8.0との完全統合
+
+---
+
+**v7.2.1 更新日**: 2026-02-06
+
+**v7.2.1 主要変更点のまとめ:**
+
+1. **マイクロサービステスト戦略の全面刷新（セクション21）**
+   - テストハニカムモデルの導入（E2E最小化、Component中心）
+   - 技術スタック・ライブラリの厳格化（Go 1.25.7、Pact v2、gomock）
+   - 契約テスト（Pact）の新設（HTTP API、Kafka Event）
+   - コンポーネントテストの強化（gomock、並列実行、トランザクション分離）
+   - E2Eテストの最小化（クリティカルパスのみ）
+   - テスト責任範囲マトリックスの明確化
+   - CI/CDパイプラインのTestcontainers対応
+   - コーディング規約・ベストプラクティス（AI向け指示書）の新設
+
+2. **分散モノリス化の防止**
+   - テスト実行専用マイクロサービスの作成禁止を明記
+   - 各サービスの独立性（Deployable）を保証する設計
+
+3. **禁止事項の明確化**
+   - `time.Sleep()` 禁止（Eventuallyパターン/チャネル同期推奨）
+   - `time.Now()` 直接使用禁止（Clock DIパターン推奨）
+   - E2EテストでのDB直接確認禁止（画面表示で判断）
+
+4. **Debeziumテスト戦略**
+   - Outboxパターンによる検証（コンポーネントテストでOutboxテーブル確認）
+   - Kafka送信の実際の動作はStaging環境で担保
+
+5. **セクション構成の変更**
+   - 21.1: テクノロジースタック & 指定ライブラリ（新設）
+   - 21.2: コンポーネント/統合テスト（既存21.1を拡張）
+   - 21.3: 契約テスト（新設）
+   - 21.4: E2Eテスト（既存21.2を縮小）
+   - 21.5: テスト実行場所と責任範囲（新設）
+   - 21.6: CI/CDパイプライン（既存21.3を更新）
+   - 21.7: コーディング規約・ベストプラクティス（新設）
+
+---
+
+**v7.2.0からの継続:**
+- edumintContents 4DB構成（メインDB、検索DB、マスターDB、ログDB）
+- Debezium CDC 3コネクタ構成
+- セキュリティ強化（OCRテキスト統合管理）
+- I/O性能改善（検索用語テーブル分離）
 
 ---
 
