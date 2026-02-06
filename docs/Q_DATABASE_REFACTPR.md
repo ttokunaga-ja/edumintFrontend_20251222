@@ -5066,7 +5066,90 @@ echo "✓ ワークフロー完了"
 
 ### 19.1 推奨インスタンス設定
 
-#### **GCP Console設定例**
+#### **4DB構成のインスタンス設定（v7.2.0）**
+
+edumintContentsサービスは4つの物理DBに分離されており、それぞれ異なる特性に応じた最適なインスタンス設定を行います。
+
+**インスタンス構成概要:**
+
+| DB名 | インスタンス名 | スペック | 用途 | コスト（月額概算） |
+|:---|:---|:---|:---|:---|
+| edumint_contents | edumint-contents-prod | db-custom-6-24GB | メインDB（試験・問題） | $280 |
+| edumint_contents_search | edumint-contents-search-prod | db-custom-4-16GB | 検索用DB（用語管理） | $160 |
+| edumint_contents_master | edumint-contents-master-prod | db-custom-2-8GB | マスターDB（OCR） | $80 |
+| edumint_contents_logs | edumint-contents-logs-prod | db-custom-2-8GB | ログDB（90日保持） | $80 |
+| **合計** | - | - | - | **$600** |
+
+**2DB構成との比較:**
+- 2DB構成（v7.1.0）: edumint_contents (db-custom-8-32GB $360) + logs (db-custom-2-8GB $80) = **$440**
+- 4DB構成（v7.2.0）: 上記4DB合計 = **$600**
+- **差分: +$160/月（+36%）**
+
+**コスト増加の理由と価値:**
+- セキュリティ向上（master DB分離、IAMロール厳格化）
+- 性能改善（I/O競合解消、独立スケーリング）
+- 運用柔軟性（DB単位のバックアップ・リストア、段階的メンテナンス）
+- 将来の拡張性（検索DBのみ水平スケール可能）
+
+#### **GCP Console設定例（4DB構成）**
+
+```bash
+# 1. メインDB（edumint_contents）
+gcloud sql instances create edumint-contents-prod \
+  --database-version=POSTGRES_18 \
+  --tier=db-custom-6-24576 \
+  --region=asia-northeast1 \
+  --availability-type=REGIONAL \
+  --backup-start-time=03:00 \
+  --enable-bin-log \
+  --retained-backups-count=30 \
+  --transaction-log-retention-days=7 \
+  --database-flags=max_connections=250,shared_buffers=6GB,effective_cache_size=18GB,maintenance_work_mem=1536MB,work_mem=128MB,wal_buffers=16MB,max_wal_size=4GB,min_wal_size=1GB,checkpoint_completion_target=0.9,random_page_cost=1.1,effective_io_concurrency=200,wal_level=logical,max_replication_slots=4,max_wal_senders=4
+
+# 2. 検索用DB（edumint_contents_search）
+gcloud sql instances create edumint-contents-search-prod \
+  --database-version=POSTGRES_18 \
+  --tier=db-custom-4-16384 \
+  --region=asia-northeast1 \
+  --availability-type=REGIONAL \
+  --backup-start-time=03:30 \
+  --enable-bin-log \
+  --retained-backups-count=14 \
+  --transaction-log-retention-days=7 \
+  --database-flags=max_connections=200,shared_buffers=4GB,effective_cache_size=12GB,maintenance_work_mem=1GB,work_mem=64MB,wal_buffers=8MB,max_wal_size=2GB,min_wal_size=512MB,checkpoint_completion_target=0.9,random_page_cost=1.1,effective_io_concurrency=150,wal_level=logical,max_replication_slots=2,max_wal_senders=2
+
+# 3. マスターDB（edumint_contents_master）
+gcloud sql instances create edumint-contents-master-prod \
+  --database-version=POSTGRES_18 \
+  --tier=db-custom-2-8192 \
+  --region=asia-northeast1 \
+  --availability-type=REGIONAL \
+  --backup-start-time=04:00 \
+  --enable-bin-log \
+  --retained-backups-count=90 \
+  --transaction-log-retention-days=30 \
+  --database-flags=max_connections=50,shared_buffers=2GB,effective_cache_size=6GB,maintenance_work_mem=512MB,work_mem=32MB,wal_buffers=8MB,max_wal_size=1GB,min_wal_size=256MB,checkpoint_completion_target=0.9,random_page_cost=1.1,effective_io_concurrency=100
+
+# 4. ログDB（edumint_contents_logs）
+gcloud sql instances create edumint-contents-logs-prod \
+  --database-version=POSTGRES_18 \
+  --tier=db-custom-2-8192 \
+  --region=asia-northeast1 \
+  --availability-type=REGIONAL \
+  --backup-start-time=04:30 \
+  --enable-bin-log \
+  --retained-backups-count=7 \
+  --transaction-log-retention-days=7 \
+  --database-flags=max_connections=100,shared_buffers=2GB,effective_cache_size=6GB,maintenance_work_mem=512MB,work_mem=32MB,wal_buffers=8MB,max_wal_size=1GB,min_wal_size=256MB,checkpoint_completion_target=0.9,random_page_cost=1.1,effective_io_concurrency=100
+```
+
+**設計注記:**
+- メインDB: ベクトル検索・複雑なJOINに対応、中規模スペック
+- 検索DB: 全文検索最適化、リードレプリカ追加可能
+- マスターDB: 書き込み専用、最小スペック、長期バックアップ（90日保持）
+- ログDB: パーティション対応、短期バックアップ（7日保持）
+
+#### **単一インスタンス設定例（参考: v7.1.0）**
 
 ```bash
 # Cloud SQLインスタンス作成（gcloud CLI）
@@ -5114,6 +5197,139 @@ SET hnsw.ef_search = 40;  -- デフォルト検索精度
 ```
 
 ### 19.2 IAM認証設定
+
+#### **4DB構成のサービスアカウント設計（v7.2.0）**
+
+edumintContentsの4DB構成では、セキュリティと責務分離を強化するため、DB単位で異なるサービスアカウントを使用します。
+
+**サービスアカウント構成:**
+
+| サービスアカウント | 対象DB | アクセス権限 | 用途 |
+|:---|:---|:---|:---|
+| edumint-contents-app-sa | edumint_contents | SELECT, INSERT, UPDATE | メインDB操作（通常アプリ） |
+| edumint-contents-app-sa | edumint_contents_search | SELECT, INSERT, UPDATE, DELETE | 検索用語管理 |
+| edumint-contents-master-sa | edumint_contents_master | INSERT のみ | OCRテキスト書き込み専用 |
+| edumint-admin-sa | edumint_contents_master | SELECT のみ | OCRテキスト読み取り（管理者） |
+| edumint-contents-app-sa | edumint_contents_logs | INSERT のみ | ログ書き込み専用 |
+| edumint-analyst-sa | 全DB（master除く） | SELECT のみ | 分析・レポート用 |
+
+```bash
+# 1. アプリケーション用サービスアカウント（メインDB・検索DB・ログDB）
+gcloud iam service-accounts create edumint-contents-app-sa \
+  --display-name="EduMint Contents Application Service Account" \
+  --project=edumint-prod
+
+# 2. マスターDB書き込み専用サービスアカウント
+gcloud iam service-accounts create edumint-contents-master-sa \
+  --display-name="EduMint Contents Master DB Writer" \
+  --project=edumint-prod
+
+# 3. 管理者用サービスアカウント（マスターDB読み取り）
+gcloud iam service-accounts create edumint-admin-sa \
+  --display-name="EduMint Administrator Service Account" \
+  --project=edumint-prod
+
+# 4. 分析用サービスアカウント
+gcloud iam service-accounts create edumint-analyst-sa \
+  --display-name="EduMint Analyst Service Account" \
+  --project=edumint-prod
+
+# Cloud SQL Client権限付与
+for sa in edumint-contents-app-sa edumint-contents-master-sa edumint-admin-sa edumint-analyst-sa; do
+  gcloud projects add-iam-policy-binding edumint-prod \
+    --member="serviceAccount:${sa}@edumint-prod.iam.gserviceaccount.com" \
+    --role="roles/cloudsql.client"
+done
+
+# Workload Identity連携（GKE使用時）
+gcloud iam service-accounts add-iam-policy-binding \
+  edumint-contents-app-sa@edumint-prod.iam.gserviceaccount.com \
+  --role roles/iam.workloadIdentityUser \
+  --member "serviceAccount:edumint-prod.svc.id.goog[default/edumint-contents]"
+```
+
+#### **データベースユーザー作成（4DB構成）**
+
+```sql
+-- ===== edumint_contents (メインDB) =====
+-- アプリケーション用ユーザー
+CREATE USER "edumint-contents-app-sa@edumint-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE edumint_contents TO "edumint-contents-app-sa@edumint-prod.iam";
+GRANT USAGE, CREATE ON SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO "edumint-contents-app-sa@edumint-prod.iam";
+
+-- ===== edumint_contents_search (検索用DB) =====
+-- アプリケーション用ユーザー（DELETE権限も付与）
+CREATE USER "edumint-contents-app-sa@edumint-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE edumint_contents_search TO "edumint-contents-app-sa@edumint-prod.iam";
+GRANT USAGE, CREATE ON SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "edumint-contents-app-sa@edumint-prod.iam";
+
+-- ===== edumint_contents_master (マスターDB) =====
+-- 書き込み専用ユーザー（INSERT のみ）
+CREATE USER "edumint-contents-master-sa@edumint-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE edumint_contents_master TO "edumint-contents-master-sa@edumint-prod.iam";
+GRANT USAGE ON SCHEMA public TO "edumint-contents-master-sa@edumint-prod.iam";
+GRANT INSERT ON ALL TABLES IN SCHEMA public TO "edumint-contents-master-sa@edumint-prod.iam";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "edumint-contents-master-sa@edumint-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT INSERT ON TABLES TO "edumint-contents-master-sa@edumint-prod.iam";
+
+-- 管理者用ユーザー（SELECT のみ）
+CREATE USER "edumint-admin-sa@edumint-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE edumint_contents_master TO "edumint-admin-sa@edumint-prod.iam";
+GRANT USAGE ON SCHEMA public TO "edumint-admin-sa@edumint-prod.iam";
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO "edumint-admin-sa@edumint-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO "edumint-admin-sa@edumint-prod.iam";
+
+-- ===== edumint_contents_logs (ログDB) =====
+-- 書き込み専用ユーザー（INSERT のみ）
+CREATE USER "edumint-contents-app-sa@edumint-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE edumint_contents_logs TO "edumint-contents-app-sa@edumint-prod.iam";
+GRANT USAGE ON SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
+GRANT INSERT ON ALL TABLES IN SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT INSERT ON TABLES TO "edumint-contents-app-sa@edumint-prod.iam";
+```
+
+#### **読み取り専用ユーザー（分析・レポート用 - 4DB対応）**
+
+```sql
+-- 分析用ロール作成
+CREATE ROLE analyst_role;
+
+-- メインDB: 全テーブル読み取り
+GRANT CONNECT ON DATABASE edumint_contents TO analyst_role;
+GRANT USAGE ON SCHEMA public TO analyst_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO analyst_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO analyst_role;
+
+-- 検索DB: 全テーブル読み取り
+GRANT CONNECT ON DATABASE edumint_contents_search TO analyst_role;
+GRANT USAGE ON SCHEMA public TO analyst_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO analyst_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO analyst_role;
+
+-- マスターDB: アクセス不可（機密情報）
+
+-- ログDB: 全テーブル読み取り
+GRANT CONNECT ON DATABASE edumint_contents_logs TO analyst_role;
+GRANT USAGE ON SCHEMA public TO analyst_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO analyst_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO analyst_role;
+
+-- IAM認証ユーザーに分析ロール付与
+CREATE USER "edumint-analyst-sa@edumint-prod.iam" WITH LOGIN IN ROLE analyst_role;
+```
+
+**設計注記（v7.2.0）:**
+- マスターDB: 最小権限原則を厳格適用（書き込み専用SAと読み取り専用SA分離）
+- 検索DB: DELETE権限追加（用語候補の削除対応）
+- ログDB: INSERT専用（上書き・削除禁止）
+- 分析用SA: マスターDBアクセス不可（機密情報保護）
+
+#### **単一DB構成のIAM設定（参考: v7.1.0）**
 
 #### **サービスアカウント作成**
 
@@ -6456,6 +6672,59 @@ AI: [テストケース生成]
 ---
 
 **本ドキュメントの終わり**
+
+---
+
+**v7.2.0 更新日**: 2026-02-06
+
+**v7.2.0 主要変更点のまとめ:**
+
+1. **edumintContents 4DB構成への拡張**
+   - 2DB構成（v7.1.0）から4DB構成（v7.2.0）へ拡張
+   - 物理DB: edumint_contents (メインDB), edumint_contents_search (検索用DB), edumint_contents_master (マスターDB), edumint_contents_logs (ログDB)
+   - 各DBの役割・特性に応じた最適なインスタンス設定
+
+2. **セキュリティ強化（master_exams/materials分離）**
+   - OCRテキスト（機密情報）を独立したDBで管理
+   - IAMロール分離による厳格なアクセス制御（書き込み専用SA、読み取り専用SA）
+   - イミュータブル設計（追加のみ、更新・削除禁止）
+   - 7日後の自動暗号化対応
+   - 一般ユーザー・アプリケーションからのアクセス完全遮断
+
+3. **I/O性能改善（検索用語テーブル分離）**
+   - 読み取り集中（検索クエリ）と書き込み集中（コンテンツ更新）を物理分離
+   - 全文検索インデックス（GIN）の独立最適化
+   - リードレプリカの柔軟な配置（検索DBのみ複数レプリカ可能）
+   - クエリキャッシュ戦略の独立設定
+
+4. **Debezium CDC 3コネクタ構成**
+   - edumint_contents コネクタ: メインDBテーブルの同期
+   - edumint_contents_search コネクタ: 検索用語テーブルの同期（新設）
+   - レプリケーション対象の精密制御（master DBは非レプリケーション）
+   - PostgreSQL 論理レプリケーションスロット3構成
+
+5. **スケーラビリティ向上**
+   - DB単位での段階的スケールアウト対応
+   - メインDB縮小可能（db-custom-8-32GB → db-custom-6-24GB）
+   - 検索DB独立スケール（db-custom-4-16GB、リードレプリカ追加可）
+   - バックアップ・リストア戦略の独立化（master DB: 90日保持、logs DB: 7日保持）
+
+6. **運用コスト最適化**
+   - 4DB構成: $600/月（メインDB $280 + 検索DB $160 + マスターDB $80 + ログDB $80）
+   - 2DB構成（v7.1.0）: $440/月
+   - 差分: +$160/月（+36%）、セキュリティ・性能・運用柔軟性の向上により正当化
+
+7. **IAM認証設計の強化**
+   - 4DB対応のサービスアカウント設計
+   - DB単位で異なるアクセス権限（最小権限原則の厳格適用）
+   - 分析用SAはマスターDBアクセス不可（機密情報保護）
+   - 検索DBにDELETE権限追加（用語候補の削除対応）
+
+8. **セクション構造の再編**
+   - セクション5: 4DB構成に対応（5.1.1 メインDB、5.1.2 検索DB、5.3 マスターDB、5.4 ログDB）
+   - セクション14: Debezium CDC 3コネクタ構成に更新
+   - セクション19: Cloud SQL 4DB構成のインスタンス設定・IAMロール設計追加
+   - 物理DB配置図、Debezium CDC連携図、IAMロール設計図の追加
 
 ---
 
