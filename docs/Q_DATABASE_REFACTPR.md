@@ -1147,7 +1147,7 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 
 ### 概要
 
-edumintFiles マイクロサービスの永続化データモデル定義。
+edumintFile マイクロサービスの永続化データモデル定義。
 システムが管理するファイル（OCR入力画像、試験ソース等）と通報証拠ファイルのメタデータを管理し、Google Cloud Storage（GCS）への物理ファイル保存と連携する。
 
 **重要な前提**:
@@ -1168,7 +1168,7 @@ edumintFiles マイクロサービスの永続化データモデル定義。
 
 ### 所有サービス
 
-**edumintFiles**: ファイルメタデータ管理・GCS連携・OCR処理連携
+**edumintFile**: ファイルメタデータ管理・GCS連携・OCR処理連携
 
 ### 技術スタック
 
@@ -1549,7 +1549,7 @@ HAVING COUNT(*) > 1;
 #### Atlas HCL スキーマ定義例
 
 ```hcl
-// schema.hcl - edumintFiles
+// schema.hcl - edumintFile
 table "exam_raw" {
   schema = schema.edumint_files
   
