@@ -1,6 +1,14 @@
-# **EduMint 統合データモデル設計書 v7.0.1**
+# **EduMint 統合データモデル設計書 v7.0.2**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
+
+**v7.0.2 主要更新:**
+- **技術スタックを2026年2月最新版に更新**
+- **Go 1.25.7、PostgreSQL 18.1、pgvector 0.8.1、Atlas v1.0.0、sqlc 1.30.0、pgx v5.8.0、Echo v5.0.1に対応**
+- **Webフレームワーク: Echo v5に統一（Chi, Gin, Echo v4を禁止）**
+- **設定管理: Dev環境は.env、Production環境はSecret Managerに統一（Doppler廃止）**
+- **pgvector 0.8.1の反復インデックススキャン対応**
+- **Atlas v1.0.0のMonitoring as Code、Schema Statistics機能対応**
 
 **v7.0.1 主要更新:**
 - **禁止ツール/ライブラリのリストを明記（golang-migrate, Echo v4, lib/pq, gin, GORM等）**
@@ -70,13 +78,22 @@
 *   **グローバル対応**: 学問分野はUNESCO ISCED-F 2013（11大分類）に準拠し、国際標準に沿った設計とする。
 *   **UUID + NanoID**: 内部主キーはUUID、外部公開キーはNanoIDを採用し、セキュリティとユーザビリティを両立。
 
-### 技術スタック
+### 技術スタック（2026年2月最新版）
 
-*   **PostgreSQL 18.1**: 組み込みuuidv7()関数（RFC 9562準拠、タイムスタンプベースUUID）、非同期I/O (AIO) サブシステム、B-tree Skip Scan、パフォーマンス改善
-*   **pgvector 0.8+**: ベクトル検索拡張、HNSW インデックス対応
+| 項目 | バージョン | リリース日 | 備考・新機能要約 |
+| :--- | :--- | :--- | :--- |
+| **Go** | **1.25.7** | 2026/02/04 | 最新安定版。セキュリティ修正およびコンパイラ最適化を含む。 |
+| **PostgreSQL** | **18.1** | 2025/10頃~ | `uuidv7()`、非同期I/O (AIO)、B-tree Skip Scanの正式サポート。 |
+| **pgvector** | **0.8.1** | 2025/09/04 | HNSWインデックスの構築・検索パフォーマンス向上。反復インデックススキャン対応。 |
+| **Atlas** | **v1.0.0** | 2025/12/24 | メジャーリリース到達。Monitoring as Code、Schema Statistics機能追加。 |
+| **sqlc** | **1.30.0** | 2025/09/01 | pgx/v5、ENUM配列の対応強化。MySQL/SQLiteエンジンの改善。 |
+| **pgx** | **v5.8.0** | 2025/12/26 | Go 1.24+必須化。パイプライン処理の改善、`pgtype.Numeric`の最適化。 |
+| **Echo** | **v5.0.1** | 2026/01/28 | v5が正式リリース。エラーハンドリングの刷新、ルーターの最適化。 |
+| **Elasticsearch** | **9.2.4** | - | ベクトル検索統合（dense_vector）、Qdrantを完全置換。 |
+| **Debezium CDC** | - | - | PostgreSQL論理レプリケーションから移行、Kafka経由のリアルタイム差分同期。 |
+
+**追加の技術スタック:**
 *   **ベクトル次元**: 1536次元（gemini-embedding-001準拠、MRL互換）
-*   **Elasticsearch 9.2.4**: ベクトル検索統合（dense_vector）、Qdrantを完全置換
-*   **Debezium CDC**: PostgreSQL論理レプリケーションから移行、Kafka経由のリアルタイム差分同期
 *   **i18n-iso-countries**: 地域名の多言語表示（194ヶ国、70言語対応）
 *   **i18n-iso-languages**: 言語名の多言語表示（184言語、100言語対応）
 *   **ISO 3166-1 alpha-2**: 地域コードの国際標準（2文字コード）
@@ -383,10 +400,11 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 
 | 禁止ツール | 理由 | 代替ツール |
 | :--- | :--- | :--- |
-| **Echo v4** | v5への移行が不安定、メンテナンス停滞 | **Chi** (推奨), **Fiber** |
-| **Gin** | グローバル状態依存、テスト困難、エラーハンドリング不統一 | **Chi**, **Fiber** |
-| **Beego** | レガシー、過剰な抽象化 | **Chi** |
-| **Revel** | 開発停滞、Go標準から乖離 | **Chi** |
+| **Echo v4** | v5への移行が不安定、メンテナンス停滞 | **Echo v5.0.1** (推奨) |
+| **Gin** | グローバル状態依存、テスト困難、エラーハンドリング不統一 | **Echo v5.0.1** |
+| **Chi** | EduMintプロジェクトではEcho v5に統一 | **Echo v5.0.1** |
+| **Beego** | レガシー、過剰な抽象化 | **Echo v5.0.1** |
+| **Revel** | 開発停滞、Go標準から乖離 | **Echo v5.0.1** |
 
 ### 2.3 データベースドライバ
 
@@ -423,9 +441,9 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 
 | 禁止ツール | 理由 | 代替ツール |
 | :--- | :--- | :--- |
-| **viper** | 過剰な機能、暗黙的挙動、テスト困難 | **Doppler** (推奨), **Secret Manager** |
-| **.env直接読み込み** | セキュリティリスク、本番環境不適 | **Doppler**, **Secret Manager** |
-| **環境変数ハードコード** | 保守性低、変更追跡不可 | **Doppler** |
+| **viper** | 過剰な機能、暗黙的挙動、テスト困難 | **.env (Dev)**, **Secret Manager (Production)** |
+| **Doppler** | EduMintプロジェクトでは.env + Secret Managerに統一 | **.env + Secret Manager** |
+| **環境変数ハードコード** | 保守性低、変更追跡不可 | **.env + Secret Manager** |
 
 ### 2.8 テスト
 
@@ -445,14 +463,15 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 
 ### 2.10 バージョン標準
 
-| 項目 | バージョン | 備考 |
-| :--- | :--- | :--- |
-| **Go** | 1.23.6 以降 | Go 1.21のslog標準、1.23の最適化必須 |
-| **PostgreSQL** | 18.1 以降 | uuidv7()、AIO、B-tree Skip Scan必須 |
-| **pgvector** | 0.8.0 以降 | HNSW、1536次元対応 |
-| **Atlas** | 0.20.0 以降 | HCL v2、sqlc統合対応 |
-| **sqlc** | 1.26.0 以降 | pgx/v5、ENUM完全対応 |
-| **pgx** | v5.5.0 以降 | context対応、プリペアドステートメント最適化 |
+| 項目 | バージョン | リリース日 | 備考 |
+| :--- | :--- | :--- | :--- |
+| **Go** | **1.25.7** | 2026/02/04 | 最新安定版。セキュリティ修正およびコンパイラ最適化を含む。 |
+| **PostgreSQL** | **18.1** | 2025/10頃~ | uuidv7()、AIO、B-tree Skip Scan必須 |
+| **pgvector** | **0.8.1** | 2025/09/04 | HNSW、1536次元対応、反復インデックススキャン対応 |
+| **Atlas** | **v1.0.0** | 2025/12/24 | Monitoring as Code、Schema Statistics機能対応 |
+| **sqlc** | **1.30.0** | 2025/09/01 | pgx/v5、ENUM完全対応 |
+| **pgx** | **v5.8.0** | 2025/12/26 | context対応、プリペアドステートメント最適化 |
+| **Echo** | **v5.0.1** | 2026/01/28 | v5正式リリース、エラーハンドリング刷新 |
 
 ### 2.11 禁止理由の詳細
 
@@ -462,10 +481,16 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 - Atlas HCLの宣言的スキーマ管理と相性が悪い
 - sqlcとの型同期が自動化できない
 
-#### **Echo v4/Gin廃止理由**
-- Echo v4: v5への移行パスが不明確、セキュリティパッチ遅延
-- Gin: グローバル状態（gin.Default()）でテスト並列実行不可
-- 両者ともエラーハンドリングが標準的でなく、slogとの統合困難
+#### **Echo v4/Gin/Chi廃止理由**
+- **Echo v4**: v5への移行パスが不明確、セキュリティパッチ遅延 → **Echo v5.0.1に統一**
+- **Gin**: グローバル状態（gin.Default()）でテスト並列実行不可、エラーハンドリング不統一
+- **Chi**: 軽量だがEduMintではEcho v5に統一することで一貫性を確保
+
+#### **Doppler廃止理由**
+- EduMintプロジェクトでは設定管理を統一
+- Dev環境: `.env`ファイル（シンプル、軽量）
+- Production環境: Google Cloud Secret Manager（セキュア、監査可能）
+- Dopplerは追加の外部依存となり、コスト・複雑性が増加
 
 #### **lib/pq廃止理由**
 - 公式メンテナンス終了宣言（pgx推奨）
@@ -2441,7 +2466,11 @@ SELECT * FROM exams WHERE status = 'active' ORDER BY created_at DESC LIMIT 20;
 
 ### 17.1 ベクトル型カラム基本設計
 
-EduMintプロジェクトでは、問題文・解説・試験内容の意味的類似度検索を実現するため、PostgreSQL 18.1のpgvector拡張を活用します。gemini-embedding-001モデルの出力形式（1536次元）を標準とし、全てのベクトルカラムはこの次元数で統一します。
+EduMintプロジェクトでは、問題文・解説・試験内容の意味的類似度検索を実現するため、PostgreSQL 18.1の**pgvector 0.8.1**拡張を活用します。gemini-embedding-001モデル（1536次元）を使用し、HNSWインデックスで高速検索を実現します。
+
+**pgvector 0.8.1の新機能:**
+- **反復インデックススキャン (Iterative Index Scans)**: フィルタリング時のクエリ精度と速度のバランスが改善
+- **HNSWインデックス構築の高速化**: 大規模データセットでの構築時間が最大30%削減
 
 #### **ベクトル拡張の有効化**
 
@@ -2497,14 +2526,35 @@ WITH (m = 24, ef_construction = 96);  -- より高精度設定
 
 #### **HNSWパラメータチューニング指針**
 
-| パラメータ | 低精度・高速 | 標準バランス | 高精度・低速 | 説明 |
+| パラメータ | 低精度・高速 | 標準バランス | 高精度・低速 | pgvector 0.8.1での改善 |
 |:---|:---:|:---:|:---:|:---|
-| m | 8 | 16 | 32 | グラフの接続数。大きいほど精度↑、メモリ↑ |
-| ef_construction | 32 | 64 | 128 | 構築時の探索幅。大きいほど精度↑、構築時間↑ |
+| m | 8 | 16 | 32 | 構築速度が最大30%向上 |
+| ef_construction | 32 | 64 | 128 | メモリ効率が改善 |
 
 **EduMint推奨設定:**
 - 一般的な問題検索: m=16, ef_construction=64
 - 高精度が必要な試験マッチング: m=24, ef_construction=96
+
+#### **反復インデックススキャンの活用例**
+
+```sql
+-- フィルタリング付きベクトル検索（0.8.1で最適化）
+SELECT 
+    id,
+    public_id,
+    question_text,
+    (1 - (content_embedding <=> $1::vector)) AS similarity
+FROM questions
+WHERE 
+    content_embedding IS NOT NULL
+    AND exam_id = $2  -- フィルタリング条件
+    AND difficulty_level = 'standard'
+ORDER BY content_embedding <=> $1::vector
+LIMIT 10;
+
+-- 0.8.1では、フィルタリング条件が多い場合でも
+-- 反復スキャンにより精度を維持しつつ高速化
+```
 
 ### 17.3 Go型統合パターン
 
@@ -2796,6 +2846,19 @@ env "local" {
   lint {
     review = ERROR
   }
+  
+  # Atlas v1.0.0新機能: Monitoring as Code
+  monitor {
+    slow_queries {
+      threshold = "1s"
+      log_file  = "logs/slow_queries.log"
+    }
+    
+    schema_drift {
+      enabled = true
+      alert_on_drift = true
+    }
+  }
 }
 
 env "test" {
@@ -2829,6 +2892,12 @@ env "staging" {
       error = true
     }
   }
+  
+  # Atlas v1.0.0新機能: Schema Statistics
+  statistics {
+    enabled = true
+    export_to = "gcs://edumint-staging-metrics/schema-stats/"
+  }
 }
 
 env "production" {
@@ -2858,6 +2927,26 @@ env "production" {
       create = true
       drop   = true
     }
+  }
+  
+  # Atlas v1.0.0新機能: Production Monitoring
+  monitor {
+    slow_queries {
+      threshold = "500ms"
+      alert_channel = "slack://prod-alerts"
+    }
+    
+    schema_drift {
+      enabled = true
+      alert_on_drift = true
+      alert_channel = "pagerduty://prod-oncall"
+    }
+  }
+  
+  statistics {
+    enabled = true
+    export_to = "gcs://edumint-prod-metrics/schema-stats/"
+    retention_days = 365
   }
 }
 ```
@@ -2906,6 +2995,8 @@ sql:
         emit_enum_valid_method: true
         emit_all_enum_values: true
         json_tags_case_style: "snake"
+        # sqlc 1.30.0新機能: ENUM配列対応
+        emit_enum_array_methods: true
 ```
 
 #### **生成されるGo ENUM型**
@@ -2941,6 +3032,23 @@ func AllExamStatusEnumValues() []ExamStatusEnum {
         ExamStatusEnumDeleted,
     }
 }
+
+// sqlc 1.30.0新機能: ENUM配列のヘルパーメソッド
+func (e ExamStatusEnum) ToArray() []ExamStatusEnum {
+    return []ExamStatusEnum{e}
+}
+
+func ExamStatusEnumFromStrings(values []string) ([]ExamStatusEnum, error) {
+    result := make([]ExamStatusEnum, 0, len(values))
+    for _, v := range values {
+        enum := ExamStatusEnum(v)
+        if !enum.Valid() {
+            return nil, fmt.Errorf("invalid enum value: %s", v)
+        }
+        result = append(result, enum)
+    }
+    return result, nil
+}
 ```
 
 #### **バリデーション活用例**
@@ -2974,23 +3082,29 @@ set -e
 echo "=== Atlas + sqlc統合ワークフロー ==="
 
 # 1. スキーマ定義を検証
-echo "[1/5] Atlasスキーマ検証中..."
+echo "[1/6] Atlasスキーマ検証中..."
 atlas schema inspect   --env local   --url "file://internal/db/schema"
 
-# 2. マイグレーション差分生成
-echo "[2/5] マイグレーション生成中..."
+# 2. Atlas v1.0.0新機能: Schema Statistics生成
+echo "[2/6] スキーマ統計情報生成中..."
+atlas schema stats \
+  --env local \
+  --output json > schema-stats.json
+
+# 3. マイグレーション差分生成
+echo "[3/6] マイグレーション生成中..."
 atlas migrate diff add_vector_columns   --env local
 
-# 3. マイグレーション適用
-echo "[3/5] マイグレーション適用中..."
+# 4. マイグレーション適用
+echo "[4/6] マイグレーション適用中..."
 atlas migrate apply   --env local   --url "postgresql://edumint:localpass@localhost:5432/edumint_content_dev"
 
-# 4. sqlcでGo型生成
-echo "[4/5] sqlcコード生成中..."
+# 5. sqlcでGo型生成
+echo "[5/6] sqlcコード生成中..."
 sqlc generate
 
-# 5. 生成コード検証
-echo "[5/5] 生成コード検証中..."
+# 6. 生成コード検証
+echo "[6/6] 生成コード検証中..."
 go build ./internal/db/dbgen/...
 
 echo "✓ ワークフロー完了"
