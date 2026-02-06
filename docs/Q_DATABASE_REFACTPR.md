@@ -2461,6 +2461,673 @@ SELECT * FROM exams WHERE status = 'active' ORDER BY created_at DESC LIMIT 20;
 - 読み取り専用クエリはレプリカへルーティング
 - 特にedumintSearchは読み取り負荷が高い
 
+### 16.14 プロジェクト全体DB設計指針
+
+本セクションでは、EduMintプロジェクト全体で共通適用すべきデータベース設計の原則と標準を定義します。これらは全マイクロサービス・全環境（開発/ステージング/本番）で必須の設計思想であり、個別サービスのスキーマ設計時には必ずこれらの指針に従う必要があります。
+
+#### **16.14.1 PostgreSQL 18.1標準化**
+
+**採用バージョン**: PostgreSQL 18.1（2025年10月リリース）
+
+**主要機能と採用理由**:
+
+1. **UUIDv7ネイティブサポート (`uuidv7()`)**:
+   - RFC 9562準拠のタイムスタンプベースUUID生成
+   - 全テーブルの主キーに`DEFAULT uuidv7()`を使用（**gen_random_uuid()は全面廃止**）
+   - B-treeインデックス効率が劇的に向上（最大50%のインデックスサイズ削減）
+   - 分散環境でも時系列順序を保証
+
+2. **非同期I/O (AIO) サポート**:
+   - ストレージI/Oのレイテンシ削減
+   - Cloud SQLで自動有効化
+
+3. **B-tree Skip Scan**:
+   - 複合インデックスの効率向上
+   - 検索クエリのパフォーマンス改善
+
+**禁止事項**:
+- **gen_random_uuid()の使用禁止**: UUIDv4（完全乱数）は、インデックス断片化を引き起こすため、セキュリティトークン以外での使用を禁止
+- **SERIAL/BIGSERIAL型の使用禁止**: 連番主キーはセキュリティリスク、分散環境での衝突リスクがあるため全面禁止
+- **INTEGER主キーの新規採用禁止**: 既存テーブルでも段階的にUUID移行を推奨
+
+#### **16.14.2 UUIDv7主キー戦略（全社統一標準）**
+
+**標準テーブル構造**:
+
+```sql
+CREATE TABLE service_table_name (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),          -- 内部主キー（必須）
+  public_id VARCHAR(8) NOT NULL UNIQUE,         -- 外部公開ID（NanoID 8文字、必須）
+  -- ビジネスカラム
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- public_idインデックス（必須）
+CREATE INDEX idx_service_table_name_public_id ON service_table_name(public_id);
+```
+
+**設計原則**:
+- **内部参照**: 常に`id`（UUID）を使用
+- **外部API**: 常に`public_id`（NanoID）を公開
+- **外部キー**: `REFERENCES parent_table(id)`形式で統一
+- **マイクロサービス間参照**: UUIDで参照、物理外部キー制約は設定しない（論理的参照のみ）
+
+**NanoID生成規則**:
+- 長さ: 8文字（標準）、16文字（長寿命リソース）
+- 文字セット: `A-Za-z0-9_-`（URL-safe）
+- アプリケーション層で生成（PostgreSQL関数ではない）
+
+**廃止された主キー戦略（使用禁止）**:
+```sql
+-- ❌ 禁止: SERIAL/BIGSERIAL型
+id SERIAL PRIMARY KEY  -- 推測可能、分散環境に不向き
+
+-- ❌ 禁止: gen_random_uuid()（UUIDv4）
+id UUID PRIMARY KEY DEFAULT gen_random_uuid()  -- インデックス断片化
+
+-- ❌ 禁止: INTEGER/BIGINT自動採番
+id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY
+```
+
+#### **16.14.3 論理削除原則**
+
+**論理削除標準パターン**:
+
+```sql
+CREATE TABLE logical_delete_example (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(8) NOT NULL UNIQUE,
+  -- ビジネスカラム
+  is_deleted BOOLEAN DEFAULT FALSE NOT NULL,    -- 論理削除フラグ（必須）
+  deleted_at TIMESTAMPTZ,                       -- 削除日時（nullable）
+  deleted_by UUID,                              -- 削除者（nullable、users.idを参照）
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 論理削除対象外フィルタ用インデックス（推奨）
+CREATE INDEX idx_logical_delete_example_not_deleted 
+  ON logical_delete_example(id) WHERE is_deleted = FALSE;
+```
+
+**論理削除を適用すべきテーブル**:
+- ユーザーデータ: `users`, `user_profiles`, `user_settings`
+- コンテンツデータ: `exams`, `questions`, `sub_questions`, `teachers`, `subjects`
+- トランザクションデータ: `wallet_transactions`, `revenue_reports`（法令保持義務あり）
+- ソーシャルデータ: `exam_likes`, `comments`, `follows`
+
+**物理削除を適用すべきテーブル**:
+- ログデータ: 全ログテーブル（保持期間経過後の自動削除）
+- 一時データ: セッション、キャッシュ、ジョブステータス
+- GDPR対応: ユーザーからの削除要求（論理削除後、保持期間経過で物理削除）
+
+**論理削除時のクエリ標準**:
+
+```sql
+-- ✅ 正しい: 論理削除フィルタを常に適用
+SELECT * FROM exams WHERE is_deleted = FALSE AND status = 'active';
+
+-- ❌ 誤り: 論理削除フィルタなし（削除済みデータが混入）
+SELECT * FROM exams WHERE status = 'active';
+```
+
+#### **16.14.4 ストレージライフサイクル管理（GCS Archive戦略）**
+
+**EduMintファイルストレージ階層**:
+
+| 階層 | GCSストレージクラス | 保持期間 | 対象ファイル | 自動遷移 |
+|-----|-----------------|---------|------------|---------|
+| **Hot** | Standard | 0-7日 | アップロード直後のファイル、アクティブなファイル | - |
+| **Warm** | Nearline | 8-90日 | 過去のOCR済みファイル、参照頻度低下したファイル | 7日経過で自動 |
+| **Cold** | Coldline | 91-365日 | 年次アクセスファイル | 90日経過で自動 |
+| **Archive** | Archive | 366日以上 | 長期保存ファイル（法令対応） | 365日経過で自動 |
+
+**edumintFiles専用ライフサイクルポリシー**:
+
+```yaml
+# GCS Lifecycle Configuration for edumintFiles bucket
+lifecycle:
+  rules:
+    - action:
+        type: SetStorageClass
+        storageClass: NEARLINE
+      condition:
+        age: 7                     # 7日経過でNearlineへ
+        matchesPrefix: ["uploads/"]
+    
+    - action:
+        type: SetStorageClass
+        storageClass: COLDLINE
+      condition:
+        age: 90                    # 90日経過でColdlineへ
+        matchesPrefix: ["uploads/"]
+    
+    - action:
+        type: SetStorageClass
+        storageClass: ARCHIVE
+      condition:
+        age: 365                   # 365日経過でArchiveへ
+        matchesPrefix: ["uploads/"]
+    
+    - action:
+        type: Delete
+      condition:
+        age: 2555                  # 7年経過で削除（法令保持期間）
+        matchesPrefix: ["temp/"]
+```
+
+**PostgreSQLとの連携**:
+
+```sql
+-- file_inputsテーブルにストレージクラス追跡カラムを追加
+ALTER TABLE file_inputs ADD COLUMN storage_class VARCHAR(20) DEFAULT 'STANDARD';
+
+-- 定期バッチでストレージクラスを同期
+UPDATE file_inputs 
+SET storage_class = 'NEARLINE' 
+WHERE created_at < NOW() - INTERVAL '7 days' 
+  AND storage_class = 'STANDARD';
+```
+
+**OCRファイル専用ルール**:
+- **OCR処理前**: Standard（即時アクセス）
+- **OCR完了後**: 7日でNearlineへ自動遷移
+- **データ抽出完了後**: DB上のデータが正となり、元ファイルは参照頻度が激減
+- **長期保存**: Archive層で保持（監査・検証用）
+
+#### **16.14.5 マイクロサービス間UUID参照戦略**
+
+**基本原則**:
+- サービス境界を越える参照は**論理的外部キー**のみ（物理FOREIGN KEY制約なし）
+- UUIDで参照し、参照整合性はアプリケーション層とイベント駆動で保証
+- Kafka経由の結果整合性を前提とした設計
+
+**パターン例**:
+
+```sql
+-- edumintContent.examsテーブル（Content管理サービス）
+CREATE TABLE exams (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(8) NOT NULL UNIQUE,
+  creator_user_id UUID NOT NULL,              -- edumintAuth.usersを論理参照
+  -- creator_user_idにはFOREIGN KEY制約を設定しない（サービス境界を越えるため）
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- edumintSocial.exam_likesテーブル（Social管理サービス）
+CREATE TABLE exam_likes (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  exam_id UUID NOT NULL,                      -- edumintContent.examsを論理参照
+  user_id UUID NOT NULL,                      -- edumintAuth.usersを論理参照
+  -- exam_id, user_idにはFOREIGN KEY制約を設定しない（サービス境界を越えるため）
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(exam_id, user_id)
+);
+
+-- インデックスは必須（外部キー制約がなくても）
+CREATE INDEX idx_exam_likes_exam_id ON exam_likes(exam_id);
+CREATE INDEX idx_exam_likes_user_id ON exam_likes(user_id);
+```
+
+**同一サービス内の参照**:
+
+```sql
+-- 同一サービス内は物理FOREIGN KEY制約を設定（推奨）
+CREATE TABLE questions (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+  -- 同一サービス内なので物理制約OK
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**参照整合性の保証方法**:
+1. **作成時**: APIリクエスト前に参照先の存在確認
+2. **更新時**: Kafkaイベント購読で非同期反映
+3. **削除時**: 論理削除を使用し、物理削除はバッチ処理で実施
+
+#### **16.14.6 Row Level Security (RLS) 設計**
+
+**RLS適用の基本方針**:
+- ユーザーデータの多くは、所有者以外からのアクセスを制限する必要がある
+- PostgreSQL 18.1のRLS機能を活用し、アプリケーション層だけでなくDB層でもアクセス制御を実施
+- マイクロサービスごとに専用DBユーザーを作成し、サービスレベルのRLSポリシーを適用
+
+**RLS有効化例（edumintUserProfile）**:
+
+```sql
+-- RLS有効化
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- ポリシー1: ユーザーは自分のプロフィールのみ参照可能
+CREATE POLICY user_profiles_select_own
+  ON user_profiles
+  FOR SELECT
+  USING (user_id = current_setting('app.current_user_id')::UUID);
+
+-- ポリシー2: ユーザーは自分のプロフィールのみ更新可能
+CREATE POLICY user_profiles_update_own
+  ON user_profiles
+  FOR UPDATE
+  USING (user_id = current_setting('app.current_user_id')::UUID);
+
+-- ポリシー3: 管理者は全データ参照可能
+CREATE POLICY user_profiles_select_admin
+  ON user_profiles
+  FOR SELECT
+  USING (current_setting('app.current_user_role') = 'admin');
+```
+
+**アプリケーション層での設定**:
+
+```go
+// Go言語でのRLS設定例
+func SetRLSContext(ctx context.Context, conn *pgx.Conn, userID uuid.UUID, role string) error {
+    _, err := conn.Exec(ctx, "SET app.current_user_id = $1", userID)
+    if err != nil {
+        return err
+    }
+    _, err = conn.Exec(ctx, "SET app.current_user_role = $1", role)
+    return err
+}
+```
+
+**RLS適用対象テーブル**:
+- `user_profiles`, `user_settings`, `user_oauth_connections`
+- `wallet_transactions`, `wallet_balances`（金銭データ）
+- `exams`, `questions`（所有者のみ編集可能）
+- `file_inputs`, `file_outputs`（アップロード者のみアクセス）
+
+#### **16.14.7 Schema Registry統合**
+
+**目的**:
+- Kafkaイベントのスキーマバージョン管理
+- Producer/Consumer間のスキーマ互換性保証
+- スキーマ進化の安全な管理
+
+**Confluent Schema Registry採用**:
+
+```yaml
+# Schema Registry設定例
+schema.registry:
+  url: https://schema-registry.edumint.internal:8081
+  subjects:
+    - name: auth.events-value
+      format: Avro
+      compatibility: BACKWARD
+    
+    - name: content.lifecycle-value
+      format: Avro
+      compatibility: BACKWARD
+    
+    - name: monetization.transactions-value
+      format: Avro
+      compatibility: BACKWARD
+```
+
+**イベントスキーマ例（Avro）**:
+
+```json
+{
+  "namespace": "com.edumint.events.content",
+  "type": "record",
+  "name": "ExamCreated",
+  "fields": [
+    {"name": "exam_id", "type": "string"},
+    {"name": "public_id", "type": "string"},
+    {"name": "creator_user_id", "type": "string"},
+    {"name": "title", "type": "string"},
+    {"name": "status", "type": {"type": "enum", "name": "ExamStatus", "symbols": ["draft", "active", "archived"]}},
+    {"name": "created_at", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}
+```
+
+**スキーマ進化ルール**:
+- **BACKWARD互換**: 新フィールドはデフォルト値必須
+- **FORWARD互換**: 古いConsumerが新スキーマを処理可能
+- **FULL互換**: BACKWARD + FORWARD両方を満たす（推奨）
+
+**PostgreSQL型との対応**:
+
+| PostgreSQL型 | Avro型 | 備考 |
+|-------------|--------|-----|
+| UUID | string | UUID文字列表現 |
+| TIMESTAMPTZ | long (timestamp-millis) | Unixタイムスタンプ（ミリ秒） |
+| ENUM | enum | Avro enumに対応 |
+| JSONB | string | JSON文字列としてシリアライズ |
+| BOOLEAN | boolean | 直接対応 |
+| DECIMAL | bytes (decimal) | 固定小数点 |
+
+#### **16.14.8 Kafka DLQ（Dead Letter Queue）戦略**
+
+**DLQ導入の目的**:
+- 処理失敗メッセージの隔離
+- 手動リトライ・デバッグの効率化
+- メインキューの健全性維持
+
+**DLQトピック命名規則**:
+
+```
+メイントピック: auth.events
+DLQトピック:   auth.events.dlq
+
+メイントピック: content.lifecycle
+DLQトピック:   content.lifecycle.dlq
+```
+
+**DLQ送信条件**:
+1. **デシリアライズエラー**: スキーマ不一致、形式エラー
+2. **ビジネスロジックエラー**: 参照先データ不在、制約違反
+3. **最大リトライ超過**: 3回リトライ後もエラーが継続
+
+**DLQメッセージフォーマット**:
+
+```json
+{
+  "original_topic": "auth.events",
+  "original_partition": 2,
+  "original_offset": 12345,
+  "error_type": "DESERIALIZATION_ERROR",
+  "error_message": "Invalid UUID format for user_id field",
+  "retry_count": 3,
+  "failed_at": "2026-02-06T14:43:26.877Z",
+  "original_message": "<base64 encoded original message>"
+}
+```
+
+**DLQ監視とアラート**:
+
+```sql
+-- DLQメッセージ数をPrometheusで監視
+SELECT 
+  topic_name,
+  COUNT(*) as dlq_message_count
+FROM kafka_dlq_messages
+WHERE created_at > NOW() - INTERVAL '1 hour'
+GROUP BY topic_name;
+
+-- アラート閾値: 1時間あたり10件以上でSlack通知
+```
+
+**DLQリトライフロー**:
+1. エンジニアがDLQメッセージを確認
+2. 根本原因を修正（スキーマ更新、データ修復等）
+3. 手動でメインキューに再投入
+4. 正常処理を確認
+
+#### **16.14.9 edumintFiles データ永続化標準**
+
+**ファイルライフサイクル全体図**:
+
+```
+[アップロード] → [Standard 0-7日] → [OCR処理] → [Nearline 8-90日] 
+  → [Coldline 91-365日] → [Archive 366日以上] → [削除 7年後]
+```
+
+**file_inputsテーブル標準設計**:
+
+```sql
+CREATE TABLE file_inputs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(8) NOT NULL UNIQUE,
+  user_id UUID NOT NULL,                      -- アップロードユーザー
+  original_filename VARCHAR(255) NOT NULL,
+  gcs_path VARCHAR(500) NOT NULL,             -- GCSフルパス
+  storage_class VARCHAR(20) DEFAULT 'STANDARD', -- Standard/Nearline/Coldline/Archive
+  file_size_bytes BIGINT NOT NULL,
+  mime_type VARCHAR(100),
+  ocr_status VARCHAR(20) DEFAULT 'pending',   -- pending/processing/completed/failed
+  ocr_completed_at TIMESTAMPTZ,
+  archived_at TIMESTAMPTZ,                    -- Archive層遷移日時
+  is_deleted BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- インデックス
+CREATE INDEX idx_file_inputs_user_id ON file_inputs(user_id);
+CREATE INDEX idx_file_inputs_storage_class ON file_inputs(storage_class);
+CREATE INDEX idx_file_inputs_ocr_status ON file_inputs(ocr_status);
+CREATE INDEX idx_file_inputs_created_at ON file_inputs(created_at);
+```
+
+**OCRファイル専用ルール（7日でArchive）**:
+
+```sql
+-- 定期バッチ（1日1回実行）
+-- OCR完了後7日経過したファイルをArchive層へ遷移
+UPDATE file_inputs
+SET 
+  storage_class = 'NEARLINE',
+  updated_at = CURRENT_TIMESTAMP
+WHERE 
+  ocr_status = 'completed'
+  AND ocr_completed_at < NOW() - INTERVAL '7 days'
+  AND storage_class = 'STANDARD';
+
+-- GCSライフサイクルポリシーが自動的にストレージクラスを変更
+-- PostgreSQLは状態を追跡するのみ
+```
+
+**アクセスパターン最適化**:
+- **7日以内**: 即座にアクセス可能（Standard）
+- **8-90日**: 取得に数秒のレイテンシ（Nearline、コスト1/2）
+- **91-365日**: 取得に数秒のレイテンシ（Coldline、コスト1/4）
+- **366日以上**: 取得に数時間（Archive、コスト1/10）
+
+#### **16.14.10 LLM学習データ永続化方針**
+
+**学習データの分類**:
+
+| データ種別 | 保持期間 | ストレージ | 用途 |
+|----------|---------|----------|-----|
+| **ファインチューニングデータ** | 永久 | BigQuery + GCS Archive | モデル再学習、監査 |
+| **プロンプト・レスポンスログ** | 90日 | PostgreSQL → BigQuery | モデル評価、品質改善 |
+| **埋め込みベクトル** | 永久 | PostgreSQL (pgvector) | 意味検索、類似度計算 |
+| **中間生成データ** | 7日 | GCS Standard | デバッグ、検証 |
+
+**ai_generation_logsテーブル設計**:
+
+```sql
+CREATE TABLE ai_generation_logs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  job_id UUID NOT NULL,                       -- ジョブID（edumintGateway.jobs参照）
+  model_name VARCHAR(100) NOT NULL,           -- 使用モデル名（例: gemini-1.5-pro）
+  prompt_text TEXT NOT NULL,                  -- 入力プロンプト
+  response_text TEXT,                         -- 生成結果
+  response_tokens INTEGER,                    -- 生成トークン数
+  latency_ms INTEGER,                         -- レイテンシ（ミリ秒）
+  error_message TEXT,                         -- エラーメッセージ（エラー時のみ）
+  metadata JSONB,                             -- モデルパラメータ等
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
+
+-- 月次パーティション
+CREATE TABLE ai_generation_logs_2026_02 PARTITION OF ai_generation_logs
+  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+```
+
+**BigQueryエクスポート戦略**:
+
+```yaml
+# 日次バッチでBigQueryへエクスポート（90日後にPostgreSQLから削除）
+export_to_bigquery:
+  source: edumint_aiworker.ai_generation_logs
+  destination: edumint-bigquery.ai_logs.generation_logs
+  schedule: "0 3 * * *"  # 毎日3時
+  partition_column: created_at
+  retention_postgresql: 90 days
+  retention_bigquery: 7 years
+```
+
+**埋め込みベクトルの永続化**:
+
+```sql
+-- questionsテーブルに埋め込みベクトルを永続化
+ALTER TABLE questions ADD COLUMN content_embedding vector(1536);
+
+-- HNSWインデックスで高速検索
+CREATE INDEX idx_questions_embedding_hnsw 
+  ON questions USING hnsw(content_embedding vector_cosine_ops);
+
+-- 埋め込みベクトルは論理削除時も保持（監査・分析用）
+-- is_deleted = TRUE でも embedding カラムは削除しない
+```
+
+**学習データ品質管理**:
+- プロンプト・レスポンスの匿名化（個人情報除去）
+- 低品質データのフィルタリング（エラー、短文等）
+- 定期的なデータサンプリングと手動レビュー
+
+#### **16.14.11 廃止された設計パターン（使用禁止）**
+
+**以下の設計パターンは全面的に廃止され、新規採用を禁止します**:
+
+##### **❌ BigInt/Serial主キー（全面廃止）**
+
+```sql
+-- ❌ 廃止: BIGINT主キー
+CREATE TABLE old_table (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  -- 推測可能、分散環境に不適、水平スケーリング困難
+);
+
+-- ✅ 正しい: UUIDv7主キー
+CREATE TABLE new_table (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(8) NOT NULL UNIQUE,
+  -- タイムスタンプベース、分散環境最適、高速インデックス
+);
+```
+
+**廃止理由**:
+- 連番IDは推測可能でセキュリティリスク
+- マイクロサービス間でのID衝突リスク
+- 水平スケーリング時の制約（単一シーケンスのボトルネック）
+- グローバル一意性の保証が困難
+
+##### **❌ gen_random_uuid()（UUIDv4、条件付き廃止）**
+
+```sql
+-- ❌ 廃止: gen_random_uuid()を主キーに使用
+CREATE TABLE old_table (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- ランダムUUID、インデックス断片化、書き込み性能低下
+);
+
+-- ✅ 正しい: uuidv7()を主キーに使用
+CREATE TABLE new_table (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  -- タイムスタンプベースUUID、シーケンシャル挿入、インデックス効率最大
+);
+```
+
+**例外的に許容されるケース**:
+```sql
+-- ✅ 例外: セキュリティトークン（完全ランダムが必要）
+CREATE TABLE oauth_tokens (
+  access_token VARCHAR(255) DEFAULT encode(gen_random_bytes(32), 'hex'),
+  -- セキュリティトークンは推測不可能性が最優先
+);
+```
+
+##### **❌ 物理削除デフォルト（原則廃止）**
+
+```sql
+-- ❌ 廃止: 物理削除デフォルト
+DELETE FROM users WHERE id = $1;  -- データ完全消失、監査不可
+
+-- ✅ 正しい: 論理削除デフォルト
+UPDATE users 
+SET 
+  is_deleted = TRUE, 
+  deleted_at = CURRENT_TIMESTAMP,
+  deleted_by = $2
+WHERE id = $1;
+```
+
+**物理削除を許容するケース**:
+- ログテーブル（保持期間経過後）
+- 一時データ（セッション、キャッシュ）
+- GDPR対応（ユーザーからの明示的削除要求）
+
+##### **❌ マイクロサービス間物理FOREIGN KEY（全面禁止）**
+
+```sql
+-- ❌ 禁止: サービス境界を越える物理FOREIGN KEY
+-- edumintSocial.exam_likesテーブルで edumintContent.examsを参照
+CREATE TABLE exam_likes (
+  exam_id UUID REFERENCES edumint_content.exams(id),  -- 異なるDB、物理制約不可
+);
+
+-- ✅ 正しい: 論理参照のみ
+CREATE TABLE exam_likes (
+  exam_id UUID NOT NULL,  -- 論理参照のみ、制約なし
+);
+CREATE INDEX idx_exam_likes_exam_id ON exam_likes(exam_id);  -- インデックスは必須
+```
+
+##### **❌ ENUM型のVARCHAR代替（全面廃止）**
+
+```sql
+-- ❌ 廃止: VARCHAR型で固定値を管理
+CREATE TABLE old_table (
+  status VARCHAR(20) CHECK (status IN ('draft', 'active', 'archived')),
+  -- 型安全性なし、typoリスク、パフォーマンス劣化
+);
+
+-- ✅ 正しい: ENUM型を使用
+CREATE TYPE exam_status_enum AS ENUM ('draft', 'active', 'archived');
+
+CREATE TABLE new_table (
+  status exam_status_enum NOT NULL DEFAULT 'draft',
+  -- 型安全、パフォーマンス最適、自動バリデーション
+);
+```
+
+#### **16.14.12 設計チェックリスト**
+
+新規テーブル作成時、以下のチェックリストで設計品質を保証します：
+
+**必須項目**:
+- [ ] 主キーは`id UUID PRIMARY KEY DEFAULT uuidv7()`
+- [ ] 外部公開IDは`public_id VARCHAR(8) NOT NULL UNIQUE`（NanoID）
+- [ ] タイムスタンプは`created_at`, `updated_at TIMESTAMPTZ`
+- [ ] 論理削除は`is_deleted BOOLEAN`, `deleted_at TIMESTAMPTZ`
+- [ ] ENUM型を適切に定義・使用している
+- [ ] 外部キーインデックスを全て作成している
+- [ ] マイクロサービス境界を越える参照は論理参照のみ
+- [ ] 全文検索カラムにはGINインデックス（日本語: `'japanese'`）
+- [ ] ベクトルカラムにはHNSWインデックス
+- [ ] ログテーブルは時系列パーティショニング
+
+**禁止パターンチェック**:
+- [ ] SERIAL/BIGSERIAL型を使用していない
+- [ ] gen_random_uuid()を主キーに使用していない（トークン除く）
+- [ ] マイクロサービス間で物理FOREIGN KEYを設定していない
+- [ ] VARCHAR型で固定値を管理していない（ENUM型を使用）
+- [ ] fmt.Println()やlog.Print()を使用していない（slog使用）
+
+**セキュリティチェック**:
+- [ ] 個人情報カラムに適切なRLSポリシーを設定している
+- [ ] パスワード・トークンは適切にハッシュ化している
+- [ ] 金銭データは論理削除 + 7年保持を設定している
+
+**パフォーマンスチェック**:
+- [ ] 頻繁な検索条件にインデックスを作成している
+- [ ] 大量データテーブルにはパーティショニングを検討している
+- [ ] 複合インデックスの順序を最適化している
+- [ ] pgvector HNSWパラメータを適切に設定している（m=16, ef_construction=64）
+
+**運用チェック**:
+- [ ] GCSライフサイクルポリシーを設定している（edumintFiles）
+- [ ] BigQueryエクスポート戦略を定義している（AI logs）
+- [ ] Kafka DLQトピックを設定している（イベント駆動）
+- [ ] Schema Registryにスキーマを登録している（イベント駆動）
+
 
 ## **17. pgvector + ベクトル検索設計**
 
