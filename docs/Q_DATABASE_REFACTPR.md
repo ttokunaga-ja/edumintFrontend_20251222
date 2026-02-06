@@ -1,8 +1,23 @@
-# **EduMint 統合データモデル設計書 v7.2.0**
+# **EduMint 統合データモデル設計書 v7.3.0**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
 **最終更新日: 2026-02-06**
+
+**v7.3.0 主要更新:**
+- **master_exams/materials統合設計**: 2テーブルから1テーブル（master_ocr_contents）へ統合
+- **OCRコンテンツタイプENUM新設**: `ocr_content_type_enum` ('exercises', 'material')
+- **ENUM命名変更**: 'exam' → 'exercises'（公開用Examとの誤解防止）
+- **bucket_name自動生成**: GENERATED ALWAYS AS による自動設定、人的ミス不可
+- **DDL保守負荷削減**: 1テーブル管理、カラム追加1回で完結
+- **スキーマ拡張性向上**: 新タイプ追加時、ENUM値追加のみで対応可能
+- **型安全性3層防御**: PostgreSQL ENUM + Go ENUM + TypeScript ENUMの統一管理
+- **統合設計採用理由**:
+  1. DDL保守負荷最小化（1テーブル管理）
+  2. スキーマ拡張性（新タイプはENUM追加のみ）
+  3. 型安全性確保（PostgreSQL ENUM + Go ENUM + TypeScript ENUMの3層防御）
+  4. GCSバケット自動設定（GENERATED ALWAYS AS、人的ミス不可）
+  5. 著作権申立て対応簡素化（1テーブル検索）
 
 **v7.2.0 主要更新:**
 - **edumintContentsを4DB構成に拡張**: セキュリティ、性能、スケーラビリティ、コスト効率の最適化
@@ -313,6 +328,21 @@ CREATE TYPE academic_field_enum AS ENUM (
 );
 ```
 
+#### **1.3.1. OCRコンテンツタイプENUM（v7.3.0新設）**
+
+```sql
+-- OCRコンテンツタイプ（v7.3.0新設）
+CREATE TYPE ocr_content_type_enum AS ENUM (
+  'exercises',   -- 演習問題OCRテキスト（旧: exam）
+  'material'     -- 授業資料OCRテキスト
+);
+```
+
+**設計注記:**
+- **'exercises'命名理由**: 公開用のExam（試験データ）との誤解防止。OCRテキスト元データは「演習問題」として明確化
+- **統合設計**: master_exams/master_materials分離から master_ocr_contents統合へ移行
+- **型安全性**: PostgreSQL ENUM + Go ENUM + TypeScript ENUMの3層防御
+
 #### **1.4. ユーザー・認証関連ENUM**
 
 ```sql
@@ -568,7 +598,7 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 | :--- | :--- | :--- | :--- | :--- |
 | **edumintGateways** | ジョブオーケストレーション | `jobs`, `job_logs` (分離DB) | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
 | **edumintUsers** | SSO・認証・ユーザー管理・フォロー・通知（統合） | `oauth_clients`, `oauth_tokens`, `idp_links`, `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `auth_logs` (分離DB), `user_profile_logs` (分離DB) | `auth.events`, `user.events` | `content.feedback`, `monetization.transactions`, **`content.interaction`** |
-| **edumintContents** | 試験・問題・統計・OCRテキスト管理（4DB構成） | **[メインDB: `edumint_contents`]** `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, `ad_display_events`, `ad_viewing_history` / **[検索DB: `edumint_contents_search`]** `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates` / **[マスターDB: `edumint_contents_master`]** `master_exams`, `master_materials` (OCRテキスト、暗号化対象) / **[ログDB: `edumint_contents_logs`]** `content_logs` | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
+| **edumintContents** | 試験・問題・統計・OCRテキスト管理（4DB構成） | **[メインDB: `edumint_contents`]** `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, `ad_display_events`, `ad_viewing_history` / **[検索DB: `edumint_contents_search`]** `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates` / **[マスターDB: `edumint_contents_master`]** `master_ocr_contents` (OCRテキスト統合管理、暗号化対象) / **[ログDB: `edumint_contents_logs`]** `content_logs` | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
 | **edumintFiles** | ファイルストレージ管理 | `file_metadata`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `file.uploaded`, `file.encrypted` | `content.ocr`, `moderation.evidence` |
 | **edumintSearch** | 検索・インデックス（無状態化） | **Elasticsearch索引のみ（物理DB廃止）**, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle`, `content.interaction` via **Debezium CDC** |
 | **edumintAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `file.uploaded`, `content.ocr`, `search.term_generation` |
@@ -582,14 +612,14 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 - **edumintContents 4DB構成**: セキュリティ・性能・スケーラビリティの最適化
   - `edumint_contents` (メインDB): 試験・問題・統計・広告管理
   - `edumint_contents_search` (検索用DB): 検索用語テーブル群（`*_terms`, `term_generation_*`）
-  - `edumint_contents_master` (マスターDB): OCRテキスト専用（`master_exams`, `master_materials`）
+  - `edumint_contents_master` (マスターDB): OCRテキスト専用（`master_ocr_contents`）
   - `edumint_contents_logs` (ログDB): ログデータ分離
 - **I/O競合解消**: 読み取り集中（検索）と書き込み集中（コンテンツ）を物理分離
 - **Debezium 2コネクタ構成**: edumint_contents と edumint_contents_search の個別同期
 
 **主要変更点（v7.1.0）:**
 - **edumintUsers**: edumintAuth + edumintUserProfileを統合。物理DB: `edumint_users`
-- **edumintContents**: OCRテキスト管理に特化。`exam_raw` → `master_exams`, `source_raw` → `master_materials`にリネーム（OCRテキストのみ保存）
+- **edumintContents**: OCRテキスト管理に特化。`exam_raw` → `master_exams`, `source_raw` → `master_materials`にリネーム（OCRテキストのみ保存）→ **v7.3.0でmaster_ocr_contentsに統合**
 - **edumintFiles**: 原本ファイルと通報証拠ファイルの保存を継続。物理DB: `edumint_files`
 - **edumintContents**: 検索用語管理テーブル（`*_terms`, `term_generation_*`）を追加
 - **edumintContents**: 広告管理テーブル（`ad_display_events`, `ad_viewing_history`）を新設
@@ -872,7 +902,7 @@ CREATE INDEX idx_user_profile_logs_action ON user_profile_logs(action, created_a
 
 **4DB構成の設計意図:**
 
-1. **セキュリティ向上 (master_exams/materials分離)**
+1. **セキュリティ向上 (OCRテキスト統合管理)**
    - OCRテキスト（機密情報）を独立したDBで管理
    - IAMロール分離によるアクセス制御強化（管理者・システムのみ）
    - 7日後の自動暗号化対応（イミュータブル設計）
@@ -914,8 +944,9 @@ edumintContents (4DB構成)
 │   └── term_generation_candidates
 │
 ├── edumint_contents_master (マスターDB - 新設)
-│   ├── master_exams (OCRテキスト、暗号化対象)
-│   └── master_materials (OCRテキスト、暗号化対象)
+│   └── master_ocr_contents (OCRテキスト統合管理、暗号化対象)
+│       ├── content_type = 'exercises' (演習問題)
+│       └── content_type = 'material' (授業資料)
 │
 └── edumint_contents_logs (ログDB)
     └── content_logs (パーティション、90日保持)
@@ -971,8 +1002,8 @@ edumintContents (4DB構成)
 |:---|:---|:---|:---|
 | edumint_contents | edumint-contents-app-sa | SELECT, INSERT, UPDATE | 全テーブル（通常操作） |
 | edumint_contents_search | edumint-contents-app-sa | SELECT, INSERT, UPDATE | 全テーブル（検索用語管理） |
-| edumint_contents_master | edumint-contents-master-sa | SELECT, INSERT | master_exams, master_materials（書き込み専用） |
-| edumint_contents_master | edumint-admin-sa | SELECT | master_exams, master_materials（管理者のみ読み取り） |
+| edumint_contents_master | edumint-contents-master-sa | SELECT, INSERT | master_ocr_contents（書き込み専用） |
+| edumint_contents_master | edumint-admin-sa | SELECT | master_ocr_contents（管理者のみ読み取り） |
 | edumint_contents_logs | edumint-contents-app-sa | INSERT | content_logs（ログ書き込み専用） |
 
 ### 設計変更点（v7.1.0）
@@ -982,11 +1013,11 @@ edumintContents (4DB構成)
 
 **OCRテキスト管理機能:**
 - **edumintFiles**サービスとの責務分離を明確化
-- `exam_raw` → **`master_exams`** にリネーム（OCRテキスト保存用）
-- `source_raw` → **`master_materials`** にリネーム（OCRテキスト保存用）
+- `exam_raw` → **`master_exams`**, `source_raw` → **`master_materials`** にリネーム（v7.1.0）→ **v7.3.0で`master_ocr_contents`に統合**
 - **原本ファイルはedumintFilesが保存**、OCRテキストのみedumintContentsで管理
 - **自動暗号化対象**: OCRテキストデータ（7日後に暗号化）
-- **イミュータブル設計**: master_exams, master_materialsは編集・削除不可（append-only）
+- **イミュータブル設計**: master_ocr_contents は編集・削除不可（append-only）
+- **統合設計（v7.3.0）**: ocr_content_type_enum ('exercises', 'material') によるタイプ分類
 
 **検索用語管理統合:**
 - edumintSearchから検索用語テーブルを移管
@@ -1780,7 +1811,7 @@ CREATE INDEX idx_ad_viewing_history_first_viewed ON ad_viewing_history(first_vie
 
 **役割:**
 - OCRテキスト専用データベース
-- 機密情報（試験問題・教材のOCRテキスト）の分離管理
+- 機密情報（演習問題・教材のOCRテキスト）の分離管理
 - イミュータブル設計（追加のみ、編集・削除禁止）
 
 **特徴:**
@@ -1794,119 +1825,305 @@ CREATE INDEX idx_ad_viewing_history_first_viewed ON ad_viewing_history(first_vie
 - `edumint-admin-sa`: 読み取り専用（SELECT権限のみ、管理者用）
 - 一般ユーザー・アプリケーション: アクセス不可
 
-#### **master_exams (試験OCRテキスト - イミュータブル)**
+**v7.3.0統合設計:**
+- **master_exams/materials統合**: 2テーブルから master_ocr_contents 1テーブルへ統合
+- **ENUM型による分類**: ocr_content_type_enum ('exercises', 'material')
+- **bucket_name自動生成**: GENERATED ALWAYS AS による自動設定、人的ミス不可
+- **統合設計採用理由**:
+  1. DDL保守負荷最小化（1テーブル管理、カラム追加1回で完結）
+  2. スキーマ拡張性（新タイプ追加時、ENUM値追加のみで対応可能）
+  3. 型安全性確保（PostgreSQL ENUM + Go ENUM + TypeScript ENUMの3層防御）
+  4. GCSバケット自動設定（GENERATED ALWAYS AS、人的ミス不可）
+  5. 著作権申立て対応簡素化（1テーブル検索、content_type条件のみ）
 
-OCR処理された試験問題のテキストデータを管理します。**原本ファイルはedumintFilesで保存**されます。
+#### **bucket_name自動生成関数（v7.3.0新設）**
+
+```sql
+-- bucket_name自動生成関数
+CREATE OR REPLACE FUNCTION get_ocr_bucket_name(content_type ocr_content_type_enum)
+RETURNS VARCHAR(255) AS $$
+BEGIN
+  CASE content_type
+    WHEN 'exercises' THEN RETURN 'edumint-master-exercises';
+    WHEN 'material' THEN RETURN 'edumint-master-materials';
+  END CASE;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+```
+
+**設計注記:**
+- IMMUTABLE関数により、インデックス・制約での使用可能
+- ENUM型との組み合わせで、bucket_nameの完全な自動管理を実現
+- 人的ミス（バケット名の手動入力誤り）を排除
+
+#### **master_ocr_contents (統合OCRテキスト - イミュータブル)**
+
+OCR処理された演習問題・教材のテキストデータを統合管理します。**原本ファイルはedumintFilesで保存**されます。
 
 **設計原則:**
 - **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
 - **イミュータブル設計**: 編集・削除不可（append-only）
 - **自動暗号化**: OCRテキストは7日経過で自動暗号化
 - **アクセス制御**: 管理者と自動化システムのみアクセス可
+- **ENUM型厳格管理**: content_typeで演習問題・教材を分類
+- **排他制約**: content_typeに応じて関連エンティティを制限
 
 ```sql
-CREATE TABLE master_exams (
+CREATE TABLE master_ocr_contents (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE RESTRICT,
+  
+  -- コンテンツタイプ（ENUM厳格管理）
+  content_type ocr_content_type_enum NOT NULL,
+  
+  -- 関連エンティティ（排他制約で整合性保証）
+  exam_id UUID,  -- exams.idを参照（論理的）
+  question_id UUID,  -- questions.idを参照（論理的）
+  sub_question_id UUID,  -- sub_questions.idを参照（論理的）
+  
+  -- アップロード情報
   uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
   original_filename VARCHAR(512) NOT NULL,
   stored_filename VARCHAR(512) NOT NULL,
   file_size_bytes BIGINT NOT NULL,
   mime_type VARCHAR(100) NOT NULL,
   storage_path VARCHAR(1024) NOT NULL,
-  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-master-exams',
+  
+  -- 自動生成bucket_name（GENERATED ALWAYS AS）
+  bucket_name VARCHAR(255) GENERATED ALWAYS AS (get_ocr_bucket_name(content_type)) STORED,
+  
   file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  
+  -- OCR処理
   ocr_processed BOOLEAN DEFAULT FALSE,
   ocr_text TEXT,
   language_code VARCHAR(10) DEFAULT 'ja',
+  
+  -- セキュリティ
   is_encrypted BOOLEAN DEFAULT FALSE,
   encrypted_at TIMESTAMPTZ,
-  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
+  access_level VARCHAR(20) DEFAULT 'admin_only',
+  
+  -- 論理削除
   is_active BOOLEAN DEFAULT TRUE,
+  
+  -- タイムスタンプ
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  
+  -- 排他制約: content_typeに応じて参照先を制限
+  CONSTRAINT chk_master_ocr_contents_ref CHECK (
+    (content_type = 'exercises' AND exam_id IS NOT NULL AND question_id IS NULL AND sub_question_id IS NULL) OR
+    (content_type = 'material' AND exam_id IS NULL AND (question_id IS NOT NULL OR sub_question_id IS NOT NULL))
+  )
 );
 
-CREATE INDEX idx_master_exams_public_id ON master_exams(public_id);
-CREATE INDEX idx_master_exams_exam_id ON master_exams(exam_id);
-CREATE INDEX idx_master_exams_uploader_id ON master_exams(uploader_id);
-CREATE INDEX idx_master_exams_file_hash ON master_exams(file_hash);
-CREATE INDEX idx_master_exams_ocr_processed ON master_exams(ocr_processed);
-CREATE INDEX idx_master_exams_is_encrypted ON master_exams(is_encrypted);
-CREATE INDEX idx_master_exams_created_at ON master_exams(created_at DESC);
+-- インデックス
+CREATE INDEX idx_master_ocr_content_type ON master_ocr_contents(content_type, created_at DESC);
+CREATE INDEX idx_master_ocr_exam_id ON master_ocr_contents(exam_id) 
+  WHERE content_type = 'exercises' AND is_active = TRUE;
+CREATE INDEX idx_master_ocr_question_id ON master_ocr_contents(question_id) 
+  WHERE content_type = 'material' AND is_active = TRUE;
+CREATE INDEX idx_master_ocr_sub_question_id ON master_ocr_contents(sub_question_id) 
+  WHERE content_type = 'material' AND is_active = TRUE;
+CREATE INDEX idx_master_ocr_uploader_id ON master_ocr_contents(uploader_id);
+CREATE INDEX idx_master_ocr_file_hash ON master_ocr_contents(file_hash) WHERE is_active = TRUE;
+CREATE INDEX idx_master_ocr_ocr_processed ON master_ocr_contents(ocr_processed);
+CREATE INDEX idx_master_ocr_is_encrypted ON master_ocr_contents(is_encrypted);
+CREATE INDEX idx_master_ocr_created_at ON master_ocr_contents(created_at DESC);
 ```
 
 **設計注記:**
-- exam_rawから改名（v7.1.0）
-- **物理DB分離**（v7.2.0）: `edumint_contents` → `edumint_contents_master`
+- **統合設計（v7.3.0）**: master_exams, master_materials から統合
+- **ENUM型分類**: 'exercises'（演習問題）、'material'（授業資料）
+- **'exercises'命名理由**: 公開用のExam（試験データ）との誤解防止。OCRテキスト元データは「演習問題」として明確化
+- **bucket_name自動生成**: GENERATED ALWAYS AS により、content_typeから自動決定
+  - 'exercises' → 'edumint-master-exercises'
+  - 'material' → 'edumint-master-materials'
+- **排他制約**: content_typeに応じて関連エンティティを厳格に制限
+  - 'exercises': exam_id 必須、question_id/sub_question_id NULL
+  - 'material': question_id または sub_question_id 必須、exam_id NULL
+- **物理DB分離**（v7.2.0継続）: セキュリティ強化、IAMロール分離
 - **原本ファイル保存はedumintFilesが担当**: file_metadata参照、本テーブルはOCRテキストとメタデータのみ
 - **edumintFilesとの連携**: original_filename, stored_filenameは edumintFiles の file_metadata を参照
 - **OCRテキストの保存**: ocr_text フィールドにOCR処理結果を格納
 - LLM学習データとして活用
 - 通報時の検証用ソースとして参照
 - ユーザーは**直接ダウンロード不可**
-- ON DELETE RESTRICT: 試験削除時はOCRテキストも保護
 
-#### **master_materials (教材OCRテキスト - イミュータブル)**
-
-OCR処理された教材のテキストデータを管理します。**原本ファイルはedumintFilesで保存**されます。
-
-**設計原則:**
-- **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
-- **イミュータブル設計**: 編集・削除不可（append-only）
-- **自動暗号化**: OCRテキストは7日経過で自動暗号化
-- **アクセス制御**: 管理者と自動化システムのみアクセス可
+**sqlcクエリ例:**
 
 ```sql
-CREATE TABLE master_materials (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  question_id UUID,  -- questions.idを参照（論理的）
-  sub_question_id UUID,  -- sub_questions.idを参照（論理的）
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  original_filename VARCHAR(512) NOT NULL,
-  stored_filename VARCHAR(512) NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
-  mime_type VARCHAR(100) NOT NULL,
-  storage_path VARCHAR(1024) NOT NULL,
-  bucket_name VARCHAR(255) NOT NULL DEFAULT 'edumint-master-materials',
-  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
-  ocr_processed BOOLEAN DEFAULT FALSE,
-  ocr_text TEXT,
-  language_code VARCHAR(10) DEFAULT 'ja',
-  is_encrypted BOOLEAN DEFAULT FALSE,
-  encrypted_at TIMESTAMPTZ,
-  access_level VARCHAR(20) DEFAULT 'admin_only',  -- 管理者・システムのみアクセス可
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT chk_master_materials_question_ref CHECK (
-    (question_id IS NOT NULL AND sub_question_id IS NULL) OR
-    (question_id IS NULL AND sub_question_id IS NOT NULL)
-  )
-);
+-- name: InsertExerciseOCR :one
+INSERT INTO master_ocr_contents (
+  public_id, content_type, exam_id, uploader_id,
+  original_filename, stored_filename, file_size_bytes,
+  mime_type, storage_path, file_hash, ocr_text
+) VALUES (
+  $1, 'exercises', $2, $3, $4, $5, $6, $7, $8, $9, $10
+)
+RETURNING *;
 
-CREATE INDEX idx_master_materials_public_id ON master_materials(public_id);
-CREATE INDEX idx_master_materials_question_id ON master_materials(question_id);
-CREATE INDEX idx_master_materials_sub_question_id ON master_materials(sub_question_id);
-CREATE INDEX idx_master_materials_uploader_id ON master_materials(uploader_id);
-CREATE INDEX idx_master_materials_file_hash ON master_materials(file_hash);
-CREATE INDEX idx_master_materials_ocr_processed ON master_materials(ocr_processed);
-CREATE INDEX idx_master_materials_is_encrypted ON master_materials(is_encrypted);
-CREATE INDEX idx_master_materials_created_at ON master_materials(created_at DESC);
+-- name: InsertMaterialOCR :one
+INSERT INTO master_ocr_contents (
+  public_id, content_type, question_id, uploader_id,
+  original_filename, stored_filename, file_size_bytes,
+  mime_type, storage_path, file_hash, ocr_text
+) VALUES (
+  $1, 'material', $2, $3, $4, $5, $6, $7, $8, $9, $10
+)
+RETURNING *;
+
+-- name: GetOCRByExamID :many
+SELECT * FROM master_ocr_contents
+WHERE content_type = 'exercises' AND exam_id = $1 AND is_active = TRUE
+ORDER BY created_at DESC;
+
+-- name: GetOCRByQuestionID :many
+SELECT * FROM master_ocr_contents
+WHERE content_type = 'material' AND question_id = $1 AND is_active = TRUE
+ORDER BY created_at DESC;
+
+-- name: ExportAllOCRForLLM :many
+SELECT 
+  id, public_id, content_type,
+  COALESCE(exam_id::TEXT, question_id::TEXT, sub_question_id::TEXT) AS entity_id,
+  ocr_text, language_code, created_at
+FROM master_ocr_contents
+WHERE ocr_processed = TRUE AND is_active = TRUE
+ORDER BY created_at DESC;
+
+-- name: ExportExercisesOCRForLLM :many
+SELECT 
+  id, public_id, exam_id, ocr_text, language_code, created_at
+FROM master_ocr_contents
+WHERE content_type = 'exercises' 
+  AND ocr_processed = TRUE 
+  AND is_active = TRUE
+ORDER BY created_at DESC;
+
+-- name: ExportMaterialsOCRForLLM :many
+SELECT 
+  id, public_id, question_id, sub_question_id, ocr_text, language_code, created_at
+FROM master_ocr_contents
+WHERE content_type = 'material' 
+  AND ocr_processed = TRUE 
+  AND is_active = TRUE
+ORDER BY created_at DESC;
+
+-- name: SearchOCRByHash :one
+SELECT * FROM master_ocr_contents
+WHERE file_hash = $1 AND is_active = TRUE
+LIMIT 1;
+
+-- name: SearchOCRByTextFragment :many
+SELECT 
+  id, public_id, content_type,
+  COALESCE(exam_id::TEXT, question_id::TEXT, sub_question_id::TEXT) AS entity_id,
+  ocr_text, created_at
+FROM master_ocr_contents
+WHERE ocr_text ILIKE '%' || $1 || '%'
+  AND is_active = TRUE
+ORDER BY created_at DESC
+LIMIT 10;
 ```
 
-**設計注記:**
-- source_rawから改名（v7.1.0）
-- **物理DB分離**（v7.2.0）: `edumint_contents` → `edumint_contents_master`
-- **原本ファイル保存はedumintFilesが担当**: file_metadata参照、本テーブルはOCRテキストとメタデータのみ
-- **edumintFilesとの連携**: original_filename, stored_filenameは edumintFiles の file_metadata を参照
-- **OCRテキストの保存**: ocr_text フィールドにOCR処理結果を格納
-- OCR処理の入力元として使用
-- question_id または sub_question_id のいずれか必須
-- LLM学習データとして活用
-- ユーザーは**直接ダウンロード不可**
+**Goコード例:**
+
+```go
+// internal/db/dbgen/models.go (sqlc自動生成)
+type OcrContentTypeEnum string
+
+const (
+    OcrContentTypeEnumExercises OcrContentTypeEnum = "exercises"
+    OcrContentTypeEnumMaterial  OcrContentTypeEnum = "material"
+)
+
+func (e OcrContentTypeEnum) Valid() bool {
+    switch e {
+    case OcrContentTypeEnumExercises, OcrContentTypeEnumMaterial:
+        return true
+    }
+    return false
+}
+
+// internal/service/ocr_service.go
+func (s *OCRService) UploadExercise(ctx context.Context, req UploadExerciseRequest) error {
+    _, err := s.queries.InsertOCRContent(ctx, dbgen.InsertOCRContentParams{
+        PublicID:         req.PublicID,
+        ContentType:      dbgen.OcrContentTypeEnumExercises,  // ENUM型安全
+        ExamID:           uuid.NullUUID{UUID: req.ExamID, Valid: true},
+        UploaderID:       req.UploaderID,
+        OriginalFilename: req.Filename,
+        StoredFilename:   req.StoredFilename,
+        FileHash:         req.FileHash,
+        OcrText:          req.OCRText,
+        // bucket_nameは自動生成（'edumint-master-exercises'）
+    })
+    return err
+}
+```
+
+**TypeScriptコード例:**
+
+```typescript
+// types/ocr.ts
+export enum OCRContentType {
+  EXERCISES = 'exercises',
+  MATERIAL = 'material'
+}
+
+export interface UploadOCRRequest {
+  contentType: OCRContentType;
+  examId?: string;
+  questionId?: string;
+  file: File;
+}
+
+// api/ocr.ts
+export async function uploadOCRContent(req: UploadOCRRequest): Promise<OCRContentResponse> {
+  const formData = new FormData();
+  formData.append('content_type', req.contentType);  // ENUM値
+  formData.append('file', req.file);
+  
+  if (req.contentType === OCRContentType.EXERCISES && req.examId) {
+    formData.append('exam_id', req.examId);
+  }
+  
+  if (req.contentType === OCRContentType.MATERIAL && req.questionId) {
+    formData.append('question_id', req.questionId);
+  }
+  
+  const response = await fetch('/api/v1/ocr/upload', {
+    method: 'POST',
+    body: formData
+  });
+  
+  return response.json();
+}
+```
+
+**GCSバケット設計:**
+
+```yaml
+# GCSバケット名
+buckets:
+  - name: edumint-master-exercises  # 旧: edumint-master-exams
+    description: 演習問題OCRテキスト保存用（機密情報）
+    storage_class: STANDARD
+    lifecycle:
+      - action: SetStorageClass
+        storageClass: NEARLINE
+        age: 7
+  
+  - name: edumint-master-materials
+    description: 授業資料OCRテキスト保存用（機密情報）
+    storage_class: STANDARD
+    lifecycle:
+      - action: SetStorageClass
+        storageClass: NEARLINE
+        age: 7
+```
 
 ### 5.4 ログテーブル (DB分離設計)
 
