@@ -1732,8 +1732,6 @@ ORDER BY updated_at;
 
 ---
 
----
-
 ## **8. edumintSearch (検索サービス)**
 
 ### 設計変更点（v7.0.0）
