@@ -96,6 +96,10 @@
 *   **イベント駆動統合**: サービス間の協調は Kafka を通じたイベントで実現。
 *   **最終整合性**: ドメインサービス間のデータ同期は結果整合性（Eventual Consistency）を基本とする。ただし金銭取引（ウォレット）は強整合性を維持。
 *   **単一オーナーシップ**: 各テーブルの書き込み権限は、当該サービスのみ。他サービスは API または Kafka イベント経由で参照・反映。
+*   **責務分離の徹底**: 
+  *   **edumintFiles**: 原本ファイルの物理ストレージ管理に専念（PDF、画像等のバイナリデータ）
+  *   **edumintContents**: OCRテキストデータとコンテンツメタデータの管理に専念
+  *   両サービスはAPI/イベント駆動で連携し、各々の責務範囲を明確に分離
 *   **外部API非依存**: 全てのマスタデータは自前のDBで管理し、外部APIへの依存を排除（コスト・レイテンシ削減）。
 *   **ENUM型の積極採用**: 固定値の管理はPostgreSQL ENUM型を使用し、型安全性・パフォーマンス・可読性を向上させる。
 *   **グローバル対応**: 学問分野はUNESCO ISCED-F 2013（11大分類）に準拠し、国際標準に沿った設計とする。
@@ -124,7 +128,7 @@
 
 ### デプロイ段階
 
-*   **Phase 1 (MVP)**: edumintGateways, edumintUsers, edumintContents, edumintAiWorker, edumintSearch
+*   **Phase 1 (MVP)**: edumintGateways, edumintUsers, edumintContents, edumintFiles, edumintAiWorker, edumintSearch
 *   **Phase 2 (製品版)**: + edumintMonetizeWallet, edumintRevenue, edumintSocial, edumintModeration
 *   **Phase 3 (拡張版)**: + 多言語・推薦等
 
@@ -555,7 +559,7 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 | **edumintContents** | 試験・問題・統計・OCRテキスト管理 | `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, **`master_exams` (OCRテキストのみ), `master_materials` (OCRテキストのみ)**, **`subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates`**, **`ad_display_events`, `ad_viewing_history`**, `content_logs` (分離DB) | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
 | **edumintFiles** | ファイルストレージ管理 | `file_metadata`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `file.uploaded`, `file.encrypted` | `content.ocr`, `moderation.evidence` |
 | **edumintSearch** | 検索・インデックス（無状態化） | **Elasticsearch索引のみ（物理DB廃止）**, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle`, `content.interaction` via **Debezium CDC** |
-| **edumintAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `content.jobs`, `search.term_generation` |
+| **edumintAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `file.uploaded`, `content.ocr`, `search.term_generation` |
 | **edumintSocial** | SNS機能（投稿・コメント・DM・マッチング） | `user_posts`, `post_likes`, `post_comments`, `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages`, `dm_read_receipts`, `user_match_preferences`, `user_matches` | `social.activity` | `content.interaction` |
 | **edumintMonetizeWallet** | MintCoin管理 | `wallets`, `wallet_transactions`, `wallet_logs` (分離DB, 7年保持) | `monetization.transactions` | - |
 | **edumintRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions`, `content.interaction` |
@@ -2965,7 +2969,9 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 | `auth.events` | edumintUsers | 各サービス | `UserRegistered`, `UserLoggedIn`, `TokenRevoked` | 認証イベント通知 |
 | `user.events` | edumintUsers | 各サービス | `UserProfileUpdated`, `UserDeleted` | ユーザー情報変更通知 |
 | `content.lifecycle` | edumintContents | edumintSearch, edumintGateways | `ExamCreated`, `ExamPublished`, `ExamDeleted` | コンテンツライフサイクル |
-| `content.jobs` | edumintContents | edumintGateways, edumintAiWorker | `FileUploaded`, `OCRRequested` | ファイル処理要求 |
+| `content.ocr` | edumintContents | edumintAiWorker | `OCRRequested` | OCR処理要求 |
+| `file.uploaded` | edumintFiles | edumintContents, edumintAiWorker | `FileUploaded` | ファイルアップロード完了 |
+| `file.encrypted` | edumintFiles | edumintContents | `FileEncrypted` | ファイル暗号化完了 |
 | `ai.results` | edumintAiWorker | edumintContents, edumintGateways | `OCRCompleted`, `AIGenerationComplete` | AI処理結果 |
 | `gateway.jobs` | edumintGateways | 各サービス | `JobAssigned`, `JobCompleted` | ジョブオーケストレーション |
 | `gateway.job_status` | 各サービス | edumintGateways | `JobProgressUpdate`, `JobFailed` | ジョブステータス更新 |
@@ -2980,21 +2986,26 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 
 ### イベントフロー例
 
-#### **1. 試験アップロードフロー**
+#### **1. 試験アップロードフロー（v7.1.0更新）**
 
 ```
 [ユーザー] ファイルアップロード
    ↓
-[edumintContents] master_exams作成
-   ↓ (Kafka: content.jobs)
+[edumintFiles] file_metadata作成、GCSへ保存
+   ↓ (Kafka: file.uploaded)
 [edumintGateways] ジョブ作成 (job_type: 'file_upload')
    ↓ (Kafka: gateway.jobs)
-[edumintAiWorker] OCR処理実行
+[edumintAiWorker] OCR処理実行（edumintFilesからファイル取得）
    ↓ (Kafka: ai.results)
-[edumintContents] exams/questions作成
+[edumintContents] master_examsにOCRテキスト保存、exams/questions作成
    ↓ (Kafka: content.lifecycle)
 [edumintSearch] Elasticsearchインデックス更新（Debezium CDC経由）
 ```
+
+**ポイント:**
+- **責務分離**: edumintFilesが原本ファイル保存、edumintContentsがOCRテキスト管理
+- **イベント駆動**: file.uploadedイベントでファイルアップロード完了を通知
+- **API連携**: edumintAiWorkerはedumintFiles APIでファイル取得
 
 #### **2. ソーシャルフィードバックフロー（v7.0.2以前の旧パターン - 参考）**
 
@@ -3031,7 +3042,24 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 - リアルタイム性: Kafkaイベントで他サービスが即座に反応
 - 整合性: 定期バッチで統計を正確に集計
 
-#### **3. 収益分配フロー**
+#### **3. ファイル自動暗号化フロー（v7.1.0新規）**
+
+```
+[日次バッチ] 7日経過ファイル検出
+   ↓
+[edumintFiles] file_metadata暗号化処理（GCS）
+   ↓ (Kafka: file.encrypted)
+[edumintContents] master_exams/master_materials暗号化フラグ更新
+   ↓
+[edumintContents] OCRテキスト暗号化（DB）
+```
+
+**ポイント:**
+- **2段階暗号化**: 原本ファイル（edumintFiles）とOCRテキスト（edumintContents）を両方暗号化
+- **自動処理**: アップロード後7日経過で自動実行
+- **イベント連携**: file.encryptedイベントでedumintContentsに通知
+
+#### **4. 収益分配フロー**
 
 ```
 [日次バッチ] 広告インプレッション集計
