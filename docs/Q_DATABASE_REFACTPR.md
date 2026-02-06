@@ -63,7 +63,7 @@
 **サービス別設計編**
 
 4. [edumintUsers (統合ユーザー管理サービス)](#4-edumintusers-統合ユーザー管理サービス)
-5. [edumintContents (コンテンツ・ファイル統合管理サービス)](#5-edumintcontents-コンテンツファイル統合管理サービス)
+5. [edumintContents (コンテンツ・ファイル統合管理サービス)](#5-edumintcontents-コンテンツ・ファイル統合管理サービス)
 6. [edumintSearch (検索サービス)](#6-edumintsearch-検索サービス)
 7. [edumintAiWorker (AI処理サービス)](#7-edumintaiworker-ai処理サービス)
 8. [edumintSocial (ソーシャルサービス)](#8-edumintsocial-ソーシャルサービス)
