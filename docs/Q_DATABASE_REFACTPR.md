@@ -41,7 +41,7 @@
 
 **サービス別設計編**
 4. [edumintAuth (認証サービス)](#4-edumintauth-認証サービス)
-5. [edumintUserProfile (ユーザープロフィールサービス)](#5-edumin tuserprofile-ユーザープロフィールサービス)
+5. [edumintUserProfile (ユーザープロフィールサービス)](#5-edumintuserprofile-ユーザープロフィールサービス)
 6. [edumintContent (コンテンツ管理サービス)](#6-edumintcontent-コンテンツ管理サービス)
 7. [edumintFile (ファイル管理サービス)](#7-edumintfile-ファイル管理サービス)
 8. [edumintSearch (検索サービス)](#8-edumintsearch-検索サービス)
