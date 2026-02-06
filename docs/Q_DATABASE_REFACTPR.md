@@ -2857,7 +2857,7 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 [edumintSearch] Elasticsearch/PostgreSQLインデックス更新
 ```
 
-#### **2. ソーシャルフィードバックフロー**
+#### **2. ソーシャルフィードバックフロー（v7.0.2以前の旧パターン - 参考）**
 
 ```
 [ユーザー] 試験にいいね
@@ -2870,6 +2870,8 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
    ↓
 [edumintUserProfile] 通知作成 (ExamLiked)
 ```
+
+**注記:** v7.0.3では以下の新しいパターンに移行しました。
 
 #### **2. ユーザーインタラクションフロー（v7.0.3新規）**
 
@@ -3404,7 +3406,7 @@ CREATE INDEX idx_logical_delete_example_not_deleted
 - ユーザーデータ: `users`, `user_profiles`, `user_settings`
 - コンテンツデータ: `exams`, `questions`, `sub_questions`, `teachers`, `subjects`
 - トランザクションデータ: `wallet_transactions`, `revenue_reports`（法令保持義務あり）
-- ソーシャルデータ: `exam_likes`, `comments`, `follows`
+- ソーシャルデータ: `exam_comments`, `user_posts`, `dm_messages`
 
 **物理削除を適用すべきテーブル**:
 - ログデータ: 全ログテーブル（保持期間経過後の自動削除）
@@ -3504,19 +3506,19 @@ CREATE TABLE exams (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- edumintSocial.exam_likesテーブル（Social管理サービス）
-CREATE TABLE exam_likes (
+-- edumintContent.exam_interaction_eventsテーブル（v7.0.3: 統計情報管理）
+CREATE TABLE exam_interaction_events (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   exam_id UUID NOT NULL,                      -- edumintContent.examsを論理参照
-  user_id UUID NOT NULL,                      -- edumintAuth.usersを論理参照
-  -- exam_id, user_idにはFOREIGN KEY制約を設定しない（サービス境界を越えるため）
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(exam_id, user_id)
-);
+  user_id UUID,                               -- edumintAuth.usersを論理参照（NULL許可）
+  event_type VARCHAR(20) NOT NULL,            -- 'view', 'like', 'bad', etc.
+  -- exam_id, user_idにはFOREIGN KEY制約を設定しない（論理参照のため）
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
 
 -- インデックスは必須（外部キー制約がなくても）
-CREATE INDEX idx_exam_likes_exam_id ON exam_likes(exam_id);
-CREATE INDEX idx_exam_likes_user_id ON exam_likes(user_id);
+CREATE INDEX idx_exam_interaction_events_exam_id ON exam_interaction_events(exam_id);
+CREATE INDEX idx_exam_interaction_events_user_id ON exam_interaction_events(user_id);
 ```
 
 **同一サービス内の参照**:
@@ -3907,16 +3909,16 @@ WHERE id = $1;
 
 ```sql
 -- ❌ 禁止: サービス境界を越える物理FOREIGN KEY
--- edumintSocial.exam_likesテーブルで edumintContent.examsを参照
-CREATE TABLE exam_likes (
-  exam_id UUID REFERENCES edumint_content.exams(id),  -- 異なるDB、物理制約不可
+-- edumintContent.exam_interaction_eventsテーブルで edumintAuth.usersを参照
+CREATE TABLE exam_interaction_events (
+  user_id UUID REFERENCES edumint_auth.users(id),  -- 異なるDB、物理制約不可
 );
 
 -- ✅ 正しい: 論理参照のみ
-CREATE TABLE exam_likes (
-  exam_id UUID NOT NULL,  -- 論理参照のみ、制約なし
+CREATE TABLE exam_interaction_events (
+  user_id UUID,  -- 論理参照のみ、制約なし（NULL許可）
 );
-CREATE INDEX idx_exam_likes_exam_id ON exam_likes(exam_id);  -- インデックスは必須
+CREATE INDEX idx_exam_interaction_events_user_id ON exam_interaction_events(user_id);  -- インデックスは必須
 ```
 
 ##### **❌ ENUM型のVARCHAR代替（全面廃止）**
