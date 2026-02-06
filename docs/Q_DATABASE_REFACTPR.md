@@ -836,7 +836,7 @@ CREATE INDEX idx_user_profile_logs_action ON user_profile_logs(action, created_a
 ### 設計変更点（v7.1.0）
 
 **サービス名変更:**
-- edumintContents → **edumintContents** （複数形に統一）
+- edumintContent → **edumintContents** （複数形に統一）
 
 **ファイル管理機能統合:**
 - edumintFileサービスを廃止し、全機能をedumintContentsへ統合
