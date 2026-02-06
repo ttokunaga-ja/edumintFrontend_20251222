@@ -453,8 +453,7 @@ CREATE TYPE notification_type_enum AS ENUM (
 CREATE TYPE ad_display_stage_enum AS ENUM (
   'question_view',      -- 問題文閲覧時（未ログインOK）
   'answer_explanation', -- 解答・解説閲覧時（ログイン必須）
-  'pdf_download',       -- PDFダウンロード時（ログイン必須）
-  'markdown_download'   -- Markdownダウンロード時（ログイン必須）
+  'download',       -- PDFダウンロード時（ログイン必須）
 );
 ```
 
