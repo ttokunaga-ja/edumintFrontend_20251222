@@ -3236,6 +3236,1083 @@ gcloud alpha monitoring policies create   --notification-channels=CHANNEL_ID   -
 
 ---
 
+## **20. 可観測性・監査ログ設計**
+
+### 20.1 OpenTelemetryトレース実装（EduMint固有パターン）
+
+EduMintでは、試験アップロードから問題解析、ベクトル埋め込み生成、インデックス登録までの一連のフローを完全にトレースします。
+
+#### **カスタムSpan属性定義**
+
+```go
+// internal/observability/tracing.go
+package observability
+
+const (
+    // EduMint固有のSpan属性キー
+    AttrExamPublicID        = "edumint.exam.public_id"
+    AttrExamYear           = "edumint.exam.year"
+    AttrInstitutionName    = "edumint.institution.name"
+    AttrQuestionCount      = "edumint.question.count"
+    AttrVectorDimension    = "edumint.vector.dimension"
+    AttrEmbeddingModel     = "edumint.ai.embedding_model"
+    AttrSimilarityScore    = "edumint.search.similarity_score"
+    AttrUserRole           = "edumint.user.role"
+)
+
+// 試験処理フロー専用のトレースヘルパー
+type ExamFlowTracer struct {
+    serviceName string
+}
+
+func NewExamFlowTracer(svcName string) *ExamFlowTracer {
+    return &ExamFlowTracer{serviceName: svcName}
+}
+
+func (eft *ExamFlowTracer) StartExamUpload(ctx context.Context, examPublicID, institutionName string, year int32) (context.Context, trace.Span) {
+    tracer := otel.Tracer(eft.serviceName)
+    ctx, span := tracer.Start(ctx, "exam.upload.flow")
+    
+    span.SetAttributes(
+        attribute.String(AttrExamPublicID, examPublicID),
+        attribute.String(AttrInstitutionName, institutionName),
+        attribute.Int(AttrExamYear, int(year)),
+    )
+    
+    return ctx, span
+}
+
+func (eft *ExamFlowTracer) RecordVectorGeneration(span trace.Span, questionCount int, dimension int, modelName string) {
+    span.SetAttributes(
+        attribute.Int(AttrQuestionCount, questionCount),
+        attribute.Int(AttrVectorDimension, dimension),
+        attribute.String(AttrEmbeddingModel, modelName),
+    )
+    span.AddEvent("vector_embedding_generated")
+}
+```
+
+### 20.2 Prometheusカスタムメトリクス
+
+```go
+// internal/observability/metrics.go
+package observability
+
+import (
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+    // 試験アップロード処理時間（機関別）
+    ExamUploadDurationSeconds = promauto.NewHistogramVec(
+        prometheus.HistogramOpts{
+            Name:    "edumint_exam_upload_duration_seconds",
+            Help:    "Time taken to process exam upload by institution",
+            Buckets: []float64{1, 5, 10, 30, 60, 120, 300},
+        },
+        []string{"institution_type", "exam_year_category"},
+    )
+    
+    // ベクトル検索クエリ性能
+    VectorSearchPerformance = promauto.NewHistogramVec(
+        prometheus.HistogramOpts{
+            Name:    "edumint_vector_search_ms",
+            Help:    "Vector similarity search latency in milliseconds",
+            Buckets: []float64{1, 5, 10, 25, 50, 100, 250, 500},
+        },
+        []string{"search_type", "result_count"},
+    )
+    
+    // 問題生成AIワーカー状態
+    AIWorkerQueueDepth = promauto.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name: "edumint_ai_worker_queue_depth",
+            Help: "Number of pending AI processing jobs",
+        },
+        []string{"job_type", "priority"},
+    )
+    
+    // データベース接続プール使用率（サービス別）
+    DatabaseConnectionUtilization = promauto.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name: "edumint_db_connection_utilization_ratio",
+            Help: "Database connection pool utilization (0-1)",
+        },
+        []string{"service_name", "database_name"},
+    )
+)
+
+// メトリクス記録ヘルパー
+type MetricsRecorder struct{}
+
+func (mr *MetricsRecorder) RecordExamUpload(institutionType string, yearCategory string, durationSec float64) {
+    ExamUploadDurationSeconds.WithLabelValues(institutionType, yearCategory).Observe(durationSec)
+}
+
+func (mr *MetricsRecorder) RecordVectorSearch(searchType string, resultCount int, latencyMs float64) {
+    VectorSearchPerformance.WithLabelValues(searchType, fmt.Sprintf("%d", resultCount)).Observe(latencyMs)
+}
+```
+
+### 20.3 構造化ログ設計（EduMint監査要件）
+
+```go
+// internal/observability/audit_logger.go
+package observability
+
+import (
+    "context"
+    "log/slog"
+    "os"
+)
+
+// EduMint監査ログ専用構造
+type AuditEvent struct {
+    ActorUserID      string
+    ActorRole        string
+    ActionType       string
+    ResourceType     string
+    ResourceID       string
+    InstitutionID    string
+    BeforeSnapshot   map[string]interface{}
+    AfterSnapshot    map[string]interface{}
+    IPAddress        string
+    UserAgent        string
+    RequestTraceID   string
+    ResultStatus     string
+    ErrorDetails     string
+}
+
+// 監査ログ記録器
+type AuditLogger struct {
+    logger *slog.Logger
+}
+
+func NewAuditLogger() *AuditLogger {
+    handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+        Level: slog.LevelInfo,
+    })
+    
+    return &AuditLogger{
+        logger: slog.New(handler),
+    }
+}
+
+func (al *AuditLogger) LogExamModification(ctx context.Context, event AuditEvent) {
+    al.logger.InfoContext(ctx, "exam_modification",
+        slog.String("audit_category", "content_management"),
+        slog.String("actor_user_id", event.ActorUserID),
+        slog.String("actor_role", event.ActorRole),
+        slog.String("action", event.ActionType),
+        slog.String("resource_type", event.ResourceType),
+        slog.String("resource_id", event.ResourceID),
+        slog.String("institution_id", event.InstitutionID),
+        slog.Any("before_state", event.BeforeSnapshot),
+        slog.Any("after_state", event.AfterSnapshot),
+        slog.String("client_ip", event.IPAddress),
+        slog.String("trace_id", event.RequestTraceID),
+        slog.String("status", event.ResultStatus),
+    )
+}
+
+func (al *AuditLogger) LogAccessControl(ctx context.Context, userID, resourceType, resourceID, decision string) {
+    al.logger.InfoContext(ctx, "access_control_decision",
+        slog.String("audit_category", "security"),
+        slog.String("user_id", userID),
+        slog.String("resource_type", resourceType),
+        slog.String("resource_id", resourceID),
+        slog.String("decision", decision),
+    )
+}
+```
+
+### 20.4 BigQuery連携（日次監査ログエクスポート）
+
+#### **エクスポート専用SQL関数**
+
+```sql
+-- 監査ログBigQueryエクスポート用関数
+CREATE OR REPLACE FUNCTION export_audit_logs_for_date(target_date DATE)
+RETURNS TABLE (
+    log_id UUID,
+    event_timestamp TIMESTAMPTZ,
+    actor_user_id UUID,
+    action_type VARCHAR(100),
+    resource_type VARCHAR(50),
+    resource_id VARCHAR(100),
+    institution_id UUID,
+    before_state JSONB,
+    after_state JSONB,
+    status VARCHAR(20)
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        id,
+        timestamp,
+        user_id,
+        action,
+        resource_type,
+        resource_id,
+        institution_id,
+        before_state,
+        after_state,
+        status
+    FROM audit_logs
+    WHERE DATE(timestamp) = target_date
+    ORDER BY timestamp;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### **Cloud Functionエクスポート処理**
+
+```go
+// cloud_functions/audit_export/main.go
+package auditexport
+
+import (
+    "context"
+    "cloud.google.com/go/bigquery"
+    "github.com/jackc/pgx/v5/pgxpool"
+)
+
+type DailyAuditExporter struct {
+    pgPool  *pgxpool.Pool
+    bqClient *bigquery.Client
+}
+
+func (dae *DailyAuditExporter) ExportYesterdayLogs(ctx context.Context) error {
+    yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+    
+    // PostgreSQLから監査ログ取得
+    query := `SELECT * FROM export_audit_logs_for_date($1)`
+    rows, err := dae.pgPool.Query(ctx, query, yesterday)
+    if err != nil {
+        return fmt.Errorf("failed to query audit logs: %w", err)
+    }
+    defer rows.Close()
+    
+    // BigQueryへストリーミング挿入
+    tableName := fmt.Sprintf("audit_logs_%s", strings.ReplaceAll(yesterday, "-", ""))
+    inserter := dae.bqClient.Dataset("edumint_audit").Table(tableName).Inserter()
+    
+    var batchItems []*AuditLogBQSchema
+    for rows.Next() {
+        var item AuditLogBQSchema
+        // ... スキャン処理
+        batchItems = append(batchItems, &item)
+        
+        if len(batchItems) >= 500 {
+            if err := inserter.Put(ctx, batchItems); err != nil {
+                return fmt.Errorf("bigquery insert failed: %w", err)
+            }
+            batchItems = batchItems[:0]
+        }
+    }
+    
+    // 残りを挿入
+    if len(batchItems) > 0 {
+        if err := inserter.Put(ctx, batchItems); err != nil {
+            return fmt.Errorf("bigquery insert failed: %w", err)
+        }
+    }
+    
+    return nil
+}
+```
+
+---
+
+## **21. テスト・CI/CD設計**
+
+### 21.1 Testcontainersパターン（EduMint専用）
+
+```go
+// tests/integration/testhelpers/pg_container.go
+package testhelpers
+
+import (
+    "context"
+    "fmt"
+    "testing"
+    "time"
+    
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/testcontainers/testcontainers-go"
+    "github.com/testcontainers/testcontainers-go/modules/postgres"
+    "github.com/testcontainers/testcontainers-go/wait"
+)
+
+type EduMintTestDatabase struct {
+    container testcontainers.Container
+    pool      *pgxpool.Pool
+    connStr   string
+}
+
+func SetupEduMintTestDB(t *testing.T) *EduMintTestDatabase {
+    ctx := context.Background()
+    
+    // PostgreSQL 18.1 + pgvector有効化
+    pgContainer, err := postgres.RunContainer(ctx,
+        testcontainers.WithImage("pgvector/pgvector:pg18"),
+        postgres.WithDatabase("edumint_test"),
+        postgres.WithUsername("test_user"),
+        postgres.WithPassword("test_pass"),
+        testcontainers.WithWaitStrategy(
+            wait.ForLog("database system is ready").WithOccurrence(2).WithStartupTimeout(60*time.Second),
+        ),
+    )
+    if err != nil {
+        t.Fatalf("Could not start postgres container: %v", err)
+    }
+    
+    connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
+    if err != nil {
+        t.Fatalf("Could not get connection string: %v", err)
+    }
+    
+    // 接続プール作成
+    pool, err := pgxpool.New(ctx, connStr)
+    if err != nil {
+        t.Fatalf("Could not create pool: %v", err)
+    }
+    
+    // pgvector拡張を有効化
+    _, err = pool.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS vector")
+    if err != nil {
+        t.Fatalf("Could not enable pgvector: %v", err)
+    }
+    
+    // Atlasマイグレーション適用
+    if err := applyAtlasMigrations(t, connStr); err != nil {
+        t.Fatalf("Migration failed: %v", err)
+    }
+    
+    return &EduMintTestDatabase{
+        container: pgContainer,
+        pool:      pool,
+        connStr:   connStr,
+    }
+}
+
+func (etd *EduMintTestDatabase) Cleanup() {
+    ctx := context.Background()
+    etd.pool.Close()
+    etd.container.Terminate(ctx)
+}
+
+func (etd *EduMintTestDatabase) SeedTestData(t *testing.T) {
+    ctx := context.Background()
+    
+    // テスト用機関データ
+    _, err := etd.pool.Exec(ctx, `
+        INSERT INTO institutions (id, public_id, name_main, institution_type)
+        VALUES (uuidv7(), 'INST0001', '東京テスト大学', 'university')
+    `)
+    if err != nil {
+        t.Fatalf("Failed to seed test data: %v", err)
+    }
+}
+```
+
+#### **統合テスト実装例**
+
+```go
+// tests/integration/question_repository_test.go
+package integration_test
+
+import (
+    "context"
+    "testing"
+    
+    "github.com/pgvector/pgvector-go"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+func TestQuestionRepository_VectorSearch(t *testing.T) {
+    // テストDB準備
+    testDB := testhelpers.SetupEduMintTestDB(t)
+    defer testDB.Cleanup()
+    
+    testDB.SeedTestData(t)
+    
+    repo := NewQuestionRepository(testDB.pool)
+    ctx := context.Background()
+    
+    // テストデータ: ベクトル埋め込み付き問題を作成
+    embedding1 := make([]float32, 1536)
+    for i := range embedding1 {
+        embedding1[i] = 0.1
+    }
+    
+    q1, err := repo.CreateWithEmbedding(ctx, CreateQuestionParams{
+        PublicID:         "Q0000001",
+        ExamID:           testExamID,
+        QuestionText:     "物理学の運動方程式について説明せよ",
+        ContentEmbedding: pgvector.NewVector(embedding1),
+        SortOrder:        1,
+    })
+    require.NoError(t, err)
+    
+    // 類似ベクトルで検索
+    queryVector := make([]float32, 1536)
+    for i := range queryVector {
+        queryVector[i] = 0.11 // わずかに異なるベクトル
+    }
+    
+    results, err := repo.SearchSimilarByVector(ctx, SearchParams{
+        QueryVector: pgvector.NewVector(queryVector),
+        Limit:       5,
+    })
+    
+    require.NoError(t, err)
+    assert.Len(t, results, 1)
+    assert.Equal(t, q1.PublicID, results[0].PublicID)
+    assert.Greater(t, results[0].SimilarityScore, float64(0.95))
+}
+```
+
+### 21.2 E2Eテストフレームワーク
+
+```go
+// tests/e2e/framework/edumint_test_env.go
+package framework
+
+type EduMintE2EEnvironment struct {
+    APIBaseURL     string
+    TestUserToken  string
+    AdminToken     string
+    TestInstitutionID string
+    CleanupFuncs   []func()
+}
+
+func NewE2EEnvironment(t *testing.T) *EduMintE2EEnvironment {
+    baseURL := os.Getenv("E2E_API_URL")
+    if baseURL == "" {
+        baseURL = "http://localhost:8080"
+    }
+    
+    env := &EduMintE2EEnvironment{
+        APIBaseURL:   baseURL,
+        CleanupFuncs: make([]func(), 0),
+    }
+    
+    // テストユーザー認証
+    env.TestUserToken = env.authenticateTestUser("e2e_user@test.edumint.jp", "test_password_123")
+    env.AdminToken = env.authenticateTestUser("admin@test.edumint.jp", "admin_password_456")
+    
+    // テスト機関作成
+    env.TestInstitutionID = env.createTestInstitution("E2Eテスト大学")
+    
+    return env
+}
+
+func (env *EduMintE2EEnvironment) CleanupAll() {
+    for _, cleanup := range env.CleanupFuncs {
+        cleanup()
+    }
+}
+
+func (env *EduMintE2EEnvironment) CreateExamWithQuestions(t *testing.T, examYear int32, questionCount int) string {
+    // 試験作成APIリクエスト
+    examPayload := map[string]interface{}{
+        "institution_id": env.TestInstitutionID,
+        "exam_year":      examYear,
+        "status":         "draft",
+    }
+    
+    examResp := env.postJSON("/api/v1/exams", examPayload, env.TestUserToken)
+    require.Equal(t, http.StatusCreated, examResp.StatusCode)
+    
+    var examData map[string]interface{}
+    json.NewDecoder(examResp.Body).Decode(&examData)
+    examID := examData["exam_id"].(string)
+    
+    // クリーンアップ登録
+    env.CleanupFuncs = append(env.CleanupFuncs, func() {
+        env.deleteJSON(fmt.Sprintf("/api/v1/exams/%s", examID), env.AdminToken)
+    })
+    
+    // 問題追加
+    for i := 0; i < questionCount; i++ {
+        questionPayload := map[string]interface{}{
+            "exam_id":       examID,
+            "question_text": fmt.Sprintf("テスト問題 %d", i+1),
+            "sort_order":    i + 1,
+        }
+        
+        questionResp := env.postJSON("/api/v1/questions", questionPayload, env.TestUserToken)
+        require.Equal(t, http.StatusCreated, questionResp.StatusCode)
+    }
+    
+    return examID
+}
+```
+
+### 21.3 CI/CDパイプライン（完全版）
+
+```yaml
+# .github/workflows/edumint_pipeline.yml
+name: EduMint Database CI/CD
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+    branches: [main, develop]
+
+env:
+  GO_VERSION: '1.23.6'
+  ATLAS_CLI_VERSION: '0.20.0'
+  SQLC_VERSION: 'v1.26.0'
+  POSTGRES_IMAGE: 'pgvector/pgvector:pg18'
+
+jobs:
+  database-schema-validation:
+    name: スキーマ検証
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Atlas CLI Setup
+        run: |
+          curl -sSf https://atlasgo.sh | sh -s -- --version ${ATLAS_CLI_VERSION}
+      
+      - name: HCLスキーマ構文チェック
+        run: |
+          atlas schema inspect             --env local             --url "file://internal/db/schema"
+      
+      - name: 破壊的変更検出
+        run: |
+          atlas migrate lint             --env production             --dev-url "docker://postgres/18.1"             --latest 1
+  
+  sqlc-generation-check:
+    name: sqlc生成確認
+    runs-on: ubuntu-latest
+    needs: database-schema-validation
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Install sqlc
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
+      
+      - name: Generate & Verify
+        run: |
+          sqlc generate
+          git diff --exit-code internal/db/dbgen/
+      
+      - name: Go Build Check
+        run: |
+          go build ./internal/db/dbgen/...
+  
+  unit-tests:
+    name: ユニットテスト
+    runs-on: ubuntu-latest
+    needs: sqlc-generation-check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Run Unit Tests
+        run: |
+          go test -v -race -coverprofile=unit_coverage.out             -covermode=atomic             ./internal/service/...             ./internal/api/...
+      
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./unit_coverage.out
+          flags: unittests
+  
+  integration-tests:
+    name: 統合テスト（Testcontainers）
+    runs-on: ubuntu-latest
+    needs: sqlc-generation-check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Run Integration Tests
+        run: |
+          go test -v -tags=integration             -coverprofile=integration_coverage.out             ./tests/integration/...
+        env:
+          TESTCONTAINERS_POSTGRES_IMAGE: ${{ env.POSTGRES_IMAGE }}
+      
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./integration_coverage.out
+          flags: integration
+  
+  e2e-tests:
+    name: E2Eテスト
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: Start Services (Docker Compose)
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          sleep 10
+      
+      - name: Run E2E Tests
+        run: |
+          go test -v -tags=e2e ./tests/e2e/...
+        env:
+          E2E_API_URL: http://localhost:8080
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          docker-compose -f docker-compose.test.yml down -v
+```
+
+---
+
+## **22. Goインテグレーション**
+
+### 22.1 推奨プロジェクト構成
+
+```
+edumintContent/
+├── cmd/
+│   └── api/
+│       └── main.go                     # エントリーポイント
+├── internal/
+│   ├── api/
+│   │   ├── handlers/
+│   │   │   ├── exam_handler.go        # 試験APIハンドラー
+│   │   │   └── question_handler.go
+│   │   ├── middleware/
+│   │   │   ├── auth_middleware.go
+│   │   │   └── tracing_middleware.go
+│   │   └── router/
+│   │       └── router.go               # ルーティング定義
+│   ├── service/
+│   │   ├── exam_service.go             # ビジネスロジック
+│   │   └── question_service.go
+│   ├── db/
+│   │   ├── schema/                     # Atlas HCLスキーマ
+│   │   ├── queries/                    # sqlcクエリ
+│   │   ├── migrations/                 # Atlasマイグレーション
+│   │   └── dbgen/                      # sqlc自動生成
+│   ├── domain/
+│   │   └── entities/                   # ドメインエンティティ
+│   └── observability/
+│       ├── tracing.go
+│       ├── metrics.go
+│       └── logging.go
+├── tests/
+│   ├── integration/
+│   └── e2e/
+├── atlas.hcl
+├── sqlc.yaml
+├── go.mod
+└── Makefile
+```
+
+### 22.2 依存関係管理（go.mod）
+
+```go
+module github.com/edumint/edumint-content
+
+go 1.23
+
+require (
+    // データベース
+    github.com/jackc/pgx/v5 v5.5.5
+    github.com/pgvector/pgvector-go v0.1.1
+    
+    // HTTP/ルーティング
+    github.com/go-chi/chi/v5 v5.0.12
+    github.com/go-chi/cors v1.2.1
+    
+    // 可観測性
+    go.opentelemetry.io/otel v1.24.0
+    go.opentelemetry.io/otel/sdk v1.24.0
+    go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
+    github.com/prometheus/client_golang v1.19.0
+    
+    // テスト
+    github.com/stretchr/testify v1.9.0
+    github.com/testcontainers/testcontainers-go v0.29.1
+    github.com/testcontainers/testcontainers-go/modules/postgres v0.29.1
+    
+    // その他
+    github.com/google/uuid v1.6.0
+    github.com/matoous/go-nanoid/v2 v2.0.0
+)
+```
+
+### 22.3 クリーンアーキテクチャ実装
+
+```go
+// internal/service/exam_orchestrator.go
+package service
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/edumint/edumint-content/internal/db/dbgen"
+    "github.com/edumint/edumint-content/internal/observability"
+)
+
+// ExamOrchestrator: 試験処理の統合オーケストレーター
+type ExamOrchestrator struct {
+    dbQueries *dbgen.Queries
+    tracer    *observability.ExamFlowTracer
+    metrics   *observability.MetricsRecorder
+    auditLog  *observability.AuditLogger
+}
+
+func NewExamOrchestrator(
+    queries *dbgen.Queries,
+    tracer *observability.ExamFlowTracer,
+    metrics *observability.MetricsRecorder,
+    auditLog *observability.AuditLogger,
+) *ExamOrchestrator {
+    return &ExamOrchestrator{
+        dbQueries: queries,
+        tracer:    tracer,
+        metrics:   metrics,
+        auditLog:  auditLog,
+    }
+}
+
+// CreateExamWithQuestions: トランザクション内で試験と問題を一括作成
+func (eo *ExamOrchestrator) CreateExamWithQuestions(
+    ctx context.Context,
+    req CreateExamRequest,
+) (*ExamCreationResult, error) {
+    
+    startTime := time.Now()
+    
+    // トレーシング開始
+    ctx, span := eo.tracer.StartExamUpload(ctx, req.PublicID, req.InstitutionName, req.ExamYear)
+    defer span.End()
+    
+    // トランザクション開始
+    tx, err := eo.dbQueries.BeginTx(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("transaction start failed: %w", err)
+    }
+    defer tx.Rollback(ctx)
+    
+    qtx := eo.dbQueries.WithTx(tx)
+    
+    // 試験作成
+    exam, err := qtx.InsertExam(ctx, dbgen.InsertExamParams{
+        PublicID:      req.PublicID,
+        InstitutionID: req.InstitutionID,
+        SubjectID:     req.SubjectID,
+        ExamYear:      req.ExamYear,
+        Status:        dbgen.ExamStatusEnumDraft,
+    })
+    if err != nil {
+        span.RecordError(err)
+        return nil, fmt.Errorf("exam insertion failed: %w", err)
+    }
+    
+    // 問題一括挿入
+    questionIDs := make([]string, 0, len(req.Questions))
+    for idx, q := range req.Questions {
+        question, err := qtx.InsertQuestion(ctx, dbgen.InsertQuestionParams{
+            PublicID:     q.PublicID,
+            ExamID:       exam.ID,
+            QuestionText: q.Text,
+            SortOrder:    int32(idx + 1),
+        })
+        if err != nil {
+            span.RecordError(err)
+            return nil, fmt.Errorf("question insertion failed at index %d: %w", idx, err)
+        }
+        questionIDs = append(questionIDs, question.ID.String())
+    }
+    
+    // 監査ログ記録
+    eo.auditLog.LogExamModification(ctx, observability.AuditEvent{
+        ActorUserID:  req.ActorUserID,
+        ActorRole:    req.ActorRole,
+        ActionType:   "exam.created",
+        ResourceType: "exam",
+        ResourceID:   exam.PublicID,
+        InstitutionID: req.InstitutionID,
+        AfterSnapshot: map[string]interface{}{
+            "exam_id":        exam.ID,
+            "question_count": len(questionIDs),
+            "exam_year":      req.ExamYear,
+        },
+        ResultStatus: "success",
+    })
+    
+    // コミット
+    if err := tx.Commit(ctx); err != nil {
+        return nil, fmt.Errorf("transaction commit failed: %w", err)
+    }
+    
+    // メトリクス記録
+    duration := time.Since(startTime).Seconds()
+    eo.metrics.RecordExamUpload(req.InstitutionType, fmt.Sprintf("year_%d", req.ExamYear), duration)
+    
+    return &ExamCreationResult{
+        ExamID:       exam.ID.String(),
+        ExamPublicID: exam.PublicID,
+        QuestionIDs:  questionIDs,
+    }, nil
+}
+```
+
+---
+
+## **23. AIエージェント協働**
+
+### 23.1 AIコード生成プロンプトテンプレート
+
+#### **sqlcクエリ生成プロンプト**
+
+```markdown
+# EduMint専用sqlcクエリ生成依頼
+
+## コンテキスト
+- プロジェクト: EduMint（教育コンテンツ管理プラットフォーム）
+- データベース: PostgreSQL 18.1 + pgvector 0.8
+- 主キー: uuidv7()を使用（gen_random_uuid()禁止）
+- ドライバー: pgx/v5
+
+## テーブル定義
+```sql
+CREATE TABLE exam_analytics (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    public_id VARCHAR(8) NOT NULL UNIQUE,
+    exam_id UUID NOT NULL REFERENCES exams(id),
+    view_count INTEGER DEFAULT 0,
+    like_count INTEGER DEFAULT 0,
+    comment_count INTEGER DEFAULT 0,
+    avg_similarity_score DECIMAL(5,4),
+    last_viewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## 生成要件
+1. クエリ名: GetExamAnalyticsWithTrend
+2. 機能: 試験IDから分析データを取得し、過去7日間との比較トレンドを計算
+3. パラメータ:
+   - exam_id (UUID)
+   - comparison_days (INTEGER, デフォルト7)
+4. 返り値:
+   - 現在の分析データ全カラム
+   - 過去比較期間のview_count平均
+   - トレンド（増加率）
+5. 注意事項:
+   - ウィンドウ関数を使用してパフォーマンス最適化
+   - NULL値の適切な処理
+
+## 出力形式
+sqlc annotation付きSQL（-- name: で開始）
+```
+
+#### **Atlas HCL生成プロンプト**
+
+```markdown
+# EduMint専用Atlas HCLスキーマ生成依頼
+
+## テーブル要件
+テーブル名: question_collaboration
+目的: 複数教員による問題共同編集の履歴管理
+
+## カラム定義
+1. id: UUID, uuidv7()デフォルト, PRIMARY KEY
+2. public_id: VARCHAR(8), NOT NULL, UNIQUE
+3. question_id: UUID, NOT NULL, 外部キー questions(id), CASCADE削除
+4. collaborator_user_id: UUID, NOT NULL, 外部キー users(id)
+5. contribution_type: ENUM('original_author', 'reviewer', 'editor'), NOT NULL
+6. contributed_at: TIMESTAMPTZ, デフォルトCURRENT_TIMESTAMP
+7. contribution_note: TEXT, NULL許可
+8. is_active: BOOLEAN, デフォルトtrue
+
+## インデックス要件
+1. B-tree: (question_id, contributed_at DESC)
+2. B-tree: (collaborator_user_id, is_active)
+3. 複合UNIQUE: (question_id, collaborator_user_id, contribution_type)
+
+## 制約
+- contribution_typeは定義されたENUM値のみ
+- collaborator_user_idは問題作成者と異なる必要がある（CHECK制約）
+
+## 出力形式
+Atlas HCL v2構文
+```
+
+### 23.2 AIコードレビューチェックリスト
+
+```markdown
+# EduMintデータベースコード変更レビューチェックリスト
+
+## 1. スキーマ設計（Atlas HCL）
+- [ ] 主キーにuuidv7()を使用（gen_random_uuid()使用禁止）
+- [ ] public_idカラムはVARCHAR(8) + UNIQUE制約
+- [ ] 外部キー制約にON DELETE/UPDATE句を明示
+- [ ] ENUM型定義が適切（値が明確、拡張可能）
+- [ ] タイムスタンプカラムはTIMESTAMPTZ型使用
+- [ ] ベクトルカラムはvector(1536)で統一
+
+## 2. インデックス設計
+- [ ] 主キー以外の検索条件カラムにインデックス作成
+- [ ] 外部キーカラムにインデックス作成
+- [ ] 複合インデックスのカラム順が適切（カーディナリティ順）
+- [ ] ベクトル検索用HNSWインデックスのパラメータ最適化
+- [ ] 全文検索用GINインデックスの適切な設定
+
+## 3. sqlcクエリ
+- [ ] クエリ名が明確（動詞+対象形式: GetExamByID）
+- [ ] パラメータの型指定が正確（::vector, ::uuid）
+- [ ] LIMIT句はハードコード禁止（パラメータ化必須）
+- [ ] JOIN使用時のN+1問題回避を確認
+- [ ] トランザクション境界が適切
+
+## 4. Goコード
+- [ ] context.Contextを第一引数に使用
+- [ ] エラーは必ずfmt.Errorfでラップ
+- [ ] pgvector.Vectorの適切な使用
+- [ ] ENUM型のValid()メソッド呼び出し
+- [ ] データベース接続プールの適切な管理
+
+## 5. セキュリティ
+- [ ] SQLインジェクション対策（バインド変数使用）
+- [ ] 個人情報カラムの暗号化検討
+- [ ] IAM権限が最小権限原則に準拠
+- [ ] 監査ログに全変更を記録
+
+## 6. パフォーマンス
+- [ ] EXPLAIN ANALYZEでクエリプラン確認
+- [ ] インデックスが実際に使用されることを確認
+- [ ] N+1問題の回避
+- [ ] 適切なページネーション実装
+
+## 7. テスト
+- [ ] Testcontainersで統合テスト実装
+- [ ] ベクトル検索の精度テスト
+- [ ] トランザクション挙動の検証
+- [ ] エラーハンドリングの網羅的テスト
+```
+
+### 23.3 AI協働開発フロー
+
+```mermaid
+graph TD
+    A[要件定義] -->|AIに依頼| B[スキーマ設計案生成]
+    B --> C[人間レビュー]
+    C -->|修正指示| B
+    C -->|承認| D[Atlas HCL実装]
+    D -->|AIに依頼| E[sqlcクエリ生成]
+    E --> F[人間レビュー]
+    F -->|修正指示| E
+    F -->|承認| G[Goサービス実装]
+    G -->|AIに依頼| H[テストコード生成]
+    H --> I[人間レビュー]
+    I -->|修正指示| H
+    I -->|承認| J[CI/CD実行]
+    J --> K{テスト結果}
+    K -->|失敗| L[AIに分析依頼]
+    L --> M[修正実装]
+    M --> J
+    K -->|成功| N[デプロイ]
+```
+
+### 23.4 AIペアプログラミングパターン
+
+#### **パターン1: スキーマ拡張**
+
+```
+開発者: 「教員の資格情報を管理する新しいテーブルが必要です。
+         Atlas HCLで teacher_certifications テーブルを設計してください。
+         
+         要件:
+         - 教員IDとの1:N関係
+         - 資格名、取得日、有効期限
+         - 有効期限切れ検出用のインデックス」
+
+AI: [Atlas HCL生成]
+
+開発者: [レビュー] 「有効期限のCHECK制約を追加してください」
+
+AI: [修正版生成]
+
+開発者: [承認] 「次に、このテーブルのCRUD操作用sqlcクエリを生成してください」
+```
+
+#### **パターン2: クエリ最適化**
+
+```
+開発者: 「このクエリが遅いです。EXPLAIN ANALYZEの結果を添付します。
+         [結果貼り付け]
+         
+         最適化案を提示してください。」
+
+AI: [分析結果 + 最適化されたクエリ案]
+
+開発者: [新しいクエリでベンチマーク] 「5倍高速化しました。ありがとう」
+```
+
+#### **パターン3: テスト補完**
+
+```
+開発者: 「このサービスメソッドのテストケースが不足しています。
+         [コード貼り付け]
+         
+         エッジケースを網羅したテストを追加してください。」
+
+AI: [テストケース生成]
+    - 正常系
+    - 異常系（存在しないID）
+    - 境界値（空文字列、NULL）
+    - 並行実行
+    - トランザクションロールバック
+
+開発者: [テスト実行] 「全てパスしました」
+```
+
+---
+
+**本ドキュメントの終わり**
+
+---
+
 **本ドキュメントの終わり**
 
 ---
@@ -3246,17 +4323,35 @@ gcloud alpha monitoring policies create   --notification-channels=CHANNEL_ID   -
 
 **v7.0.1 主要変更点のまとめ:**
 1. 禁止ツール・ライブラリリスト追加（セクション2）
+   - golang-migrate, Echo v4, lib/pq, GORM, gen_random_uuid(), fmt.Println()等を明示的に禁止
+   - Atlas, sqlc, pgx/v5, slog等の推奨ツールを明記
 2. pgvector + HNSWインデックス完全設計（セクション17）
+   - 1536次元ベクトル設計、HNSWパラメータチューニング
+   - pgvector.NewVector統合、sqlcクエリ例、Atlas HCL定義
 3. Atlas HCL + sqlcワークフロー統合（セクション18）
+   - ディレクトリ構成標準、atlas.hcl完全設定
+   - ENUM型完全自動化、開発ワークフロー、CI/CD統合
 4. Cloud SQL運用設定・IAM認証パターン（セクション19）
-5. 可観測性・監査ログ設計追加（セクション20 - 次の更新で追加予定）
-6. テスト・CI/CD設計（セクション21 - 次の更新で追加予定）
-7. Goインテグレーションパターン（セクション22 - 次の更新で追加予定）
-8. AIエージェント協働ガイド（セクション23 - 次の更新で追加予定）
+   - 推奨パラメータ設定、IAM最小権限例
+   - Doppler統合、Go接続プール設定、監視アラート
+5. 可観測性・監査ログ設計（セクション20）
+   - OpenTelemetryトレース（EduMint固有Span属性）
+   - Prometheusカスタムメトリクス、構造化監査ログ
+   - BigQuery連携による日次ログエクスポート
+6. テスト・CI/CD設計（セクション21）
+   - Testcontainersパターン、E2Eテストフレームワーク
+   - Atlas Lint + sqlc検証 + 統合テストの完全パイプライン
+7. Goインテグレーションパターン（セクション22）
+   - プロジェクト構成標準、依存関係管理
+   - クリーンアーキテクチャ実装例
+8. AIエージェント協働ガイド（セクション23）
+   - AIコード生成プロンプトテンプレート
+   - コードレビューチェックリスト、AI協働開発フロー
 
 **v7.0.0からの継続:**
-- UUID + NanoID主キー設計（uuidv7()統一）
-- マイクロサービス別章立て
+- UUID + NanoID主キー設計（uuidv7()統一、gen_random_uuid()全廃止）
+- マイクロサービス別章立て（セクション4-14）
 - ログテーブル物理DB分離設計
+- ENUM型厳格化、外部API非依存設計
 
 この設計書は、EduMintのプレリリース前の初期DB構築を前提としています。本番稼働後の変更は、適切なマイグレーション戦略と共に実施してください。
