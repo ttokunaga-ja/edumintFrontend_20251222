@@ -5,6 +5,14 @@
 **最終更新日: 2026-02-07**
 
 **v7.4.1 主要更新:**
+- **段階的コンテンツ開示機能**: 大問1全文+大問2以降構造のみ表示、広告視聴後に全文解除
+- **広告配信制御強化**: 外部要因対応（MVP期間、広告障害、キャンペーン）のad_delivery_configテーブル新設
+- **ユーザー広告免除設定**: 新規ユーザー判定（登録後7日間）、MintCoin自動使用のuser_ad_exemptionsテーブル新設
+- **コンテンツ解除トークン管理**: JWT署名・不正防止のcontent_unlock_tokensテーブル新設
+- **Redis戦略導入**: 広告配信ステータス、ユーザー免除設定、トークン検証のキャッシュ層（TTL: 60秒〜300秒）
+- **レート制限実装**: コンテンツアクセス（10回/時）、トークン発行（5回/時）、広告視聴完了（5回/分）
+- **不正防止戦略**: トークン再利用防止、改竄検出、異常アクセスパターン検出
+- **API設計追加**: 初期表示API、広告視聴完了API、コンテンツ解除API（section 22.7-22.9）
 - **ENUM型の徹底化**: 高優先度・中優先度のENUM型を全面導入（IdPプロバイダー、マッチングタイプ、トークンタイプ、投稿タイプ、通報理由など）
 - **IdPプロバイダー拡張**: Meta系サービス（Facebook、Instagram）追加、電話番号認証対応IdPを優先採用
 - **マッチングタイプ拡張**: 友達探し、先輩/後輩探し、恋人探し等の新規タイプ追加
@@ -17,6 +25,7 @@
 - **exams テーブル修正**: 
   - `master_ocr_content_id UUID UNIQUE` 追加（1対1関係）
   - `file_input_id` 削除（master_ocr_contents経由でファイル追跡）
+- **usersテーブル更新**: `registration_completed_at TIMESTAMPTZ` 追加（新規ユーザー判定用）
 - **既存テーブルのENUM型適用**: oauth_tokens, idp_links, user_posts, dm_conversations, user_matches, content_reports, user_reports, revenue_reports, copyright_claims 等
 
 **v7.4.0 主要更新:**
