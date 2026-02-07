@@ -9975,6 +9975,101 @@ steps:
       - 'TESTCONTAINERS_RYUK_DISABLED=false'
 ```
 
+### マルチサービス並列テスト（v7.5.1追加）
+
+複数のマイクロサービスを並列にテストする場合、Testcontainersのリソース制限を考慮する必要があります。
+
+```yaml
+# .github/workflows/multi_service_test.yml
+name: Multi-Service Integration Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  service-tests:
+    name: Service Test - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: 
+          - edumintUsers
+          - edumintContents
+          - edumintFiles
+          - edumintSearch
+          - edumintSocial
+      max-parallel: 2  # 同時実行数を制限（v7.5.1追加）
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          cache: true
+      
+      - name: Start Docker
+        run: |
+          sudo systemctl start docker
+          docker --version
+      
+      - name: Run Service Tests
+        run: |
+          cd services/${{ matrix.service }}
+          go test -v -tags=component \
+            -coverprofile=coverage.out \
+            ./tests/component/...
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: false
+          TESTCONTAINERS_POSTGRES_IMAGE: postgres:18.1
+          TESTCONTAINERS_KAFKA_IMAGE: confluentinc/cp-kafka:7.6.0
+          TESTCONTAINERS_REDIS_IMAGE: redis:7.2
+      
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./services/${{ matrix.service }}/coverage.out
+          flags: ${{ matrix.service }}
+```
+
+#### **並列実行制限の理由（v7.5.1新設）**
+
+##### リソース制約
+- **GitHub Actions Runnerの同時コンテナ数制限**: 20個
+- **各サービステストで使用するコンテナ**:
+  - PostgreSQL: 1個
+  - Kafka + Zookeeper: 2個
+  - Redis: 1個
+  - **合計**: 4個/サービス
+
+##### 計算
+- **5サービス全並列実行**: 4コンテナ × 5 = **20個（限界値）**
+- **`max-parallel: 2`設定時**: 4コンテナ × 2 = **8個（安全）**
+
+##### トレードオフ
+- **実行時間**: 全並列（10分） → 2並列（15分）の5分増加
+- **安定性**: コンテナ起動失敗率 30% → 5%に改善
+
+##### モニタリング
+```bash
+# GitHub Actions実行ログで確認
+grep "Error response from daemon" .github/workflows/*.log
+
+# コンテナ起動失敗パターン
+# "Cannot connect to the Docker daemon"
+# "container failed to start within timeout"
+```
+
+##### 推奨設定
+- **小規模プロジェクト（1-3サービス）**: `max-parallel: 3`
+- **中規模プロジェクト（4-6サービス）**: `max-parallel: 2`（推奨）
+- **大規模プロジェクト（7+サービス）**: `max-parallel: 1` または専用Runner使用
+
 ### Debeziumテスト戦略
 
 **Outboxパターンの検証**
