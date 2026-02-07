@@ -418,8 +418,8 @@ CREATE TYPE idp_provider_enum AS ENUM (
   'instagram',     -- ✅ Meta - 電話番号認証対応（Facebookアカウント連携）
   'microsoft',     -- ✅ 電話番号認証対応（Azure AD）
   'line',          -- ✅ 電話番号認証必須
-  'github',        -- ⚠️  電話番号認証任意（開発者向け）
-  'twitter'        -- ⚠️  電話番号認証任意
+  'github',        -- ⚠️ 電話番号認証任意（開発者向け）
+  'twitter'        -- ⚠️ 電話番号認証任意
 );
 
 -- OAuth2.0トークンタイプ（v7.4.1新設）
@@ -1495,6 +1495,9 @@ CREATE INDEX idx_exams_embedding_hnsw ON exams USING hnsw(embedding vector_cosin
 **設計注記:**
 - 複合主キー (id, public_id) 採用
 - **v7.4.1修正**: master_ocr_content_id 追加（1対1関係）、file_input_id 削除
+- **外部キー制約**: master_ocr_content_id は論理参照のみ（物理外部キーなし）
+  - 理由: master_ocr_contents は別物理DB (edumint_contents_master) に配置
+  - データ整合性はアプリケーション層とトランザクション管理で保証
 - **ファイル追跡**: master_ocr_contents.source_file_ids 配列経由で元ファイルを追跡
 - ベクトル埋め込みでセマンティック検索対応
 - view_count等のカウンターはedumintSocialから非同期更新
@@ -2199,6 +2202,11 @@ CREATE INDEX idx_master_ocr_created_at ON master_ocr_contents(created_at DESC);
   - 'exercises' → 'edumint-master-exercises'
   - 'material' → 'edumint-master-materials'（将来拡張用）
 - **source_file_ids配列**: 複数ファイルから1つのOCRコンテンツを生成する場合に対応
+  - **参照整合性**: UUID配列は外部キー制約不可、アプリケーション層で検証が必要
+  - file_metadata.id の存在確認は挿入時にアプリケーションで実施
+- **source_file_count**: 冗長フィールドだが検索・統計で頻繁に使用されるため配置
+  - array_length(source_file_ids, 1) よりパフォーマンス有利
+  - トリガーまたはアプリケーション層で整合性を保証
 - **GINインデックス**: source_file_ids配列の高速検索（ファイルIDからOCRコンテンツを検索）
 - **物理DB分離**（v7.2.0継続）: セキュリティ強化、IAMロール分離
 - **原本ファイル保存はedumintFilesが担当**: source_file_ids経由で file_metadata を参照
@@ -9220,10 +9228,10 @@ func (s *OCRCombinerService) CombineOCRResults(
         UploaderID:       req.UploaderID,
         SourceFileIDs:    req.SourceFileIDs,
         SourceFileCount:  int32(len(req.SourceFileIDs)),
-        HasTextInput:     req.HasTextInput,
+        HasTextInput:     req.HasTextInput && req.TextInputContent != "",
         TextInputContent: sql.NullString{
             String: req.TextInputContent,
-            Valid:  req.HasTextInput,
+            Valid:  req.HasTextInput && req.TextInputContent != "",
         },
         OcrText:      combinedText.String(),
         LanguageCode: req.LanguageCode,
@@ -9241,10 +9249,16 @@ func (s *OCRCombinerService) getOCRResultFromFile(
     ctx context.Context,
     fileID uuid.UUID,
 ) (string, error) {
-    // 実装: edumintFiles サービスのAPIを呼び出し
+    // TODO: 実装が必要
+    // edumintFiles サービスのAPIを呼び出してOCRテキストを取得
     // または、file_metadata テーブルに保存されたOCRテキストを取得
-    // ここでは簡略化のため省略
-    return "", nil
+    // 例: 
+    // resp, err := s.filesClient.GetFileOCRText(ctx, &files.GetOCRRequest{FileID: fileID.String()})
+    // if err != nil {
+    //     return "", err
+    // }
+    // return resp.OcrText, nil
+    return "", fmt.Errorf("not implemented: getOCRResultFromFile")
 }
 
 type CombineOCRRequest struct {
@@ -9399,8 +9413,8 @@ type QuestionData struct {
     PublicID        string
     QuestionType    dbgen.QuestionTypeEnum
     QuestionText    string
-    Options         []byte // JSONB
-    CorrectAnswer   []byte // JSONB
+    Options         json.RawMessage // JSONB - 選択肢データ
+    CorrectAnswer   json.RawMessage // JSONB - 正解データ
     Explanation     string
     DifficultyLevel dbgen.DifficultyLevelEnum
 }
