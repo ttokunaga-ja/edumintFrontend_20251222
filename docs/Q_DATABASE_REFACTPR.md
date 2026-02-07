@@ -545,6 +545,15 @@ CREATE TYPE report_category_enum AS ENUM (
   'content_report',
   'user_report'
 );
+
+-- 著作権侵害申し立てステータス（v7.5.1新設）
+CREATE TYPE copyright_claim_status AS ENUM (
+  'pending',       -- 審査待ち
+  'investigating', -- 調査中
+  'accepted',      -- 申し立て受理（削除実施）
+  'rejected',      -- 申し立て却下
+  'withdrawn'      -- 申し立て取り下げ
+);
 ```
 
 #### **1.6. 経済・通知関連ENUM**
@@ -621,6 +630,15 @@ CREATE TYPE content_unlock_token_status_enum AS ENUM (
   'expired',          -- 期限切れ
   'revoked',          -- 無効化済み
   'fraud_detected'    -- 不正検出
+);
+
+-- 広告配信ステータス（v7.5.1新設）
+CREATE TYPE ad_delivery_status AS ENUM (
+  'active',      -- 配信中
+  'paused',      -- 一時停止
+  'scheduled',   -- 配信予約
+  'completed',   -- 配信完了
+  'cancelled'    -- 配信中止
 );
 ```
 
