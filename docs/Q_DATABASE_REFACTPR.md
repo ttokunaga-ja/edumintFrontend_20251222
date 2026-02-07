@@ -7172,6 +7172,133 @@ LIMIT 10;
 -- 反復スキャンにより精度を維持しつつ高速化
 ```
 
+#### **HNSWインデックス再構築戦略（v7.5.1新設）**
+
+##### 再構築が必要になる状況
+1. **大量挿入後の断片化**: 10万件以上のベクトル挿入
+2. **検索性能劣化**: クエリ応答時間が通常の2倍以上
+3. **インデックススキャン率低下**: `pg_stat_user_indexes.idx_scan`が週次で100未満
+
+##### 再構築手順
+```sql
+-- 1. 現在のインデックス状態確認
+SELECT 
+  indexrelname,
+  idx_scan,
+  idx_tup_read,
+  idx_tup_fetch,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS index_size
+FROM pg_stat_user_indexes
+WHERE indexrelname = 'idx_exams_content_vector_hnsw';
+
+-- 2. CONCURRENTLYオプションで再構築（ダウンタイム0）
+REINDEX INDEX CONCURRENTLY idx_exams_content_vector_hnsw;
+
+-- 3. 再構築後の性能確認
+EXPLAIN ANALYZE
+SELECT id, content_vector <=> '[0.1, 0.2, ...]' AS distance
+FROM exams
+ORDER BY distance
+LIMIT 10;
+```
+
+##### 自動化スクリプト（Cloud Run Jobs）
+```go
+package maintenance
+
+import (
+    "context"
+    "fmt"
+    "log/slog"
+    
+    "github.com/edumint/content/internal/db/dbgen"
+)
+
+type MaintenanceService struct {
+    queries *dbgen.Queries
+    db      *pgxpool.Pool
+    config  *MaintenanceConfig
+}
+
+type MaintenanceConfig struct {
+    MaxQueryTimeMs int
+}
+
+type IndexStats struct {
+    IdxScan         int64
+    AvgQueryTimeMs  float64
+}
+
+func (s *MaintenanceService) ReindexHNSWIfNeeded(ctx context.Context) error {
+    // 1. インデックス統計取得
+    stats, err := s.queries.GetIndexStats(ctx, "idx_exams_content_vector_hnsw")
+    if err != nil {
+        return err
+    }
+    
+    // 2. 再構築条件判定
+    needsReindex := stats.IdxScan < 100 || 
+                    stats.AvgQueryTimeMs > float64(s.config.MaxQueryTimeMs)*2
+    
+    if !needsReindex {
+        slog.Info("HNSW index is healthy", "idx_scan", stats.IdxScan)
+        return nil
+    }
+    
+    // 3. 再構築実行
+    slog.Info("starting HNSW reindex", "reason", "performance_degradation")
+    _, err = s.db.Exec(ctx, "REINDEX INDEX CONCURRENTLY idx_exams_content_vector_hnsw")
+    if err != nil {
+        return fmt.Errorf("reindex failed: %w", err)
+    }
+    
+    // 4. Slackアラート送信
+    s.notifySlack(ctx, "HNSW index reindexed successfully")
+    return nil
+}
+
+func (s *MaintenanceService) notifySlack(ctx context.Context, message string) {
+    // Slack通知実装（省略）
+}
+```
+
+##### 実行スケジュール
+- **頻度**: 週次（日曜深夜2:00 JST）
+- **想定実行時間**: 100万ベクトルで約30分
+- **影響**: CONCURRENTLY指定によりダウンタイム0秒
+
+##### Cloud Run Jobs定義
+```yaml
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: hnsw-reindex-job
+spec:
+  template:
+    spec:
+      containers:
+      - image: gcr.io/edumint-prod/maintenance-worker:latest
+        env:
+        - name: JOB_TYPE
+          value: "hnsw_reindex"
+        - name: DATABASE_HOST
+          value: "/cloudsql/edumint-prod:asia-northeast1:edumint-content"
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+      timeoutSeconds: 3600  # 60分タイムアウト
+```
+
+##### Prometheusメトリクス
+```promql
+# インデックススキャン率
+rate(pg_stat_user_indexes_idx_scan{indexrelname="idx_exams_content_vector_hnsw"}[1w])
+
+# 平均クエリ時間
+avg(pg_stat_statements_mean_exec_time{query=~".*content_vector.*"}[1d])
+```
+
 ### 17.3 Go型統合パターン
 
 #### **sqlc.yaml完全設定**
