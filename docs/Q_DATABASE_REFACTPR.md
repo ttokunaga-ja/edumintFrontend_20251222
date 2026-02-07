@@ -6072,6 +6072,57 @@ edumint_gateway          → edumint_gateway_logs
 - **保持ポリシー**: 自動削除またはアーカイブ
 - **特別要件**: ウォレットログは法令により7年保持
 
+#### **イミュータブル性の保証（v7.5.1追加）**
+
+ログテーブルは一度書き込まれたら変更されない「イミュータブル」な設計を徹底します。
+
+**設計原則:**
+- ログテーブルには`updated_at`カラムを**設けない**
+- 一度書き込まれたログは変更されないことを設計上保証
+- 修正が必要な場合は新しいログエントリを追加（補正ログパターン）
+
+**該当テーブル:**
+```
+auth_logs
+user_profile_logs
+content_logs
+search_logs
+social_logs
+wallet_logs
+revenue_logs
+moderation_logs
+job_logs
+```
+
+**標準DDL形式:**
+```sql
+CREATE TABLE auth_logs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID NOT NULL,
+  event_type VARCHAR(50) NOT NULL,
+  -- その他のカラム
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+  -- updated_atは削除（イミュータブルログのため）
+) PARTITION BY RANGE (created_at);
+```
+
+**補正ログパターン例:**
+```sql
+-- 誤ったログエントリが発見された場合、新しい補正エントリを追加
+INSERT INTO auth_logs (user_id, event_type, metadata, created_at)
+VALUES (
+  'user-uuid',
+  'correction',
+  jsonb_build_object(
+    'corrects_log_id', 'original-log-uuid',
+    'reason', '記録ミス訂正',
+    'original_event_type', 'login_failed',
+    'corrected_event_type', 'login_success'
+  ),
+  CURRENT_TIMESTAMP
+);
+```
+
 ### 16.10 UUID生成
 
 #### **uuidv7()の採用**
