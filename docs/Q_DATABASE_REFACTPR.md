@@ -11129,6 +11129,169 @@ type UnlockContentResponse struct {
 }
 ```
 
+#### **22.7.4 広告視聴完了の厳密な定義（v7.5.1新設）**
+
+##### 設計背景
+クライアント側のみの検証では、DevToolsでの不正操作やタブ切り替えでの回避が容易なため、サーバー側での多層検証を実装する。
+
+##### サーバー側検証ロジック
+```go
+func (s *AdService) VerifyAdCompletion(ctx context.Context, eventID uuid.UUID) error {
+    events, err := s.queries.GetAdViewingEvents(ctx, eventID)
+    if err != nil {
+        return fmt.Errorf("get ad viewing events: %w", err)
+    }
+    
+    // 1. 最低視聴時間チェック（80%ルール）
+    requiredSeconds := float64(events.AdDuration) * 0.8
+    if events.TotalWatchedSeconds < requiredSeconds {
+        return &AdVerificationError{
+            Code:    "INSUFFICIENT_WATCH_TIME",
+            Message: fmt.Sprintf("視聴時間不足: %.1f秒/%.1f秒必要", 
+                                events.TotalWatchedSeconds, requiredSeconds),
+        }
+    }
+    
+    // 2. 進捗イベントの時系列整合性チェック
+    if err := s.validateProgressSequence(events.ProgressEvents); err != nil {
+        return &AdVerificationError{
+            Code:    "INVALID_PROGRESS_SEQUENCE",
+            Message: "不正な進捗報告パターンを検出",
+            Details: err.Error(),
+        }
+    }
+    
+    // 3. ブラウザタブフォーカス喪失時間チェック
+    if events.TotalBlurSeconds > 5 {
+        return &AdVerificationError{
+            Code:    "EXCESSIVE_BLUR",
+            Message: fmt.Sprintf("タブ非表示時間超過: %.1f秒", events.TotalBlurSeconds),
+        }
+    }
+    
+    // 4. 進捗報告間隔の異常検出
+    if events.AverageReportInterval > 5.0 {
+        return &AdVerificationError{
+            Code:    "ABNORMAL_REPORT_INTERVAL",
+            Message: "進捗報告間隔が異常です",
+        }
+    }
+    
+    return nil
+}
+
+func (s *AdService) validateProgressSequence(events []AdProgressEvent) error {
+    var lastProgress float64
+    var lastTimestamp time.Time
+    
+    for i, event := range events {
+        // 単調増加チェック
+        if event.Progress < lastProgress {
+            return fmt.Errorf("進捗が後退: [%d] %.1f%% -> %.1f%%", 
+                            i, lastProgress, event.Progress)
+        }
+        
+        // 時間的整合性チェック（3秒間隔で報告されるべき）
+        if i > 0 {
+            interval := event.Timestamp.Sub(lastTimestamp).Seconds()
+            if interval < 2.0 || interval > 6.0 {
+                return fmt.Errorf("異常な報告間隔: %.1f秒", interval)
+            }
+        }
+        
+        lastProgress = event.Progress
+        lastTimestamp = event.Timestamp
+    }
+    
+    return nil
+}
+```
+
+##### 不正防止の実装詳細
+
+###### クライアント側実装（JavaScript）
+```typescript
+class AdPlayerVerification {
+  private progressInterval: NodeJS.Timeout;
+  private blurStartTime: number | null = null;
+  private totalBlurTime = 0;
+
+  constructor(private eventID: string, private duration: number) {
+    // Page Visibility API統合
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  startTracking() {
+    // 3秒ごとに進捗報告
+    this.progressInterval = setInterval(() => {
+      const progress = this.getCurrentProgress();
+      this.reportProgress(progress);
+    }, 3000);
+  }
+
+  private handleVisibilityChange = () => {
+    if (document.hidden) {
+      this.blurStartTime = Date.now();
+    } else if (this.blurStartTime) {
+      this.totalBlurTime += (Date.now() - this.blurStartTime) / 1000;
+      this.blurStartTime = null;
+    }
+  };
+
+  private async reportProgress(progress: number) {
+    await fetch('/api/ads/progress', {
+      method: 'POST',
+      body: JSON.stringify({
+        event_id: this.eventID,
+        progress_percent: progress,
+        blur_seconds: this.totalBlurTime,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+  }
+
+  async complete() {
+    clearInterval(this.progressInterval);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    
+    // サーバー側検証実行
+    const response = await fetch('/api/ads/verify', {
+      method: 'POST',
+      body: JSON.stringify({ event_id: this.eventID }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new AdVerificationError(error.code, error.message);
+    }
+  }
+}
+```
+
+##### モニタリング指標（Prometheus）
+```promql
+# 広告視聴完了率
+rate(ad_completion_total[5m]) / rate(ad_start_total[5m])
+
+# 検証失敗率（不正試行の可能性）
+rate(ad_verification_failed_total{reason="INSUFFICIENT_WATCH_TIME"}[5m])
+rate(ad_verification_failed_total{reason="EXCESSIVE_BLUR"}[5m])
+rate(ad_verification_failed_total{reason="INVALID_PROGRESS_SEQUENCE"}[5m])
+```
+
+##### Grafanaアラート設定
+```yaml
+alerts:
+  - alert: HighAdVerificationFailureRate
+    expr: rate(ad_verification_failed_total[5m]) > 0.3
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "広告検証失敗率が高い ({{ $value }})"
+      description: "不正な広告視聴試行が増加している可能性"
+```
+
 ---
 
 ### 22.8 不正防止戦略（v7.4.1新設）
