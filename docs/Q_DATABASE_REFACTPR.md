@@ -406,29 +406,35 @@ CREATE TYPE user_status_enum AS ENUM (
   'deleted'             -- 削除済み
 );
 
--- 認証イベント
+-- 認証イベント（v7.5.0拡張版）
 CREATE TYPE auth_event_enum AS ENUM (
-  'login_success',      -- ログイン成功
-  'login_failed',       -- ログイン失敗
-  'logout',             -- ログアウト
-  'token_issued',       -- トークン発行
-  'token_refreshed',    -- トークン更新
-  'token_revoked',      -- トークン無効化
-  'password_changed',   -- パスワード変更
-  'mfa_enabled',        -- 多要素認証有効化
-  'account_locked'      -- アカウントロック
+  'login_success',           -- ログイン成功
+  'login_failed',            -- ログイン失敗
+  'logout',                  -- ログアウト
+  'token_issued',            -- トークン発行
+  'token_refreshed',         -- トークン更新
+  'token_revoked',           -- トークン無効化
+  'password_changed',        -- パスワード変更
+  'mfa_enabled',             -- 多要素認証有効化
+  'account_locked',          -- アカウントロック
+  'idp_auth_started',        -- IdP認証開始
+  'idp_auth_callback',       -- IdPコールバック受信
+  'idp_auth_success',        -- IdP認証成功
+  'idp_auth_failed',         -- IdP認証失敗
+  'idp_linked',              -- IdP新規紐付け
+  'idp_unlinked',            -- IdP紐付け解除
+  'idp_primary_changed',     -- プライマリIdP変更
+  'university_email_verified' -- 大学メール認証完了（バッジ付与）
 );
 
--- 外部IdPプロバイダー（v7.4.1新設: 電話番号認証対応優先）
+-- 外部IdPプロバイダー（v7.5.0改訂版: Meta統合、Twitter廃止）
 CREATE TYPE idp_provider_enum AS ENUM (
-  'google',        -- ✅ 電話番号認証対応（2段階認証）
-  'apple',         -- ✅ 電話番号認証対応（必須）
-  'facebook',      -- ✅ Meta - 電話番号認証対応
-  'instagram',     -- ✅ Meta - 電話番号認証対応（Facebookアカウント連携）
-  'microsoft',     -- ✅ 電話番号認証対応（Azure AD）
-  'line',          -- ✅ 電話番号認証必須
-  'github',        -- ⚠️ 電話番号認証任意（開発者向け）
-  'twitter'        -- ⚠️ 電話番号認証任意
+  'google',        -- ✅ OAuth API無料、Identity Platform使用時のみMAU課金
+  'apple',         -- ✅ OAuth無料、Developer Program $99/年（必須登録費用）
+  'meta',          -- ✅ Facebook/Instagram統合、OAuth完全無料
+  'microsoft',     -- ✅ OAuth無料、Azure AD/Entra ID大規模向け有料プランあり
+  'line',          -- ✅ OAuth無料、Messaging API使用時のみ課金（認証は無料）
+  'github'         -- ✅ OAuth完全無料、API制限あるがレート制限のみ
 );
 
 -- OAuth2.0トークンタイプ（v7.4.1新設）
@@ -439,15 +445,14 @@ CREATE TYPE token_type_enum AS ENUM (
 );
 ```
 
-**IdP選定理由:**
-- **Facebook**: Meta社、月間アクティブユーザー30億人、電話番号認証対応
-- **Instagram**: Meta社、月間アクティブユーザー20億人、Facebookアカウント連携による電話番号認証
-- **Apple**: プライバシー重視、電話番号認証必須（Sign in with Apple）
-- **Google**: 2段階認証で電話番号サポート、教育機関との連携強い
-- **LINE**: 日本国内シェア90%超、電話番号必須
-- **Microsoft**: 企業・教育機関向け、Azure ADによる電話番号認証
-- **GitHub**: 開発者向け、電話番号認証任意だがセキュリティオプション充実
-- **Twitter**: SNS連携用、電話番号認証任意
+**IdP選定理由とコスト調査結果（v7.5.0）:**
+- **Google**: OAuth API無料、Identity Platform使用時のみMAU課金（50,000 MAU未満無料）。教育機関との連携強い。
+- **Apple**: OAuth無料、Developer Program $99/年（必須登録費用）。プライバシー重視、Sign in with Apple必須化。
+- **Meta**: Facebook/InstagramをMeta OAuth基盤として統一管理。OAuth完全無料、Graph API基本無料。月間30億+20億MAU。
+- **Microsoft**: OAuth無料、Azure AD/Entra ID大規模向け有料プランあり。企業・教育機関向け。
+- **LINE**: OAuth無料、Messaging API使用時のみ課金（認証は無料）。日本国内シェア90%超。
+- **GitHub**: OAuth完全無料、API制限あるがレート制限のみ。開発者向け。
+- **❌ Twitter廃止**: X(旧Twitter) API有料化、サービス不安定性により廃止。既存ユーザーは移行期間後に削除。
 
 #### **1.5. ジョブ・通報関連ENUM**
 
@@ -881,6 +886,33 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 - user_role_enumを4値に厳格化（free, system, admin, premium）
 - users.public_idにNanoID (8文字) 採用
 
+### 設計変更点（v7.5.0）
+
+**認証機能の全面的な設計変更:**
+
+1. **SSO専用認証への移行**
+   - ❌ **廃止**: `users.password_hash` カラム - 自社パスワード認証の全面廃止
+   - ✅ **変更**: `users.email` カラムを任意化（NULL許可）- IdP提供情報のみで登録可能
+   - **理由**: セキュリティ向上、運用コスト削減、OAuth専業大手への認証委託
+
+2. **IdP統合と最適化**
+   - ❌ **削除**: `'twitter'` from `idp_provider_enum` - X(旧Twitter) API有料化対応
+   - ✅ **統合**: `'meta'` - Facebook/InstagramをMeta OAuth基盤として統一管理
+   - ✅ **拡張**: `idp_links` テーブルにMeta統合、プライマリIdP管理機能追加
+
+3. **大学認証バッジ機能**
+   - ✅ **追加**: 大学メール認証による学生バッジ付与機能
+   - `university_email`, `university_verified`, `university_badge_expires_at` カラム追加
+   - 年次更新バッチ処理で有効期限管理（1年間）
+
+4. **複数IdP紐付け必須化**
+   - アプリケーション層で最低2つのIdP紐付けを推奨（DB制約では強制しない）
+   - アカウント削除リスク対策による可用性向上
+
+5. **認証イベント拡張**
+   - `auth_event_enum` に8種類のIdP関連イベント追加
+   - `auth_logs` テーブルにIdP情報記録カラム追加
+
 ### 4.1 本体DBテーブル (DDL例)
 
 **物理DB:** `edumint_users`
@@ -932,23 +964,29 @@ CREATE INDEX idx_oauth_tokens_expires_at ON oauth_tokens(expires_at);
 
 #### **idp_links**
 
-外部IDプロバイダー（Google, Apple, Facebook, Instagram等）とのリンク情報を管理します。
+外部IDプロバイダー（Google, Apple, Meta等）とのリンク情報を管理します。
 
 ```sql
 CREATE TABLE idp_links (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  provider idp_provider_enum NOT NULL,  -- v7.4.1: ENUM型適用（Meta系追加）
+  provider idp_provider_enum NOT NULL,  -- v7.5.0: Meta統合対応
   provider_user_id VARCHAR(255) NOT NULL,
-  email VARCHAR(255),
-  profile_data JSONB,
+  meta_platform VARCHAR(50),  -- v7.5.0: 'facebook' | 'instagram' | NULL
+  email VARCHAR(255),  -- v7.5.0: IdPから取得したメール（参考値）
+  phone_number VARCHAR(50),  -- v7.5.0: IdPから取得した電話番号
+  profile_data JSONB,  -- v7.5.0: IdPプロフィール情報
+  is_primary BOOLEAN DEFAULT FALSE,  -- v7.5.0: デフォルトログイン先
+  is_active BOOLEAN DEFAULT TRUE,  -- v7.5.0: アクティブ状態
   linked_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   last_used_at TIMESTAMPTZ,
-  UNIQUE(provider, provider_user_id)
+  UNIQUE(user_id, provider, meta_platform)  -- v7.5.0: Meta統合対応
 );
 
 CREATE INDEX idx_idp_links_user_id ON idp_links(user_id);
 CREATE INDEX idx_idp_links_provider ON idp_links(provider, provider_user_id);
+CREATE INDEX idx_idp_links_user_primary ON idp_links(user_id, is_primary) WHERE is_primary = TRUE;  -- v7.5.0
+CREATE INDEX idx_idp_links_meta_platform ON idp_links(meta_platform) WHERE meta_platform IS NOT NULL;  -- v7.5.0
 ```
 
 #### **users**
@@ -959,18 +997,36 @@ CREATE INDEX idx_idp_links_provider ON idp_links(provider, provider_user_id);
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,  -- NanoID (外部公開用)
-  email VARCHAR(255) UNIQUE,
+  email VARCHAR(255) UNIQUE,  -- v7.5.0: NULL許可（SSO専用認証対応）
   username VARCHAR(50) UNIQUE,
-  password_hash VARCHAR(255),
   role user_role_enum DEFAULT 'free',
   status user_status_enum DEFAULT 'active',
   language_code VARCHAR(10) DEFAULT 'ja',  -- BCP 47
   region_code CHAR(2) DEFAULT 'JP',        -- ISO 3166-1 alpha-2
   email_verified BOOLEAN DEFAULT FALSE,
   registration_completed_at TIMESTAMPTZ,   -- v7.4.1: 新規ユーザー判定用（プロフィール完成日時）
+  
+  -- v7.5.0: 大学認証バッジ機能
+  university_email VARCHAR(255) UNIQUE,
+  university_verified BOOLEAN DEFAULT FALSE,
+  university_verified_at TIMESTAMPTZ,
+  university_badge_expires_at TIMESTAMPTZ,  -- バッジ有効期限（年次更新）
+  
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  last_login_at TIMESTAMPTZ
+  last_login_at TIMESTAMPTZ,
+  
+  -- v7.5.0: メール形式検証（RFC準拠）
+  CONSTRAINT check_email_format CHECK (
+    email IS NULL OR 
+    email ~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+  ),
+  
+  -- v7.5.0: 大学メール形式検証（大学ドメイン）
+  CONSTRAINT check_university_email_format CHECK (
+    university_email IS NULL OR 
+    university_email ~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(ac\.jp|edu|edu\.[a-zA-Z]{2,})$'
+  )
 );
 
 CREATE INDEX idx_users_public_id ON users(public_id);
@@ -979,6 +1035,8 @@ CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_users_registration_completed ON users(registration_completed_at);  -- v7.4.1: 新規ユーザー検索用
+CREATE INDEX idx_users_university_verified ON users(university_verified, university_badge_expires_at) 
+  WHERE university_verified = TRUE;  -- v7.5.0: バッジ有効期限管理用
 ```
 
 #### **user_profiles**
@@ -1078,6 +1136,9 @@ CREATE TABLE auth_logs (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   user_id UUID,  -- NULL許可（ログイン失敗時）
   event_type auth_event_enum NOT NULL,
+  idp_provider idp_provider_enum,  -- v7.5.0: IdP情報記録
+  idp_user_id VARCHAR(255),  -- v7.5.0: IdPユーザーID
+  meta_platform VARCHAR(50),  -- v7.5.0: Meta統合対応
   ip_address INET,
   user_agent TEXT,
   success BOOLEAN NOT NULL,
@@ -1092,6 +1153,7 @@ CREATE TABLE auth_logs_2025_01 PARTITION OF auth_logs
 
 CREATE INDEX idx_auth_logs_user_id ON auth_logs(user_id, created_at);
 CREATE INDEX idx_auth_logs_event_type ON auth_logs(event_type, created_at);
+CREATE INDEX idx_auth_logs_idp_provider ON auth_logs(idp_provider, created_at DESC);  -- v7.5.0
 CREATE INDEX idx_auth_logs_created_at ON auth_logs(created_at);
 ```
 
@@ -6414,6 +6476,52 @@ CREATE TABLE new_table (
 );
 ```
 
+##### **❌ 自社パスワード認証（全面廃止 - v7.5.0）**
+
+```sql
+-- ❌ 廃止: password_hashカラム
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255),  -- 廃止: セキュリティリスク、運用コスト増
+  -- 自社でのパスワード管理は廃止
+);
+
+-- ✅ 正しい: SSO専用認証
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  email VARCHAR(255) UNIQUE,  -- NULL許可（IdP提供情報のみで登録可能）
+  -- password_hashカラムを削除
+  -- 認証はidp_linksテーブルで管理
+);
+
+CREATE TABLE idp_links (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider idp_provider_enum NOT NULL,  -- google, apple, meta, microsoft, line, github
+  provider_user_id VARCHAR(255) NOT NULL,
+  is_primary BOOLEAN DEFAULT FALSE,
+  -- 最低2つのIdP紐付けを推奨（アプリケーション層でバリデーション）
+);
+```
+
+**廃止理由（v7.5.0）**:
+- **セキュリティリスク**: パスワード漏洩、ブルートフォース攻撃、レインボーテーブル攻撃のリスク排除
+- **運用コスト削減**: パスワードリセット機能、セキュリティインシデント対応の廃止
+- **ユーザー利便性**: 既存アカウント（Google, Apple, Meta等）でログイン、パスワード記憶不要
+- **OAuth API無料化**: Google, Apple, Meta, Microsoft, LINE, GitHub全て認証API無料範囲内で運用可能
+- **コンプライアンス簡素化**: GDPR, 個人情報保護法対応がOAuth提供者に委託可能
+
+**Twitter廃止について**:
+- X(旧Twitter) API有料化（月額$100〜）、サービス不安定性により廃止
+- 既存Twitterユーザーには3ヶ月の移行期間を設け、別のIdP追加を促す
+- 移行期間後、Twitter IdPリンクを自動削除
+
+**複数IdP紐付け必須化**:
+- 最低2つのIdP紐付けを推奨（アプリケーション層でバリデーション）
+- アカウント削除リスク対策（1つのIdPが使えなくなった場合の可用性保証）
+- DB制約では強制しない（ビジネスロジックで制御）
+
 #### **16.14.12 設計チェックリスト**
 
 新規テーブル作成時、以下のチェックリストで設計品質を保証します：
@@ -10715,6 +10823,581 @@ export const AdPlayer: React.FC<AdPlayerProps> = ({ config, onAdCompleted }) => 
     </div>
   );
 };
+```
+
+---
+
+### 22.10 認証サービス実装（v7.5.0）
+
+#### **新規ユーザー登録フロー**
+
+```go
+// internal/service/auth_service.go
+package service
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/edumint/edumint-users/internal/db/dbgen"
+    "github.com/google/uuid"
+    gonanoid "github.com/matoous/go-nanoid/v2"
+)
+
+type AuthService struct {
+    queries *dbgen.Queries
+}
+
+func NewAuthService(queries *dbgen.Queries) *AuthService {
+    return &AuthService{queries: queries}
+}
+
+// IdPProfile: IdPから取得したプロフィール情報
+type IdPProfile struct {
+    Email        string
+    PhoneNumber  string
+    ProfileData  map[string]interface{}
+    MetaPlatform *string  // 'facebook' | 'instagram' | nil
+}
+
+// RegisterNewUser: IdP認証成功後の新規ユーザー登録
+func (s *AuthService) RegisterNewUser(
+    ctx context.Context,
+    idpProvider string,  // 'google', 'apple', 'meta', etc.
+    idpUserID string,
+    profile IdPProfile,
+) (*dbgen.User, error) {
+    
+    // トランザクション開始
+    tx, err := s.queries.BeginTx(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("failed to begin transaction: %w", err)
+    }
+    defer tx.Rollback(ctx)
+    
+    qtx := s.queries.WithTx(tx)
+    
+    // NanoID生成（8文字）
+    publicID, err := gonanoid.Generate("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 8)
+    if err != nil {
+        return nil, fmt.Errorf("failed to generate public_id: %w", err)
+    }
+    
+    // usersテーブルにレコード作成（email=NULL許可）
+    user, err := qtx.InsertUser(ctx, dbgen.InsertUserParams{
+        PublicID: publicID,
+        Email:    &profile.Email,  // NULL許可
+        Username: fmt.Sprintf("user_%s", publicID),  // デフォルトユーザー名
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to insert user: %w", err)
+    }
+    
+    // idp_linksテーブルにIdP情報を記録（is_primary=true）
+    _, err = qtx.InsertIdPLink(ctx, dbgen.InsertIdPLinkParams{
+        UserID:          user.ID,
+        Provider:        dbgen.IdpProviderEnum(idpProvider),
+        ProviderUserID:  idpUserID,
+        MetaPlatform:    profile.MetaPlatform,
+        Email:           &profile.Email,
+        PhoneNumber:     &profile.PhoneNumber,
+        ProfileData:     profile.ProfileData,
+        IsPrimary:       true,
+        IsActive:        true,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to insert idp_link: %w", err)
+    }
+    
+    // auth_logsに記録
+    _, err = qtx.InsertAuthLog(ctx, dbgen.InsertAuthLogParams{
+        UserID:       &user.ID,
+        EventType:    dbgen.AuthEventEnumIdpAuthSuccess,
+        IdpProvider:  dbgen.IdpProviderEnum(idpProvider),
+        IdpUserID:    &idpUserID,
+        MetaPlatform: profile.MetaPlatform,
+        Success:      true,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to insert auth_log: %w", err)
+    }
+    
+    // トランザクションコミット
+    if err := tx.Commit(ctx); err != nil {
+        return nil, fmt.Errorf("failed to commit transaction: %w", err)
+    }
+    
+    // TODO: 2つ目のIdP追加を促すイベント発行
+    
+    return &user, nil
+}
+```
+
+#### **複数IdP紐付けバリデーション**
+
+```go
+// UnlinkIdP: IdP紐付け解除（最低2つのIdP必須チェック）
+func (s *AuthService) UnlinkIdP(
+    ctx context.Context,
+    userID uuid.UUID,
+    providerToUnlink string,
+    metaPlatformToUnlink *string,
+) error {
+    
+    // 現在のIdP紐付け数をカウント
+    count, err := s.queries.CountActiveIdPsByUserID(ctx, userID)
+    if err != nil {
+        return fmt.Errorf("failed to count active idps: %w", err)
+    }
+    
+    // 最低2つのIdPが紐付けされている必要がある
+    if count <= 2 {
+        return &ValidationError{
+            Code:    "MIN_IDP_REQUIRED",
+            Message: "最低2個のIdPが必要です。別のIdPを追加してから削除してください。",
+        }
+    }
+    
+    // トランザクション開始
+    tx, err := s.queries.BeginTx(ctx)
+    if err != nil {
+        return fmt.Errorf("failed to begin transaction: %w", err)
+    }
+    defer tx.Rollback(ctx)
+    
+    qtx := s.queries.WithTx(tx)
+    
+    // IdP削除（論理削除: is_active=false）
+    err = qtx.DeactivateIdPLink(ctx, dbgen.DeactivateIdPLinkParams{
+        UserID:       userID,
+        Provider:     dbgen.IdpProviderEnum(providerToUnlink),
+        MetaPlatform: metaPlatformToUnlink,
+    })
+    if err != nil {
+        return fmt.Errorf("failed to deactivate idp_link: %w", err)
+    }
+    
+    // プライマリIdP削除の場合、別のIdPを自動的にプライマリに昇格
+    isPrimary, err := qtx.IsIdPPrimary(ctx, dbgen.IsIdPPrimaryParams{
+        UserID:       userID,
+        Provider:     dbgen.IdpProviderEnum(providerToUnlink),
+        MetaPlatform: metaPlatformToUnlink,
+    })
+    if err != nil {
+        return fmt.Errorf("failed to check if idp is primary: %w", err)
+    }
+    
+    if isPrimary {
+        // 別のアクティブなIdPを取得
+        activeIdPs, err := qtx.FindActiveIdPLinksByUserID(ctx, userID)
+        if err != nil {
+            return fmt.Errorf("failed to find active idps: %w", err)
+        }
+        
+        if len(activeIdPs) > 0 {
+            // 最初のアクティブIdPをプライマリに設定
+            err = qtx.SetPrimaryIdP(ctx, activeIdPs[0].ID)
+            if err != nil {
+                return fmt.Errorf("failed to set primary idp: %w", err)
+            }
+        }
+    }
+    
+    // auth_logsに記録
+    _, err = qtx.InsertAuthLog(ctx, dbgen.InsertAuthLogParams{
+        UserID:       &userID,
+        EventType:    dbgen.AuthEventEnumIdpUnlinked,
+        IdpProvider:  dbgen.IdpProviderEnum(providerToUnlink),
+        MetaPlatform: metaPlatformToUnlink,
+        Success:      true,
+    })
+    if err != nil {
+        return fmt.Errorf("failed to insert auth_log: %w", err)
+    }
+    
+    // トランザクションコミット
+    if err := tx.Commit(ctx); err != nil {
+        return fmt.Errorf("failed to commit transaction: %w", err)
+    }
+    
+    return nil
+}
+
+type ValidationError struct {
+    Code    string
+    Message string
+}
+
+func (e *ValidationError) Error() string {
+    return e.Message
+}
+```
+
+#### **大学メール認証（バッジ付与）**
+
+```go
+// VerifyUniversityEmail: 大学メール認証開始
+func (s *AuthService) VerifyUniversityEmail(
+    ctx context.Context,
+    userID uuid.UUID,
+    email string,
+) error {
+    
+    // 大学ドメインメール検証
+    if !isUniversityEmail(email) {
+        return &ValidationError{
+            Code:    "INVALID_UNIVERSITY_EMAIL",
+            Message: "大学ドメインのメールアドレスを入力してください（@*.ac.jp, @*.edu, @*.edu.*）",
+        }
+    }
+    
+    // 認証トークン生成
+    token := generateVerificationToken()
+    
+    // TODO: メール送信処理
+    
+    return nil
+}
+
+// ConfirmUniversityEmail: 大学メール認証完了（バッジ付与）
+func (s *AuthService) ConfirmUniversityEmail(
+    ctx context.Context,
+    userID uuid.UUID,
+    email string,
+) error {
+    
+    // usersテーブルを更新
+    err := s.queries.VerifyUniversityEmail(ctx, dbgen.VerifyUniversityEmailParams{
+        ID:              userID,
+        UniversityEmail: email,
+    })
+    if err != nil {
+        return fmt.Errorf("failed to verify university email: %w", err)
+    }
+    
+    // auth_logsに記録
+    _, err = s.queries.InsertAuthLog(ctx, dbgen.InsertAuthLogParams{
+        UserID:    &userID,
+        EventType: dbgen.AuthEventEnumUniversityEmailVerified,
+        Success:   true,
+        Metadata:  map[string]interface{}{"email": email},
+    })
+    if err != nil {
+        return fmt.Errorf("failed to insert auth_log: %w", err)
+    }
+    
+    return nil
+}
+
+func isUniversityEmail(email string) bool {
+    // 簡易実装: 正規表現でチェック
+    // 本番環境では、より厳密なドメインホワイトリスト検証を推奨
+    pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(ac\.jp|edu|edu\.[a-zA-Z]{2,})$`
+    matched, _ := regexp.MatchString(pattern, email)
+    return matched
+}
+
+func generateVerificationToken() string {
+    // 検証トークン生成（32バイト）
+    return hex.EncodeToString(randomBytes(32))
+}
+```
+
+#### **Meta統合ログイン処理**
+
+```go
+// internal/api/handlers/auth_handler.go
+package handlers
+
+import (
+    "net/http"
+    
+    "github.com/edumint/edumint-users/internal/service"
+    "github.com/labstack/echo/v5"
+)
+
+type AuthHandler struct {
+    authService *service.AuthService
+}
+
+func NewAuthHandler(authService *service.AuthService) *AuthHandler {
+    return &AuthHandler{authService: authService}
+}
+
+// HandleMetaCallback: Meta OAuthコールバック処理
+func (h *AuthHandler) HandleMetaCallback(c echo.Context) error {
+    
+    // Metaから取得したデータ
+    code := c.QueryParam("code")
+    platform := c.QueryParam("platform")  // 'facebook' | 'instagram'
+    
+    if code == "" {
+        return echo.NewHTTPError(http.StatusBadRequest, "code parameter is required")
+    }
+    
+    if platform != "facebook" && platform != "instagram" {
+        return echo.NewHTTPError(http.StatusBadRequest, "invalid platform parameter")
+    }
+    
+    // Meta OAuth token exchange
+    accessToken, err := exchangeMetaAuthCode(code)
+    if err != nil {
+        return echo.NewHTTPError(http.StatusInternalServerError, "failed to exchange auth code")
+    }
+    
+    // Meta Graph API でユーザー情報取得
+    metaProfile, err := fetchMetaProfile(accessToken, platform)
+    if err != nil {
+        return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch meta profile")
+    }
+    
+    // 既存ユーザーかチェック
+    user, err := h.authService.FindOrCreateUserByIdP(c.Request().Context(), service.FindOrCreateUserByIdPParams{
+        Provider:     "meta",
+        ProviderUserID: metaProfile.ID,
+        MetaPlatform: &platform,
+        Profile: service.IdPProfile{
+            Email:        metaProfile.Email,
+            PhoneNumber:  metaProfile.Phone,
+            ProfileData:  metaProfile.ToMap(),
+            MetaPlatform: &platform,
+        },
+    })
+    if err != nil {
+        return echo.NewHTTPError(http.StatusInternalServerError, "failed to register user")
+    }
+    
+    // JWTトークン発行
+    token, err := h.authService.IssueAccessToken(c.Request().Context(), user.ID)
+    if err != nil {
+        return echo.NewHTTPError(http.StatusInternalServerError, "failed to issue token")
+    }
+    
+    return c.JSON(http.StatusOK, map[string]interface{}{
+        "token": token,
+        "user":  user,
+    })
+}
+
+func exchangeMetaAuthCode(code string) (string, error) {
+    // TODO: Meta OAuth token exchange実装
+    return "", nil
+}
+
+func fetchMetaProfile(accessToken, platform string) (*MetaProfile, error) {
+    // TODO: Meta Graph API実装
+    return nil, nil
+}
+
+type MetaProfile struct {
+    ID    string
+    Email string
+    Phone string
+    Name  string
+}
+
+func (p *MetaProfile) ToMap() map[string]interface{} {
+    return map[string]interface{}{
+        "id":    p.ID,
+        "email": p.Email,
+        "phone": p.Phone,
+        "name":  p.Name,
+    }
+}
+```
+
+#### **レート制限実装**
+
+```go
+// RateLimitIdPAuth: IdP認証のレート制限
+func (h *AuthHandler) RateLimitIdPAuth(ctx context.Context, ipAddress string) error {
+    key := fmt.Sprintf("rate_limit:idp_auth:%s", ipAddress)
+    
+    count, err := h.redisClient.Incr(ctx, key).Result()
+    if err != nil {
+        return fmt.Errorf("failed to increment rate limit: %w", err)
+    }
+    
+    if count == 1 {
+        h.redisClient.Expire(ctx, key, 1*time.Hour)
+    }
+    
+    if count > 10 {  // 1時間に10回まで
+        return &ValidationError{
+            Code:    "RATE_LIMIT_EXCEEDED",
+            Message: "認証試行回数が上限に達しました。しばらくしてから再度お試しください。",
+        }
+    }
+    
+    return nil
+}
+```
+
+#### **sqlcクエリ定義**
+
+```sql
+-- name: VerifyUniversityEmail :exec
+UPDATE users
+SET 
+  university_email = $2,
+  university_verified = true,
+  university_verified_at = CURRENT_TIMESTAMP,
+  university_badge_expires_at = CURRENT_TIMESTAMP + INTERVAL '1 year',
+  updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
+-- name: GetUsersWithExpiredBadge :many
+SELECT * FROM users
+WHERE university_verified = true
+  AND university_badge_expires_at < CURRENT_TIMESTAMP
+ORDER BY university_badge_expires_at ASC
+LIMIT $1;
+
+-- name: FindActiveIdPLinksByUserID :many
+SELECT * FROM idp_links 
+WHERE user_id = $1 AND is_active = true;
+
+-- name: SetPrimaryIdP :exec
+UPDATE idp_links
+SET is_primary = CASE WHEN id = $1 THEN true ELSE false END
+WHERE user_id = (SELECT user_id FROM idp_links WHERE id = $1);
+
+-- name: CountActiveIdPsByUserID :one
+SELECT COUNT(*) FROM idp_links 
+WHERE user_id = $1 AND is_active = true;
+
+-- name: DeactivateIdPLink :exec
+UPDATE idp_links
+SET is_active = false, updated_at = CURRENT_TIMESTAMP
+WHERE user_id = $1 
+  AND provider = $2 
+  AND (meta_platform = $3 OR (meta_platform IS NULL AND $3 IS NULL));
+
+-- name: IsIdPPrimary :one
+SELECT is_primary FROM idp_links
+WHERE user_id = $1 
+  AND provider = $2 
+  AND (meta_platform = $3 OR (meta_platform IS NULL AND $3 IS NULL));
+```
+
+#### **UI/UX推奨フロー（TypeScript/React）**
+
+```typescript
+// src/components/OnboardingIdPPrompt.tsx
+import React, { useState, useEffect } from 'react';
+
+interface IdPProvider {
+  id: string;
+  name: string;
+  icon: string;
+  available: boolean;
+}
+
+const OnboardingIdPPrompt: React.FC = () => {
+  const [linkedIdPs, setLinkedIdPs] = useState<string[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  
+  const availableProviders: IdPProvider[] = [
+    { id: 'google', name: 'Google', icon: '/icons/google.svg', available: true },
+    { id: 'apple', name: 'Apple', icon: '/icons/apple.svg', available: true },
+    { id: 'meta_facebook', name: 'Facebook', icon: '/icons/facebook.svg', available: true },
+    { id: 'meta_instagram', name: 'Instagram', icon: '/icons/instagram.svg', available: true },
+    { id: 'microsoft', name: 'Microsoft', icon: '/icons/microsoft.svg', available: true },
+    { id: 'line', name: 'LINE', icon: '/icons/line.svg', available: true },
+    { id: 'github', name: 'GitHub', icon: '/icons/github.svg', available: true },
+  ];
+  
+  useEffect(() => {
+    // 紐付けIdP数をチェック
+    fetchLinkedIdPs().then(idps => {
+      setLinkedIdPs(idps);
+      if (idps.length < 2) {
+        setShowModal(true);
+      }
+    });
+  }, []);
+  
+  const handleLinkIdP = async (providerId: string) => {
+    // IdP認証フロー開始
+    const platform = providerId.startsWith('meta_') 
+      ? providerId.replace('meta_', '') 
+      : null;
+    
+    const provider = providerId.startsWith('meta_') ? 'meta' : providerId;
+    
+    window.location.href = `/api/auth/idp/${provider}/authorize?platform=${platform}`;
+  };
+  
+  if (!showModal) return null;
+  
+  return (
+    <div className="modal">
+      <div className="modal-content">
+        <h2>アカウント保護のため、もう1つのログイン方法を追加してください</h2>
+        <p>
+          複数のログイン方法を設定することで、アカウントへのアクセスが確保されます。
+        </p>
+        <div className="idp-buttons">
+          {availableProviders
+            .filter(p => !linkedIdPs.includes(p.id))
+            .map(provider => (
+              <button
+                key={provider.id}
+                onClick={() => handleLinkIdP(provider.id)}
+                className="idp-button"
+              >
+                <img src={provider.icon} alt={provider.name} />
+                <span>{provider.name}で追加</span>
+              </button>
+            ))}
+        </div>
+        <button onClick={() => setShowModal(false)} className="skip-button">
+          後で追加する
+        </button>
+      </div>
+    </div>
+  );
+};
+
+async function fetchLinkedIdPs(): Promise<string[]> {
+  const response = await fetch('/api/auth/idp/links');
+  const data = await response.json();
+  return data.links.map((link: any) => link.provider);
+}
+
+export default OnboardingIdPPrompt;
+```
+
+#### **Twitter移行計画**
+
+```sql
+-- ステップ1: Twitterのみのユーザーを特定
+SELECT DISTINCT u.id, u.email, u.username
+FROM users u
+INNER JOIN idp_links il ON u.id = il.user_id
+WHERE il.provider = 'twitter'
+  AND NOT EXISTS (
+    SELECT 1 FROM idp_links il2
+    WHERE il2.user_id = u.id AND il2.provider != 'twitter'
+  );
+
+-- ステップ2: メール通知（手動対応依頼）
+-- ユーザーに別のIdP追加を促すメール送信
+
+-- ステップ3: 猶予期間後（例: 3ヶ月後）にTwitter IdP削除
+DELETE FROM idp_links
+WHERE provider = 'twitter'
+  AND created_at < CURRENT_TIMESTAMP - INTERVAL '3 months';
+
+-- ステップ4: ENUM型からTwitter削除
+ALTER TYPE idp_provider_enum RENAME TO idp_provider_enum_old;
+CREATE TYPE idp_provider_enum AS ENUM ('google', 'apple', 'meta', 'microsoft', 'line', 'github');
+
+ALTER TABLE idp_links
+  ALTER COLUMN provider TYPE idp_provider_enum USING provider::text::idp_provider_enum;
+
+DROP TYPE idp_provider_enum_old;
 ```
 
 ---
