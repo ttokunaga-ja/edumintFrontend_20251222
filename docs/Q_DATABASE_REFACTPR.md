@@ -1538,13 +1538,13 @@ CREATE INDEX idx_exams_embedding_hnsw ON exams USING hnsw(embedding vector_cosin
 
 #### **questions (大問)**
 
-問題情報を管理します。小問、大問単体では外部露出がないので、UUIDのみで管理します。大問テーブルの管理対象は大問全体での設定となる問題文、大問は以下の小門全体の難易度、大問配下の小門に共通するキーワード、大門の順序のみです。回答解説や選択肢、回答時間などは含みません。
+問題情報を管理します。小問、大問単体では外部露出がないので、UUIDのみで管理します。大問テーブルの管理対象は大問全体の問題文、大問全体の難易度、大問全体の配点、大問の順序、埋め込みベクトルです。問題形式、回答、解説、選択肢は小問レベルで管理するため、大問テーブルには含みません。
 
 ```sql
 CREATE TABLE questions (
-  id UUID DEFAULT uuidv7(),
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
   exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
-  sort_order INT NOT NULL,  -- 問題の順序（v7.0.0: question_number廃止）
+  sort_order INT NOT NULL,  -- 問題の順序
   question_text TEXT NOT NULL,
   difficulty_level difficulty_level_enum DEFAULT 'standard',
   points DECIMAL(5,2) DEFAULT 1.0,
@@ -1553,29 +1553,29 @@ CREATE TABLE questions (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, public_id),
   UNIQUE(exam_id, sort_order)
 );
 
-CREATE UNIQUE INDEX idx_questions_public_id ON questions(public_id);
 CREATE INDEX idx_questions_exam_id ON questions(exam_id, sort_order);
-CREATE INDEX idx_questions_type ON questions(question_type);
 CREATE INDEX idx_questions_embedding_hnsw ON questions USING hnsw(embedding vector_cosine_ops);
 ```
 
 **設計注記:**
 - sort_orderで問題の順序を管理（question_number廃止）
-- 複合主キー採用で外部参照を強化
+- 主キーはidのみ（外部露出がないためpublic_id不要）
+- 大問レベルで管理: 問題文、難易度、配点、順序、埋め込みベクトル
+- 小問レベルで管理: 問題形式、正解、解説、選択肢
 
 #### **sub_questions (小問)**
 
-小問情報を管理します。小問、大問単体では外部露出がないので、UUIDのみで管理します。小門テーブルの管理対象は問題文、回答、解説文、小門としての問題形式、問題形式が選択肢などを含むものであれば補助テーブルのID、小門のキーワード、小問の順序のみです。回答時間や難易度は含みません
+小問情報を管理します。小問、大問単体では外部露出がないので、UUIDのみで管理します。小問テーブルの管理対象は小問の問題文、問題形式（選択肢、記述式等）、選択肢データ（JSONB）、正解データ（JSONB）、解説文、小問の配点、小問の順序です。難易度は大問レベルで管理するため含みません。
 
 ```sql
 CREATE TABLE sub_questions (
-  id UUID DEFAULT uuidv7(),
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
   question_id UUID NOT NULL,  -- questions.idを参照（論理的）
-  sort_order INT NOT NULL,  -- 小問の順序（v7.0.0: sub_number廃止）
+  sort_order INT NOT NULL,  -- 小問の順序
+  question_type question_type_enum NOT NULL,
   sub_question_text TEXT NOT NULL,
   options JSONB,
   correct_answer JSONB NOT NULL,
@@ -1584,11 +1584,11 @@ CREATE TABLE sub_questions (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, public_id),
   UNIQUE(question_id, sort_order)
 );
 
 CREATE INDEX idx_sub_questions_question_id ON sub_questions(question_id, sort_order);
+CREATE INDEX idx_sub_questions_type ON sub_questions(question_type);
 ```
 
 #### **keywords (キーワード)**
