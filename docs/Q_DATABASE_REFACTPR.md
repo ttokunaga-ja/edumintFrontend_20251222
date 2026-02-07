@@ -1426,10 +1426,7 @@ CREATE TABLE teachers (
   display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
   display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
   region_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
-  
-  department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
-  title VARCHAR(100),  -- 教授、准教授、etc.
-  specialization TEXT,
+
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -1455,6 +1452,7 @@ CREATE INDEX idx_teachers_display_name ON teachers USING gin(to_tsvector('japane
 CREATE TABLE subjects (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,  -- NanoID
+  institution_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
   department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
   teacher_id UUID,  -- teachers.idを参照（論理的）
   
@@ -1466,7 +1464,6 @@ CREATE TABLE subjects (
   
   academic_field academic_field_enum,
   credits INT,
-  description TEXT,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -1492,7 +1489,7 @@ CREATE TABLE exams (
   -- master_ocr_contents との 1対1 関係（v7.4.1新規追加）
   master_ocr_content_id UUID UNIQUE,  -- master_ocr_contents.idを参照（論理的）
   
-  subject_id UUID NOT NULL,  -- subjects.idを参照（論理的）
+  subject_id UUID ,  -- subjects.idを参照（論理的）
   teacher_id UUID,  -- teachers.idを参照（論理的）
   uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
   title VARCHAR(255) NOT NULL,
@@ -1539,25 +1536,18 @@ CREATE INDEX idx_exams_embedding_hnsw ON exams USING hnsw(embedding vector_cosin
 - ベクトル埋め込みでセマンティック検索対応
 - view_count等のカウンターはedumintSocialから非同期更新
 
-#### **questions (問題)**
+#### **questions (大問)**
 
-問題情報を管理します。UUID + NanoID複合主キー採用。
+問題情報を管理します。小問、大問単体では外部露出がないので、UUIDのみで管理します。大問テーブルの管理対象は大問全体での設定となる問題文、大問は以下の小門全体の難易度、大問配下の小門に共通するキーワード、大門の順序のみです。回答解説や選択肢、回答時間などは含みません。
 
 ```sql
 CREATE TABLE questions (
   id UUID DEFAULT uuidv7(),
-  public_id VARCHAR(8) NOT NULL,  -- NanoID
   exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
   sort_order INT NOT NULL,  -- 問題の順序（v7.0.0: question_number廃止）
-  question_type question_type_enum NOT NULL,
   question_text TEXT NOT NULL,
-  question_image_url VARCHAR(512),
-  options JSONB,  -- 選択肢（タイプに応じて）
-  correct_answer JSONB NOT NULL,
-  explanation TEXT,
   difficulty_level difficulty_level_enum DEFAULT 'standard',
   points DECIMAL(5,2) DEFAULT 1.0,
-  estimated_time_seconds INT,
   embedding vector(1536),
   language_code VARCHAR(10) DEFAULT 'ja',
   is_active BOOLEAN DEFAULT TRUE,
@@ -1579,16 +1569,14 @@ CREATE INDEX idx_questions_embedding_hnsw ON questions USING hnsw(embedding vect
 
 #### **sub_questions (小問)**
 
-小問情報を管理します。UUID + NanoID複合主キー採用。
+小問情報を管理します。小問、大問単体では外部露出がないので、UUIDのみで管理します。小門テーブルの管理対象は問題文、回答、解説文、小門としての問題形式、問題形式が選択肢などを含むものであれば補助テーブルのID、小門のキーワード、小問の順序のみです。回答時間や難易度は含みません
 
 ```sql
 CREATE TABLE sub_questions (
   id UUID DEFAULT uuidv7(),
-  public_id VARCHAR(8) NOT NULL,  -- NanoID
   question_id UUID NOT NULL,  -- questions.idを参照（論理的）
   sort_order INT NOT NULL,  -- 小問の順序（v7.0.0: sub_number廃止）
   sub_question_text TEXT NOT NULL,
-  sub_question_image_url VARCHAR(512),
   options JSONB,
   correct_answer JSONB NOT NULL,
   explanation TEXT,
@@ -1600,7 +1588,6 @@ CREATE TABLE sub_questions (
   UNIQUE(question_id, sort_order)
 );
 
-CREATE UNIQUE INDEX idx_sub_questions_public_id ON sub_questions(public_id);
 CREATE INDEX idx_sub_questions_question_id ON sub_questions(question_id, sort_order);
 ```
 
