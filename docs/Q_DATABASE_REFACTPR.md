@@ -2491,7 +2491,7 @@ OCR処理された演習問題・教材のテキストデータを統合管理�
 - **イミュータブル設計**: 編集・削除不可（append-only）
 - **自動暗号化**: OCRテキストは7日経過で自動暗号化
 - **アクセス制御**: 管理者と自動化システムのみアクセス可
-- **ENUM型厳格管理**: content_typeで演習問題・教材を分類（現在は'exercises'のみ使用）
+- **ENUM型厳格管理**: content_typeで演習問題・教材を分類
 
 ```sql
 CREATE TABLE master_ocr_contents (
