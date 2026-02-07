@@ -545,6 +545,15 @@ CREATE TYPE report_category_enum AS ENUM (
   'content_report',
   'user_report'
 );
+
+-- 著作権侵害申し立てステータス（v7.5.1新設）
+CREATE TYPE copyright_claim_status AS ENUM (
+  'pending',       -- 審査待ち
+  'investigating', -- 調査中
+  'accepted',      -- 申し立て受理（削除実施）
+  'rejected',      -- 申し立て却下
+  'withdrawn'      -- 申し立て取り下げ
+);
 ```
 
 #### **1.6. 経済・通知関連ENUM**
@@ -621,6 +630,15 @@ CREATE TYPE content_unlock_token_status_enum AS ENUM (
   'expired',          -- 期限切れ
   'revoked',          -- 無効化済み
   'fraud_detected'    -- 不正検出
+);
+
+-- 広告配信ステータス（v7.5.1新設）
+CREATE TYPE ad_delivery_status AS ENUM (
+  'active',      -- 配信中
+  'paused',      -- 一時停止
+  'scheduled',   -- 配信予約
+  'completed',   -- 配信完了
+  'cancelled'    -- 配信中止
 );
 ```
 
@@ -951,11 +969,13 @@ CREATE TABLE oauth_clients (
   grant_types TEXT[],
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ  -- v7.5.1: 論理削除対応
 );
 
 CREATE INDEX idx_oauth_clients_public_id ON oauth_clients(public_id);
 CREATE INDEX idx_oauth_clients_active ON oauth_clients(is_active);
+CREATE INDEX idx_oauth_clients_deleted_at ON oauth_clients(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **oauth_tokens**
@@ -1000,6 +1020,7 @@ CREATE TABLE idp_links (
   is_active BOOLEAN DEFAULT TRUE,  -- v7.5.0: アクティブ状態
   linked_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   last_used_at TIMESTAMPTZ,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(user_id, provider, meta_platform)  -- v7.5.0: Meta統合対応
 );
 
@@ -1007,6 +1028,7 @@ CREATE INDEX idx_idp_links_user_id ON idp_links(user_id);
 CREATE INDEX idx_idp_links_provider ON idp_links(provider, provider_user_id);
 CREATE INDEX idx_idp_links_user_primary ON idp_links(user_id, is_primary) WHERE is_primary = TRUE;  -- v7.5.0
 CREATE INDEX idx_idp_links_meta_platform ON idp_links(meta_platform) WHERE meta_platform IS NOT NULL;  -- v7.5.0
+CREATE INDEX idx_idp_links_deleted_at ON idp_links(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **users**
@@ -1691,6 +1713,7 @@ CREATE TABLE keywords (
   usage_count INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   PRIMARY KEY (id, public_id),
   UNIQUE(name, region_code)
 );
@@ -1700,6 +1723,7 @@ CREATE INDEX idx_keywords_name ON keywords(name);
 CREATE INDEX idx_keywords_display_name ON keywords(display_name);
 CREATE INDEX idx_keywords_usage_count ON keywords(usage_count DESC);
 CREATE INDEX idx_keywords_region_code ON keywords(region_code);
+CREATE INDEX idx_keywords_deleted_at ON keywords(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **exam_keywords (試験キーワード関連付け)**
@@ -1934,12 +1958,14 @@ CREATE TABLE subject_terms (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(subject_id, term, language_code)
 );
 
 CREATE INDEX idx_subject_terms_subject_id ON subject_terms(subject_id);
 CREATE INDEX idx_subject_terms_term ON subject_terms USING gin(to_tsvector('japanese', term));
 CREATE INDEX idx_subject_terms_type ON subject_terms(term_type);
+CREATE INDEX idx_subject_terms_deleted_at ON subject_terms(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **institution_terms (機関検索用語)**
@@ -1957,12 +1983,14 @@ CREATE TABLE institution_terms (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(institution_id, term, language_code)
 );
 
 CREATE INDEX idx_institution_terms_institution_id ON institution_terms(institution_id);
 CREATE INDEX idx_institution_terms_term ON institution_terms USING gin(to_tsvector('japanese', term));
 CREATE INDEX idx_institution_terms_type ON institution_terms(term_type);
+CREATE INDEX idx_institution_terms_deleted_at ON institution_terms(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **faculty_terms (学部検索用語)**
@@ -1980,12 +2008,14 @@ CREATE TABLE faculty_terms (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(faculty_id, term, language_code)
 );
 
 CREATE INDEX idx_faculty_terms_faculty_id ON faculty_terms(faculty_id);
 CREATE INDEX idx_faculty_terms_term ON faculty_terms USING gin(to_tsvector('japanese', term));
 CREATE INDEX idx_faculty_terms_type ON faculty_terms(term_type);
+CREATE INDEX idx_faculty_terms_deleted_at ON faculty_terms(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **teacher_terms (教員検索用語)**
@@ -2003,12 +2033,14 @@ CREATE TABLE teacher_terms (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(teacher_id, term, language_code)
 );
 
 CREATE INDEX idx_teacher_terms_teacher_id ON teacher_terms(teacher_id);
 CREATE INDEX idx_teacher_terms_term ON teacher_terms USING gin(to_tsvector('japanese', term));
 CREATE INDEX idx_teacher_terms_type ON teacher_terms(term_type);
+CREATE INDEX idx_teacher_terms_deleted_at ON teacher_terms(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **term_generation_jobs (用語生成ジョブ)**
@@ -2967,50 +2999,109 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 - コンテンツ解除トークン検証の高速化
 - レート制限の実装
 
-#### **Redisキー設計**
+#### **Redisキー設計（v7.5.1標準化）**
 
+##### **統一フォーマット**
 ```
-# 広告配信ステータスキャッシュ
-ad:delivery:config:current
-  - Value: JSON (ad_delivery_config)
-  - TTL: 60秒
-  - 更新タイミング: PostgreSQLで設定変更時に即座に更新
+{service}:{feature}:{identifier}
+```
 
-# ユーザー広告免除設定キャッシュ
-ad:exemption:user:{user_id}
-  - Value: JSON (user_ad_exemptions)
-  - TTL: 300秒 (5分)
-  - 更新タイミング: ユーザー設定変更時に即座に更新
+##### **キーカテゴリ別設計**
 
-# コンテンツメタデータキャッシュ（段階的開示用）
-content:metadata:exam:{exam_id}
+**キャッシュキー:**
+```
+# 試験情報キャッシュ
+contents:exam:{exam_id}
   - Value: JSON (exam基本情報 + questions構造のみ)
   - TTL: 300秒 (5分)
   - 更新タイミング: examが公開・更新時に更新
 
-# トークン検証結果キャッシュ
-token:verify:{token_public_id}
-  - Value: JSON (token検証結果)
+# ユーザープロフィールキャッシュ
+users:profile:{user_id}
+  - Value: JSON (user_profiles)
   - TTL: 300秒 (5分)
-  - 更新タイミング: トークン使用時に削除
+  - 更新タイミング: プロフィール更新時に更新
 
-# レート制限: コンテンツアクセス
-ratelimit:content:access:{user_id}:{exam_id}
-  - Value: Counter
-  - TTL: 3600秒 (1時間)
-  - 制限: 1時間に10回まで
+# 検索結果キャッシュ
+search:query:{query_hash}
+  - Value: JSON (検索結果)
+  - TTL: 300秒 (5分)
+  - 更新タイミング: クエリ実行時に更新
+```
 
-# レート制限: トークン発行
-ratelimit:token:issue:{user_id}:{exam_id}
+**レート制限キー:**
+```
+# 新規登録レート制限
+ratelimit:users:register:{ip}
   - Value: Counter
   - TTL: 3600秒 (1時間)
   - 制限: 1時間に5回まで
 
-# レート制限: 広告視聴完了通知
-ratelimit:ad:complete:{user_id}
+# アップロードレート制限
+ratelimit:contents:upload:{user_id}
+  - Value: Counter
+  - TTL: 3600秒 (1時間)
+  - 制限: 1時間に10回まで
+
+# コメント投稿レート制限
+ratelimit:social:comment:{user_id}
   - Value: Counter
   - TTL: 60秒 (1分)
   - 制限: 1分に5回まで
+
+# コンテンツアクセスレート制限
+ratelimit:contents:access:{user_id}:{exam_id}
+  - Value: Counter
+  - TTL: 3600秒 (1時間)
+  - 制限: 1時間に10回まで
+
+# トークン発行レート制限
+ratelimit:contents:token_issue:{user_id}:{exam_id}
+  - Value: Counter
+  - TTL: 3600秒 (1時間)
+  - 制限: 1時間に5回まで
+
+# 広告視聴完了通知レート制限
+ratelimit:contents:ad_complete:{user_id}
+  - Value: Counter
+  - TTL: 60秒 (1分)
+  - 制限: 1分に5回まで
+```
+
+**セッションキー:**
+```
+# アクセストークンセッション
+session:access:{token_jti}
+  - Value: JSON (token情報)
+  - TTL: 3600秒 (1時間)
+  - 更新タイミング: トークン発行時
+
+# リフレッシュトークンセッション
+session:refresh:{token_id}
+  - Value: JSON (token情報)
+  - TTL: 2592000秒 (30日)
+  - 更新タイミング: トークン発行時
+```
+
+**一時データキー:**
+```
+# コンテンツ解除トークン
+temp:unlock_token:{token}
+  - Value: JSON (token検証結果)
+  - TTL: 300秒 (5分)
+  - 更新タイミング: トークン使用時に削除
+
+# メール認証コード
+temp:email_verify:{code}
+  - Value: JSON (user_id, email)
+  - TTL: 600秒 (10分)
+  - 更新タイミング: 認証完了時に削除
+
+# 広告配信ステータス
+temp:ad_config:current
+  - Value: JSON (ad_delivery_config)
+  - TTL: 60秒
+  - 更新タイミング: PostgreSQLで設定変更時に即座に更新
 ```
 
 #### **TTL設定戦略**
@@ -3049,7 +3140,7 @@ func NewAdCacheRepository(client *redis.Client) *AdCacheRepository {
 
 // GetCurrentAdDeliveryConfig: 広告配信ステータスを取得（キャッシュ優先）
 func (r *AdCacheRepository) GetCurrentAdDeliveryConfig(ctx context.Context) (*domain.AdDeliveryConfig, error) {
-    key := "ad:delivery:config:current"
+    key := "temp:ad_config:current"  // v7.5.1: 標準化されたキー形式
     
     // Redisから取得
     val, err := r.client.Get(ctx, key).Result()
@@ -3071,7 +3162,7 @@ func (r *AdCacheRepository) GetCurrentAdDeliveryConfig(ctx context.Context) (*do
 
 // SetCurrentAdDeliveryConfig: 広告配信ステータスをキャッシュ
 func (r *AdCacheRepository) SetCurrentAdDeliveryConfig(ctx context.Context, config *domain.AdDeliveryConfig) error {
-    key := "ad:delivery:config:current"
+    key := "temp:ad_config:current"  // v7.5.1: 標準化されたキー形式
     
     data, err := json.Marshal(config)
     if err != nil {
@@ -3087,7 +3178,7 @@ func (r *AdCacheRepository) SetCurrentAdDeliveryConfig(ctx context.Context, conf
 
 // GetUserAdExemption: ユーザー広告免除設定を取得（キャッシュ優先）
 func (r *AdCacheRepository) GetUserAdExemption(ctx context.Context, userID string) (*domain.UserAdExemption, error) {
-    key := fmt.Sprintf("ad:exemption:user:%s", userID)
+    key := fmt.Sprintf("users:ad_exemption:%s", userID)  // v7.5.1: 標準化されたキー形式
     
     val, err := r.client.Get(ctx, key).Result()
     if err == redis.Nil {
@@ -3107,7 +3198,7 @@ func (r *AdCacheRepository) GetUserAdExemption(ctx context.Context, userID strin
 
 // SetUserAdExemption: ユーザー広告免除設定をキャッシュ
 func (r *AdCacheRepository) SetUserAdExemption(ctx context.Context, userID string, exemption *domain.UserAdExemption) error {
-    key := fmt.Sprintf("ad:exemption:user:%s", userID)
+    key := fmt.Sprintf("users:ad_exemption:%s", userID)  // v7.5.1: 標準化されたキー形式
     
     data, err := json.Marshal(exemption)
     if err != nil {
@@ -3140,7 +3231,7 @@ func (r *AdCacheRepository) CheckRateLimit(ctx context.Context, key string, limi
 
 // GetContentMetadata: コンテンツメタデータ取得（段階的開示用）
 func (r *AdCacheRepository) GetContentMetadata(ctx context.Context, examID string) (map[string]interface{}, error) {
-    key := fmt.Sprintf("content:metadata:exam:%s", examID)
+    key := fmt.Sprintf("contents:exam:%s", examID)  // v7.5.1: 標準化されたキー形式
     
     val, err := r.client.Get(ctx, key).Result()
     if err == redis.Nil {
@@ -3160,7 +3251,7 @@ func (r *AdCacheRepository) GetContentMetadata(ctx context.Context, examID strin
 
 // SetContentMetadata: コンテンツメタデータ設定
 func (r *AdCacheRepository) SetContentMetadata(ctx context.Context, examID string, metadata map[string]interface{}) error {
-    key := fmt.Sprintf("content:metadata:exam:%s", examID)
+    key := fmt.Sprintf("contents:exam:%s", examID)  // v7.5.1: 標準化されたキー形式
     
     data, err := json.Marshal(metadata)
     if err != nil {
@@ -3194,7 +3285,7 @@ func (r *AdCacheRepository) SetContentMetadata(ctx context.Context, examID strin
 ```go
 // レート制限チェック（コンテンツアクセス）
 func (s *ContentService) CheckContentAccessRateLimit(ctx context.Context, userID, examID string) error {
-    key := fmt.Sprintf("ratelimit:content:access:%s:%s", userID, examID)
+    key := fmt.Sprintf("ratelimit:contents:access:%s:%s", userID, examID)  // v7.5.1: 標準化されたキー形式
     allowed, err := s.cache.CheckRateLimit(ctx, key, 10, 1*time.Hour)
     if err != nil {
         return fmt.Errorf("rate limit check failed: %w", err)
@@ -3207,7 +3298,7 @@ func (s *ContentService) CheckContentAccessRateLimit(ctx context.Context, userID
 
 // レート制限チェック（トークン発行）
 func (s *TokenService) CheckTokenIssueRateLimit(ctx context.Context, userID, examID string) error {
-    key := fmt.Sprintf("ratelimit:token:issue:%s:%s", userID, examID)
+    key := fmt.Sprintf("ratelimit:contents:token_issue:%s:%s", userID, examID)  // v7.5.1: 標準化されたキー形式
     allowed, err := s.cache.CheckRateLimit(ctx, key, 5, 1*time.Hour)
     if err != nil {
         return fmt.Errorf("rate limit check failed: %w", err)
@@ -5478,6 +5569,7 @@ CREATE PUBLICATION dbz_publication_contents_search FOR TABLE
     "database.dbname": "edumint_contents",
     "database.server.name": "edumint_contents",
     "table.include.list": "public.institutions,public.faculties,public.departments,public.teachers,public.subjects,public.exams,public.questions,public.sub_questions,public.keywords,public.exam_keywords,public.exam_statistics,public.exam_interaction_events,public.ad_display_events,public.ad_viewing_progress",
+    "column.exclude.list": "public.exams.file_metadata",
     "plugin.name": "pgoutput",
     "publication.name": "dbz_publication_contents",
     "slot.name": "debezium_edumint_contents",
@@ -5496,6 +5588,20 @@ CREATE PUBLICATION dbz_publication_contents_search FOR TABLE
 - 検索用語テーブル（`*_terms`, `term_generation_*`）を除外
 - 広告管理テーブル（`ad_display_events`, `ad_viewing_progress`）を追加（v7.4.0でad_viewing_historyから移行）
 - table.include.listを最適化（読み取り専用テーブルのみ）
+- **column.exclude.list（v7.5.1追加）**: 大容量カラムのCDC除外
+  - `exams.file_metadata`: ファイルメタデータJSON（最大1MB）
+
+**大容量カラム除外の理由（v7.5.1新設）:**
+
+大容量カラムをCDC対象にすると以下の問題が発生:
+- **Kafkaメッセージサイズ肥大化**: デフォルト1MB制限を超過する可能性
+- **レプリケーション遅延**: 大量データ転送によるパフォーマンス低下
+- **ストレージコスト増加**: Kafkaトピックの容量圧迫
+
+**代替戦略:**
+- 変更検知は`updated_at`タイムスタンプで実施
+- 実データはREST API経由で取得
+- Elasticsearchには概要情報のみを格納
 
 #### Debezium Connector 設定（edumint_contents_search 検索用DB） *NEW*
 
@@ -5733,6 +5839,43 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 | `monetization.transactions` | edumintMonetizeWallet | edumintRevenue | `CoinEarned`, `CoinSpent` | ウォレットトランザクション |
 | `revenue.reports` | edumintRevenue | - | `RevenueCalculated`, `PaymentProcessed` | 収益レポート |
 | `moderation.events` | edumintModeration | edumintContents, edumintUsers | `ContentReported`, `ContentTakenDown`, `UserBanned` | モデレーションイベント |
+
+#### **ファイル管理イベント（v7.5.1追加）**
+
+**`edumint.files.file_migration_completed`**
+- **Producer**: edumintFiles
+- **Consumers**: edumintContents（OCRテキスト参照先更新）、edumintRevenue（ストレージコスト再計算）
+- **Key**: `file_id (UUID)`
+- **Value Schema**:
+  ```json
+  {
+    "file_id": "uuid",
+    "old_bucket": "edumint-staging-asia",
+    "new_bucket": "edumint-vault-asia",
+    "old_storage_class": "STANDARD",
+    "new_storage_class": "ARCHIVE",
+    "migrated_at": "2026-02-07T12:34:56Z",
+    "file_size_bytes": 1048576
+  }
+  ```
+
+#### **統計更新イベント（v7.5.1追加）**
+
+**`edumint.contents.exam_statistics_updated`**
+- **Producer**: edumintContents
+- **Consumers**: edumintSearch（Elasticsearchインデックス更新）、edumintRevenue（人気度ベース収益分配計算）
+- **Key**: `exam_id (UUID)`
+- **Value Schema**:
+  ```json
+  {
+    "exam_id": "uuid",
+    "total_views": 12345,
+    "total_unlocks": 456,
+    "total_comments": 78,
+    "average_rating": 4.5,
+    "updated_at": "2026-02-07T12:34:56Z"
+  }
+  ```
 
 ### イベントフロー例
 
@@ -6053,6 +6196,57 @@ edumint_gateway          → edumint_gateway_logs
 - **圧縮**: 古いパーティションを圧縮して容量節約
 - **保持ポリシー**: 自動削除またはアーカイブ
 - **特別要件**: ウォレットログは法令により7年保持
+
+#### **イミュータブル性の保証（v7.5.1追加）**
+
+ログテーブルは一度書き込まれたら変更されない「イミュータブル」な設計を徹底します。
+
+**設計原則:**
+- ログテーブルには`updated_at`カラムを**設けない**
+- 一度書き込まれたログは変更されないことを設計上保証
+- 修正が必要な場合は新しいログエントリを追加（補正ログパターン）
+
+**該当テーブル:**
+```
+auth_logs
+user_profile_logs
+content_logs
+search_logs
+social_logs
+wallet_logs
+revenue_logs
+moderation_logs
+job_logs
+```
+
+**標準DDL形式:**
+```sql
+CREATE TABLE auth_logs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID NOT NULL,
+  event_type VARCHAR(50) NOT NULL,
+  -- その他のカラム
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+  -- updated_atは削除（イミュータブルログのため）
+) PARTITION BY RANGE (created_at);
+```
+
+**補正ログパターン例:**
+```sql
+-- 誤ったログエントリが発見された場合、新しい補正エントリを追加
+INSERT INTO auth_logs (user_id, event_type, metadata, created_at)
+VALUES (
+  'user-uuid',
+  'correction',
+  jsonb_build_object(
+    'corrects_log_id', 'original-log-uuid',
+    'reason', '記録ミス訂正',
+    'original_event_type', 'login_failed',
+    'corrected_event_type', 'login_success'
+  ),
+  CURRENT_TIMESTAMP
+);
+```
 
 ### 16.10 UUID生成
 
@@ -7035,6 +7229,133 @@ LIMIT 10;
 
 -- 0.8.1では、フィルタリング条件が多い場合でも
 -- 反復スキャンにより精度を維持しつつ高速化
+```
+
+#### **HNSWインデックス再構築戦略（v7.5.1新設）**
+
+##### 再構築が必要になる状況
+1. **大量挿入後の断片化**: 10万件以上のベクトル挿入
+2. **検索性能劣化**: クエリ応答時間が通常の2倍以上
+3. **インデックススキャン率低下**: `pg_stat_user_indexes.idx_scan`が週次で100未満
+
+##### 再構築手順
+```sql
+-- 1. 現在のインデックス状態確認
+SELECT 
+  indexrelname,
+  idx_scan,
+  idx_tup_read,
+  idx_tup_fetch,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS index_size
+FROM pg_stat_user_indexes
+WHERE indexrelname = 'idx_exams_content_vector_hnsw';
+
+-- 2. CONCURRENTLYオプションで再構築（ダウンタイム0）
+REINDEX INDEX CONCURRENTLY idx_exams_content_vector_hnsw;
+
+-- 3. 再構築後の性能確認
+EXPLAIN ANALYZE
+SELECT id, content_vector <=> '[0.1, 0.2, ...]' AS distance
+FROM exams
+ORDER BY distance
+LIMIT 10;
+```
+
+##### 自動化スクリプト（Cloud Run Jobs）
+```go
+package maintenance
+
+import (
+    "context"
+    "fmt"
+    "log/slog"
+    
+    "github.com/edumint/content/internal/db/dbgen"
+)
+
+type MaintenanceService struct {
+    queries *dbgen.Queries
+    db      *pgxpool.Pool
+    config  *MaintenanceConfig
+}
+
+type MaintenanceConfig struct {
+    MaxQueryTimeMs int
+}
+
+type IndexStats struct {
+    IdxScan         int64
+    AvgQueryTimeMs  float64
+}
+
+func (s *MaintenanceService) ReindexHNSWIfNeeded(ctx context.Context) error {
+    // 1. インデックス統計取得
+    stats, err := s.queries.GetIndexStats(ctx, "idx_exams_content_vector_hnsw")
+    if err != nil {
+        return err
+    }
+    
+    // 2. 再構築条件判定
+    needsReindex := stats.IdxScan < 100 || 
+                    stats.AvgQueryTimeMs > float64(s.config.MaxQueryTimeMs)*2
+    
+    if !needsReindex {
+        slog.Info("HNSW index is healthy", "idx_scan", stats.IdxScan)
+        return nil
+    }
+    
+    // 3. 再構築実行
+    slog.Info("starting HNSW reindex", "reason", "performance_degradation")
+    _, err = s.db.Exec(ctx, "REINDEX INDEX CONCURRENTLY idx_exams_content_vector_hnsw")
+    if err != nil {
+        return fmt.Errorf("reindex failed: %w", err)
+    }
+    
+    // 4. Slackアラート送信
+    s.notifySlack(ctx, "HNSW index reindexed successfully")
+    return nil
+}
+
+func (s *MaintenanceService) notifySlack(ctx context.Context, message string) {
+    // Slack通知実装（省略）
+}
+```
+
+##### 実行スケジュール
+- **頻度**: 週次（日曜深夜2:00 JST）
+- **想定実行時間**: 100万ベクトルで約30分
+- **影響**: CONCURRENTLY指定によりダウンタイム0秒
+
+##### Cloud Run Jobs定義
+```yaml
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: hnsw-reindex-job
+spec:
+  template:
+    spec:
+      containers:
+      - image: gcr.io/edumint-prod/maintenance-worker:latest
+        env:
+        - name: JOB_TYPE
+          value: "hnsw_reindex"
+        - name: DATABASE_HOST
+          value: "/cloudsql/edumint-prod:asia-northeast1:edumint-content"
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+      timeoutSeconds: 3600  # 60分タイムアウト
+```
+
+##### Prometheusメトリクス
+```promql
+# インデックススキャン率
+rate(pg_stat_user_indexes_idx_scan{indexrelname="idx_exams_content_vector_hnsw"}[1w])
+
+# 平均クエリ時間
+avg(pg_stat_statements_mean_exec_time{query=~".*content_vector.*"}[1d])
 ```
 
 ### 17.3 Go型統合パターン
@@ -8577,6 +8898,106 @@ func parseInt(s string, defaultVal int) int {
 }
 ```
 
+#### **pgxpool接続設定（v7.5.1追加: IAM認証対応）**
+
+```go
+package database
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/jackc/pgx/v5"
+    "github.com/jackc/pgx/v5/pgxpool"
+    "log/slog"
+)
+
+// NewPool creates a new database connection pool with IAM auth support
+func NewPool(ctx context.Context, config *DatabaseConfig) (*pgxpool.Pool, error) {
+    dsn := fmt.Sprintf(
+        "host=%s port=%s dbname=%s user=%s password=%s sslmode=%s",
+        config.Host, config.Port, config.Name, config.User, config.Password, config.SSLMode,
+    )
+    
+    poolConfig, err := pgxpool.ParseConfig(dsn)
+    if err != nil {
+        return nil, fmt.Errorf("parse pool config: %w", err)
+    }
+    
+    // IAM認証対応設定（v7.5.1追加）
+    poolConfig.MaxConnLifetime = 50 * time.Minute  // IAMトークン有効期限（60分）前に再接続
+    poolConfig.MaxConnIdleTime = 10 * time.Minute  // アイドル接続の早期切断
+    poolConfig.HealthCheckPeriod = 1 * time.Minute // 定期ヘルスチェック
+    
+    // 基本設定
+    poolConfig.MaxConns = config.MaxConns
+    poolConfig.MinConns = config.MinConns
+    
+    // 接続取得前の検証フック
+    poolConfig.BeforeAcquire = func(ctx context.Context, conn *pgx.Conn) bool {
+        // 接続取得前にトークン有効性確認
+        var result int
+        err := conn.QueryRow(ctx, "SELECT 1").Scan(&result)
+        if err != nil {
+            slog.Warn("connection validation failed", "error", err)
+            return false // 無効な接続を破棄
+        }
+        return true
+    }
+    
+    return pgxpool.NewWithConfig(ctx, poolConfig)
+}
+```
+
+**IAM認証時の接続ライフサイクル管理（v7.5.1新設）**
+
+##### 問題の所在
+- Cloud SQL IAM認証トークンは60分で失効
+- 失効後の接続使用で`ERROR: IAM authentication token expired`
+
+##### 解決策
+1. **MaxConnLifetime = 50分**: トークン失効前に接続を強制クローズ
+2. **MaxConnIdleTime = 10分**: アイドル接続の早期切断でメモリ効率化
+3. **HealthCheckPeriod = 1分**: 定期的な接続有効性確認
+4. **BeforeAcquire Hook**: 接続プールからの取得時に即座に検証
+
+##### モニタリング
+```promql
+# IAM認証エラー率
+rate(pgx_connection_errors_total{reason="iam_token_expired"}[5m]) > 0
+
+# 接続ライフタイム分布（50分以下であることを確認）
+histogram_quantile(0.99, rate(pgx_connection_lifetime_seconds_bucket[5m])) < 3000
+```
+
+##### Grafanaダッシュボード
+```json
+{
+  "dashboard": {
+    "title": "Cloud SQL IAM接続監視",
+    "panels": [
+      {
+        "title": "IAM Token Expiration Errors",
+        "targets": [
+          {
+            "expr": "rate(pgx_connection_errors_total{reason=\"iam_token_expired\"}[5m])"
+          }
+        ]
+      },
+      {
+        "title": "Connection Lifetime (P99)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(pgx_connection_lifetime_seconds_bucket[5m]))"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ### 19.4 監視・アラート設定
 
 ```bash
@@ -9612,6 +10033,101 @@ steps:
     env:
       - 'TESTCONTAINERS_RYUK_DISABLED=false'
 ```
+
+### マルチサービス並列テスト（v7.5.1追加）
+
+複数のマイクロサービスを並列にテストする場合、Testcontainersのリソース制限を考慮する必要があります。
+
+```yaml
+# .github/workflows/multi_service_test.yml
+name: Multi-Service Integration Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  service-tests:
+    name: Service Test - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: 
+          - edumintUsers
+          - edumintContents
+          - edumintFiles
+          - edumintSearch
+          - edumintSocial
+      max-parallel: 2  # 同時実行数を制限（v7.5.1追加）
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          cache: true
+      
+      - name: Start Docker
+        run: |
+          sudo systemctl start docker
+          docker --version
+      
+      - name: Run Service Tests
+        run: |
+          cd services/${{ matrix.service }}
+          go test -v -tags=component \
+            -coverprofile=coverage.out \
+            ./tests/component/...
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: false
+          TESTCONTAINERS_POSTGRES_IMAGE: postgres:18.1
+          TESTCONTAINERS_KAFKA_IMAGE: confluentinc/cp-kafka:7.6.0
+          TESTCONTAINERS_REDIS_IMAGE: redis:7.2
+      
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./services/${{ matrix.service }}/coverage.out
+          flags: ${{ matrix.service }}
+```
+
+#### **並列実行制限の理由（v7.5.1新設）**
+
+##### リソース制約
+- **GitHub Actions Runnerの同時コンテナ数制限**: 20個
+- **各サービステストで使用するコンテナ**:
+  - PostgreSQL: 1個
+  - Kafka + Zookeeper: 2個
+  - Redis: 1個
+  - **合計**: 4個/サービス
+
+##### 計算
+- **5サービス全並列実行**: 4コンテナ × 5 = **20個（限界値）**
+- **`max-parallel: 2`設定時**: 4コンテナ × 2 = **8個（安全）**
+
+##### トレードオフ
+- **実行時間**: 全並列（10分） → 2並列（15分）の5分増加
+- **安定性**: コンテナ起動失敗率 30% → 5%に改善
+
+##### モニタリング
+```bash
+# GitHub Actions実行ログで確認
+grep "Error response from daemon" .github/workflows/*.log
+
+# コンテナ起動失敗パターン
+# "Cannot connect to the Docker daemon"
+# "container failed to start within timeout"
+```
+
+##### 推奨設定
+- **小規模プロジェクト（1-3サービス）**: `max-parallel: 3`
+- **中規模プロジェクト（4-6サービス）**: `max-parallel: 2`（推奨）
+- **大規模プロジェクト（7+サービス）**: `max-parallel: 1` または専用Runner使用
 
 ### Debeziumテスト戦略
 
@@ -11111,6 +11627,169 @@ type UnlockContentResponse struct {
 }
 ```
 
+#### **22.7.4 広告視聴完了の厳密な定義（v7.5.1新設）**
+
+##### 設計背景
+クライアント側のみの検証では、DevToolsでの不正操作やタブ切り替えでの回避が容易なため、サーバー側での多層検証を実装する。
+
+##### サーバー側検証ロジック
+```go
+func (s *AdService) VerifyAdCompletion(ctx context.Context, eventID uuid.UUID) error {
+    events, err := s.queries.GetAdViewingEvents(ctx, eventID)
+    if err != nil {
+        return fmt.Errorf("get ad viewing events: %w", err)
+    }
+    
+    // 1. 最低視聴時間チェック（80%ルール）
+    requiredSeconds := float64(events.AdDuration) * 0.8
+    if events.TotalWatchedSeconds < requiredSeconds {
+        return &AdVerificationError{
+            Code:    "INSUFFICIENT_WATCH_TIME",
+            Message: fmt.Sprintf("視聴時間不足: %.1f秒/%.1f秒必要", 
+                                events.TotalWatchedSeconds, requiredSeconds),
+        }
+    }
+    
+    // 2. 進捗イベントの時系列整合性チェック
+    if err := s.validateProgressSequence(events.ProgressEvents); err != nil {
+        return &AdVerificationError{
+            Code:    "INVALID_PROGRESS_SEQUENCE",
+            Message: "不正な進捗報告パターンを検出",
+            Details: err.Error(),
+        }
+    }
+    
+    // 3. ブラウザタブフォーカス喪失時間チェック
+    if events.TotalBlurSeconds > 5 {
+        return &AdVerificationError{
+            Code:    "EXCESSIVE_BLUR",
+            Message: fmt.Sprintf("タブ非表示時間超過: %.1f秒", events.TotalBlurSeconds),
+        }
+    }
+    
+    // 4. 進捗報告間隔の異常検出
+    if events.AverageReportInterval > 5.0 {
+        return &AdVerificationError{
+            Code:    "ABNORMAL_REPORT_INTERVAL",
+            Message: "進捗報告間隔が異常です",
+        }
+    }
+    
+    return nil
+}
+
+func (s *AdService) validateProgressSequence(events []AdProgressEvent) error {
+    var lastProgress float64
+    var lastTimestamp time.Time
+    
+    for i, event := range events {
+        // 単調増加チェック
+        if event.Progress < lastProgress {
+            return fmt.Errorf("進捗が後退: [%d] %.1f%% -> %.1f%%", 
+                            i, lastProgress, event.Progress)
+        }
+        
+        // 時間的整合性チェック（3秒間隔で報告されるべき）
+        if i > 0 {
+            interval := event.Timestamp.Sub(lastTimestamp).Seconds()
+            if interval < 2.0 || interval > 6.0 {
+                return fmt.Errorf("異常な報告間隔: %.1f秒", interval)
+            }
+        }
+        
+        lastProgress = event.Progress
+        lastTimestamp = event.Timestamp
+    }
+    
+    return nil
+}
+```
+
+##### 不正防止の実装詳細
+
+###### クライアント側実装（JavaScript）
+```typescript
+class AdPlayerVerification {
+  private progressInterval: NodeJS.Timeout;
+  private blurStartTime: number | null = null;
+  private totalBlurTime = 0;
+
+  constructor(private eventID: string, private duration: number) {
+    // Page Visibility API統合
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  startTracking() {
+    // 3秒ごとに進捗報告
+    this.progressInterval = setInterval(() => {
+      const progress = this.getCurrentProgress();
+      this.reportProgress(progress);
+    }, 3000);
+  }
+
+  private handleVisibilityChange = () => {
+    if (document.hidden) {
+      this.blurStartTime = Date.now();
+    } else if (this.blurStartTime) {
+      this.totalBlurTime += (Date.now() - this.blurStartTime) / 1000;
+      this.blurStartTime = null;
+    }
+  };
+
+  private async reportProgress(progress: number) {
+    await fetch('/api/ads/progress', {
+      method: 'POST',
+      body: JSON.stringify({
+        event_id: this.eventID,
+        progress_percent: progress,
+        blur_seconds: this.totalBlurTime,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+  }
+
+  async complete() {
+    clearInterval(this.progressInterval);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    
+    // サーバー側検証実行
+    const response = await fetch('/api/ads/verify', {
+      method: 'POST',
+      body: JSON.stringify({ event_id: this.eventID }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new AdVerificationError(error.code, error.message);
+    }
+  }
+}
+```
+
+##### モニタリング指標（Prometheus）
+```promql
+# 広告視聴完了率
+rate(ad_completion_total[5m]) / rate(ad_start_total[5m])
+
+# 検証失敗率（不正試行の可能性）
+rate(ad_verification_failed_total{reason="INSUFFICIENT_WATCH_TIME"}[5m])
+rate(ad_verification_failed_total{reason="EXCESSIVE_BLUR"}[5m])
+rate(ad_verification_failed_total{reason="INVALID_PROGRESS_SEQUENCE"}[5m])
+```
+
+##### Grafanaアラート設定
+```yaml
+alerts:
+  - alert: HighAdVerificationFailureRate
+    expr: rate(ad_verification_failed_total[5m]) > 0.3
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "広告検証失敗率が高い ({{ $value }})"
+      description: "不正な広告視聴試行が増加している可能性"
+```
+
 ---
 
 ### 22.8 不正防止戦略（v7.4.1新設）
@@ -12355,6 +13034,123 @@ ALTER TABLE idp_links
   ALTER COLUMN provider TYPE idp_provider_enum USING provider::text::idp_provider_enum;
 
 DROP TYPE idp_provider_enum_old;
+```
+
+#### **22.10.7 プライマリIdP管理（v7.5.1新設）**
+
+##### 設計背景
+ユーザーが複数のIdP（Google、Meta、Apple等）を紐付けた場合、アカウント復旧時の基準となる「プライマリIdP」を明確化する必要がある。
+
+##### 優先順位ルール
+1. **初回登録時のIdPを永続的にプライマリとする**
+   - `users.primary_idp_link_id`カラムを追加（idp_links.id参照）
+   - セキュリティ理由：アカウント乗っ取り時の復旧基準を明確化
+
+2. **ユーザー自身による変更を許可**
+   - UI: "プライマリ認証方法の変更"ボタン
+   - セキュリティ検証：変更前にプライマリIdPでの再認証を要求
+
+##### DDL追加
+```sql
+-- usersテーブルへのカラム追加
+ALTER TABLE users 
+ADD COLUMN primary_idp_link_id UUID REFERENCES idp_links(id),
+ADD CONSTRAINT check_primary_idp_not_deleted 
+  CHECK (primary_idp_link_id IS NULL OR 
+         EXISTS (SELECT 1 FROM idp_links 
+                 WHERE id = primary_idp_link_id 
+                 AND user_id = users.id 
+                 AND deleted_at IS NULL));
+```
+
+##### sqlcクエリ定義
+```sql
+-- name: SetPrimaryIdP :exec
+UPDATE users
+SET primary_idp_link_id = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
+-- name: GetPrimaryIdP :one
+SELECT il.* 
+FROM idp_links il
+JOIN users u ON u.primary_idp_link_id = il.id
+WHERE u.id = $1 AND il.deleted_at IS NULL;
+```
+
+##### サービス層実装
+```go
+func (s *AuthService) ChangePrimaryIdP(
+    ctx context.Context, 
+    userID uuid.UUID, 
+    newPrimaryLinkID uuid.UUID,
+    reauthToken string,
+) error {
+    // 1. 現在のプライマリIdPで再認証検証
+    currentPrimary, err := s.queries.GetPrimaryIdP(ctx, userID)
+    if err != nil {
+        return fmt.Errorf("get primary idp: %w", err)
+    }
+    
+    if err := s.verifyReauthToken(ctx, currentPrimary, reauthToken); err != nil {
+        return fiber.NewError(fiber.StatusUnauthorized, "再認証が必要です")
+    }
+    
+    // 2. 新しいプライマリIdPの所有確認
+    link, err := s.queries.GetIdPLink(ctx, newPrimaryLinkID)
+    if err != nil || link.UserID != userID {
+        return fiber.NewError(fiber.StatusForbidden, "指定されたIdPはこのアカウントに紐付いていません")
+    }
+    
+    // 3. プライマリIdP更新
+    return s.queries.SetPrimaryIdP(ctx, db.SetPrimaryIdPParams{
+        ID:                userID,
+        PrimaryIdpLinkID:  newPrimaryLinkID,
+    })
+}
+```
+
+##### UI/UX設計
+```typescript
+// プライマリ認証方法変更ダイアログ
+const ChangePrimaryIdPDialog: React.FC = () => {
+  const [selectedIdP, setSelectedIdP] = useState<string>('');
+  const [reauthRequired, setReauthRequired] = useState(false);
+
+  const handleChange = async () => {
+    try {
+      await authAPI.changePrimaryIdP(selectedIdP);
+      toast.success('プライマリ認証方法を変更しました');
+    } catch (error) {
+      if (error.code === 'REAUTH_REQUIRED') {
+        setReauthRequired(true);
+        // 現在のプライマリIdPで再認証ダイアログ表示
+      }
+    }
+  };
+
+  return (
+    <Dialog>
+      <DialogTitle>プライマリ認証方法の変更</DialogTitle>
+      <DialogContent>
+        <Alert severity="warning">
+          アカウント復旧時の基準となる認証方法を変更します。
+          この操作には現在のプライマリ認証方法での再認証が必要です。
+        </Alert>
+        <RadioGroup value={selectedIdP} onChange={(e) => setSelectedIdP(e.target.value)}>
+          {linkedIdPs.map(idp => (
+            <FormControlLabel 
+              key={idp.id} 
+              value={idp.id} 
+              label={idp.provider} 
+              disabled={idp.isPrimary}
+            />
+          ))}
+        </RadioGroup>
+      </DialogContent>
+    </Dialog>
+  );
+};
 ```
 
 ---

@@ -53,3 +53,4 @@ storybook-static/
 .vitest
 .pnpm-store
 .pnpm-store/v3docs/Q_DATABASE_REFACTPR.md.backup
+*.backup
