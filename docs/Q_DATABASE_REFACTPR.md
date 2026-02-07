@@ -2207,6 +2207,10 @@ CREATE INDEX idx_master_ocr_created_at ON master_ocr_contents(created_at DESC);
 - **source_file_count**: 冗長フィールドだが検索・統計で頻繁に使用されるため配置
   - array_length(source_file_ids, 1) よりパフォーマンス有利
   - トリガーまたはアプリケーション層で整合性を保証
+  - 推奨: BEFORE INSERT/UPDATE トリガーで自動更新
+- **text_input_content 制約**: 
+  - has_text_input = FALSE の場合、text_input_content は NULL であるべき
+  - 推奨: CHECK 制約追加（アプリケーション層でも検証）
 - **GINインデックス**: source_file_ids配列の高速検索（ファイルIDからOCRコンテンツを検索）
 - **物理DB分離**（v7.2.0継続）: セキュリティ強化、IAMロール分離
 - **原本ファイル保存はedumintFilesが担当**: source_file_ids経由で file_metadata を参照
@@ -9196,7 +9200,18 @@ func (s *OCRCombinerService) CombineOCRResults(
     req CombineOCRRequest,
 ) (*dbgen.MasterOcrContent, error) {
     
-    // 各ファイルのOCR結果を取得
+    // 1. ファイルIDの存在確認（参照整合性検証）
+    for _, fileID := range req.SourceFileIDs {
+        exists, err := s.validateFileExists(ctx, fileID)
+        if err != nil {
+            return nil, fmt.Errorf("failed to validate file %s: %w", fileID, err)
+        }
+        if !exists {
+            return nil, fmt.Errorf("file not found: %s", fileID)
+        }
+    }
+    
+    // 2. 各ファイルのOCR結果を取得
     var combinedText strings.Builder
     for i, fileID := range req.SourceFileIDs {
         // edumintFiles サービスからOCR結果を取得
@@ -9244,21 +9259,34 @@ func (s *OCRCombinerService) CombineOCRResults(
     return ocr, nil
 }
 
+// validateFileExists: ファイルIDの存在確認
+func (s *OCRCombinerService) validateFileExists(
+    ctx context.Context,
+    fileID uuid.UUID,
+) (bool, error) {
+    // TODO: edumintFiles サービスのAPIを呼び出してファイルの存在を確認
+    // 例: resp, err := s.filesClient.FileExists(ctx, &files.FileExistsRequest{FileID: fileID.String()})
+    return true, nil
+}
+
 // getOCRResultFromFile: edumintFiles サービスからOCR結果を取得
 func (s *OCRCombinerService) getOCRResultFromFile(
     ctx context.Context,
     fileID uuid.UUID,
 ) (string, error) {
-    // TODO: 実装が必要
+    // TODO: 実装が必要（edumintFilesサービスAPI仕様が確定後に実装）
     // edumintFiles サービスのAPIを呼び出してOCRテキストを取得
     // または、file_metadata テーブルに保存されたOCRテキストを取得
-    // 例: 
-    // resp, err := s.filesClient.GetFileOCRText(ctx, &files.GetOCRRequest{FileID: fileID.String()})
+    // 
+    // 実装例: 
+    // resp, err := s.filesClient.GetFileOCRText(ctx, &files.GetOCRRequest{
+    //     FileID: fileID.String(),
+    // })
     // if err != nil {
-    //     return "", err
+    //     return "", fmt.Errorf("failed to get OCR text: %w", err)
     // }
     // return resp.OcrText, nil
-    return "", fmt.Errorf("not implemented: getOCRResultFromFile")
+    return "", fmt.Errorf("not implemented: getOCRResultFromFile - requires edumintFiles API integration")
 }
 
 type CombineOCRRequest struct {
