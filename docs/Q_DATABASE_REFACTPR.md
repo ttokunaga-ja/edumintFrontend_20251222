@@ -1,8 +1,23 @@
-# **EduMint 統合データモデル設計書 v7.4.0**
+# **EduMint 統合データモデル設計書 v7.4.1**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
-**最終更新日: 2026-02-06**
+**最終更新日: 2026-02-07**
+
+**v7.4.1 主要更新:**
+- **ENUM型の徹底化**: 高優先度・中優先度のENUM型を全面導入（IdPプロバイダー、マッチングタイプ、トークンタイプ、投稿タイプ、通報理由など）
+- **IdPプロバイダー拡張**: Meta系サービス（Facebook、Instagram）追加、電話番号認証対応IdPを優先採用
+- **マッチングタイプ拡張**: 友達探し、先輩/後輩探し、恋人探し等の新規タイプ追加
+- **試験生成フロー設計修正**: 複数ファイル → 1 master_ocr_contents → 1 exam の関係を明確化
+- **master_ocr_contents テーブル修正**: 
+  - `question_id`, `sub_question_id` 削除（exam との 1対1 関係に特化）
+  - `source_file_ids UUID[]` 配列追加（元ファイルの完全追跡）
+  - `source_file_count`, `has_text_input`, `text_input_content` 追加
+  - 排他制約削除、GINインデックス追加
+- **exams テーブル修正**: 
+  - `master_ocr_content_id UUID UNIQUE` 追加（1対1関係）
+  - `file_input_id` 削除（master_ocr_contents経由でファイル追跡）
+- **既存テーブルのENUM型適用**: oauth_tokens, idp_links, user_posts, dm_conversations, user_matches, content_reports, user_reports, revenue_reports, copyright_claims 等
 
 **v7.4.0 主要更新:**
 - **広告表示回数統計強化**: `exam_statistics` に広告表示カウント、推定収益、最終表示日時カラムを追加
@@ -394,7 +409,36 @@ CREATE TYPE auth_event_enum AS ENUM (
   'mfa_enabled',        -- 多要素認証有効化
   'account_locked'      -- アカウントロック
 );
+
+-- 外部IdPプロバイダー（v7.4.1新設: 電話番号認証対応優先）
+CREATE TYPE idp_provider_enum AS ENUM (
+  'google',        -- ✅ 電話番号認証対応（2段階認証）
+  'apple',         -- ✅ 電話番号認証対応（必須）
+  'facebook',      -- ✅ Meta - 電話番号認証対応
+  'instagram',     -- ✅ Meta - 電話番号認証対応（Facebookアカウント連携）
+  'microsoft',     -- ✅ 電話番号認証対応（Azure AD）
+  'line',          -- ✅ 電話番号認証必須
+  'github',        -- ⚠️  電話番号認証任意（開発者向け）
+  'twitter'        -- ⚠️  電話番号認証任意
+);
+
+-- OAuth2.0トークンタイプ（v7.4.1新設）
+CREATE TYPE token_type_enum AS ENUM (
+  'Bearer',
+  'MAC',
+  'Basic'
+);
 ```
+
+**IdP選定理由:**
+- **Facebook**: Meta社、月間アクティブユーザー30億人、電話番号認証対応
+- **Instagram**: Meta社、月間アクティブユーザー20億人、Facebookアカウント連携による電話番号認証
+- **Apple**: プライバシー重視、電話番号認証必須（Sign in with Apple）
+- **Google**: 2段階認証で電話番号サポート、教育機関との連携強い
+- **LINE**: 日本国内シェア90%超、電話番号必須
+- **Microsoft**: 企業・教育機関向け、Azure ADによる電話番号認証
+- **GitHub**: 開発者向け、電話番号認証任意だがセキュリティオプション充実
+- **Twitter**: SNS連携用、電話番号認証任意
 
 #### **1.5. ジョブ・通報関連ENUM**
 
@@ -441,6 +485,32 @@ CREATE TYPE content_report_reason_enum AS ENUM (
   'spam',               -- スパム・宣伝目的である
   'other'               -- その他
 );
+
+-- 通報対象エンティティタイプ（v7.4.1新設: 中優先度）
+CREATE TYPE reportable_entity_type_enum AS ENUM (
+  'exam',
+  'question',
+  'comment',
+  'post',
+  'user_profile'
+);
+
+-- ユーザー通報理由（v7.4.1新設: 中優先度）
+CREATE TYPE user_report_reason_enum AS ENUM (
+  'spam',
+  'harassment',
+  'inappropriate_content',
+  'impersonation',
+  'hate_speech',
+  'violence',
+  'other'
+);
+
+-- 通報カテゴリ（v7.4.1新設: 中優先度）
+CREATE TYPE report_category_enum AS ENUM (
+  'content_report',
+  'user_report'
+);
 ```
 
 #### **1.6. 経済・通知関連ENUM**
@@ -474,6 +544,96 @@ CREATE TYPE ad_display_stage_enum AS ENUM (
   'answer_explanation', -- 解答・解説閲覧時（ログイン必須）
   'download',       -- PDFダウンロード時（ログイン必須）
 );
+
+-- 収益ステータス（v7.4.1新設: 中優先度）
+CREATE TYPE revenue_status_enum AS ENUM (
+  'pending',
+  'calculated',
+  'paid',
+  'cancelled',
+  'refunded'
+);
+
+-- 著作権申し立てステータス（v7.4.1新設: 中優先度）
+CREATE TYPE claim_status_enum AS ENUM (
+  'pending',
+  'reviewing',
+  'upheld',
+  'dismissed',
+  'appealed'
+);
+```
+
+#### **1.7. ソーシャル機能関連ENUM（v7.4.1新設）**
+
+```sql
+-- SNS投稿タイプ（v7.4.1新設: 高優先度）
+CREATE TYPE post_type_enum AS ENUM (
+  'text',
+  'exam_share',
+  'question',
+  'achievement',
+  'study_log'
+);
+
+-- 投稿公開範囲（v7.4.1新設: 高優先度）
+CREATE TYPE post_visibility_enum AS ENUM (
+  'public',
+  'followers',
+  'private'
+);
+
+-- DM会話タイプ（v7.4.1新設: 高優先度）
+CREATE TYPE conversation_type_enum AS ENUM (
+  'direct',
+  'group'
+);
+
+-- マッチング目的（v7.4.1拡張版）
+CREATE TYPE match_purpose_enum AS ENUM (
+  'study_partner',      -- 勉強仲間
+  'tutor',              -- 家庭教師
+  'study_group',        -- 勉強グループ
+  'mentor',             -- メンター
+  'language_exchange',  -- 言語交換
+  'friend',             -- 友達探し（新規）
+  'senior',             -- 先輩探し（新規）
+  'junior',             -- 後輩探し（新規）
+  'romantic'            -- 恋人探し（新規）
+);
+
+-- マッチングタイプ（v7.4.1拡張版）
+CREATE TYPE match_type_enum AS ENUM (
+  'study_partner',      -- 勉強仲間
+  'tutor',              -- 家庭教師
+  'mentor',             -- メンター
+  'language_exchange',  -- 言語交換
+  'friend',             -- 友達（新規）
+  'senior',             -- 先輩（新規）
+  'junior',             -- 後輩（新規）
+  'romantic'            -- 恋人（新規）
+);
+
+-- マッチングステータス（v7.4.1新設: 高優先度）
+CREATE TYPE match_status_enum AS ENUM (
+  'pending',
+  'accepted',
+  'rejected',
+  'expired',
+  'cancelled'
+);
+
+-- インタラクションイベントタイプ（v7.4.1新設: 高優先度）
+CREATE TYPE interaction_event_type_enum AS ENUM (
+  'view',
+  'like',
+  'unlike',
+  'bad',
+  'unbad',
+  'share',
+  'bookmark',
+  'unbookmark'
+);
 ```
 
 ---
@@ -481,6 +641,23 @@ CREATE TYPE ad_display_stage_enum AS ENUM (
 ## **2. 禁止ツール・ライブラリ一覧**
 
 EduMintプロジェクトでは、以下のツール・ライブラリの使用を**全面禁止**とします。これらは技術的負債、セキュリティリスク、保守性低下を引き起こすため、代替ツールを使用してください。
+
+### **2.0 型安全性の徹底（v7.4.1強調）**
+
+**ENUM型の使用を徹底**し、固定値の管理はすべてPostgreSQL ENUM型で行います。VARCHAR型での固定値管理は**全面禁止**です。
+
+| 禁止パターン | 理由 | 代替方法 |
+| :--- | :--- | :--- |
+| **VARCHAR型での固定値管理** | typoリスク、バリデーション漏れ、パフォーマンス低下 | **PostgreSQL ENUM型** (必須) |
+| **文字列リテラル比較** | typo検出不可、IDEサポートなし | **ENUM型** + sqlc自動生成 |
+| **マジックナンバー/文字列** | 保守性低、意味不明瞭 | **ENUM型** + Go定数 |
+
+**ENUM型使用の利点:**
+- **型安全性**: DB層でのバリデーション、不正値の挿入を防止
+- **パフォーマンス**: INTEGER内部表現、比較・ソートが高速
+- **可読性**: 値の意味が明確、ドキュメント不要
+- **自動生成**: sqlcが Go ENUM を自動生成、手動管理不要
+- **IDEサポート**: 補完・リファクタリング対応
 
 ### 2.1 データベースマイグレーション
 
@@ -1274,6 +1451,10 @@ CREATE INDEX idx_subjects_display_name ON subjects USING gin(to_tsvector('japane
 CREATE TABLE exams (
   id UUID DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL,  -- NanoID
+  
+  -- master_ocr_contents との 1対1 関係（v7.4.1新規追加）
+  master_ocr_content_id UUID UNIQUE,  -- master_ocr_contents.idを参照（論理的）
+  
   subject_id UUID NOT NULL,  -- subjects.idを参照（論理的）
   teacher_id UUID,  -- teachers.idを参照（論理的）
   uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
@@ -1285,8 +1466,10 @@ CREATE TABLE exams (
   status exam_status_enum DEFAULT 'draft',
   display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
   region_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
-  file_input_id UUID,  -- file_inputs.idを参照（論理的）
+  
+  -- ファイル入力情報（v7.4.1修正: file_input_id廃止）
   ai_generated BOOLEAN DEFAULT FALSE,
+  
   embedding vector(1536),  -- pgvector
   view_count INT DEFAULT 0,
   like_count INT DEFAULT 0,
@@ -1299,6 +1482,8 @@ CREATE TABLE exams (
 );
 
 CREATE UNIQUE INDEX idx_exams_public_id ON exams(public_id);
+CREATE UNIQUE INDEX idx_exams_master_ocr_content_id ON exams(master_ocr_content_id) 
+  WHERE master_ocr_content_id IS NOT NULL;
 CREATE INDEX idx_exams_subject_id ON exams(subject_id);
 CREATE INDEX idx_exams_teacher_id ON exams(teacher_id);
 CREATE INDEX idx_exams_uploader_id ON exams(uploader_id);
@@ -1309,6 +1494,8 @@ CREATE INDEX idx_exams_embedding_hnsw ON exams USING hnsw(embedding vector_cosin
 
 **設計注記:**
 - 複合主キー (id, public_id) 採用
+- **v7.4.1修正**: master_ocr_content_id 追加（1対1関係）、file_input_id 削除
+- **ファイル追跡**: master_ocr_contents.source_file_ids 配列経由で元ファイルを追跡
 - ベクトル埋め込みでセマンティック検索対応
 - view_count等のカウンターはedumintSocialから非同期更新
 
@@ -1938,44 +2125,48 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 
 OCR処理された演習問題・教材のテキストデータを統合管理します。**原本ファイルはedumintFilesで保存**されます。
 
+**v7.4.1設計修正:**
+- **試験生成フロー明確化**: 複数ファイル → 1 master_ocr_contents → 1 exam の関係
+- **question_id, sub_question_id 削除**: exam との 1対1 関係に特化（'exercises'のみ）
+- **source_file_ids 配列追加**: 元ファイルの完全追跡（GINインデックス対応）
+- **テキスト入力サポート**: has_text_input, text_input_content 追加
+- **排他制約削除**: exam_id のみの簡潔な設計に変更
+
 **設計原則:**
 - **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
 - **イミュータブル設計**: 編集・削除不可（append-only）
 - **自動暗号化**: OCRテキストは7日経過で自動暗号化
 - **アクセス制御**: 管理者と自動化システムのみアクセス可
-- **ENUM型厳格管理**: content_typeで演習問題・教材を分類
-- **排他制約**: content_typeに応じて関連エンティティを制限
+- **ENUM型厳格管理**: content_typeで演習問題・教材を分類（現在は'exercises'のみ使用）
 
 ```sql
 CREATE TABLE master_ocr_contents (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  public_id VARCHAR(16) NOT NULL UNIQUE,
   
   -- コンテンツタイプ（ENUM厳格管理）
   content_type ocr_content_type_enum NOT NULL,
   
-  -- 関連エンティティ（排他制約で整合性保証）
-  exam_id UUID,  -- exams.idを参照（論理的）
-  question_id UUID,  -- questions.idを参照（論理的）
-  sub_question_id UUID,  -- sub_questions.idを参照（論理的）
+  -- 関連エンティティ（exam との 1対1 関係）
+  exam_id UUID,  -- exams.idを参照（論理的、後で設定される）
+  
+  -- ソースファイル管理（v7.4.1新規追加）
+  source_file_ids UUID[] NOT NULL,  -- file_metadata.id の配列
+  source_file_count INTEGER NOT NULL DEFAULT 1,
+  has_text_input BOOLEAN DEFAULT FALSE,  -- テキスト入力の有無
+  text_input_content TEXT,  -- テキスト入力内容
   
   -- アップロード情報
-  uploader_id UUID NOT NULL,  -- users.idを参照（論理的）
-  original_filename VARCHAR(512) NOT NULL,
-  stored_filename VARCHAR(512) NOT NULL,
-  file_size_bytes BIGINT NOT NULL,
-  mime_type VARCHAR(100) NOT NULL,
-  storage_path VARCHAR(1024) NOT NULL,
-  
-  -- 自動生成bucket_name（GENERATED ALWAYS AS）
-  bucket_name VARCHAR(255) GENERATED ALWAYS AS (get_ocr_bucket_name(content_type)) STORED,
-  
-  file_hash VARCHAR(64) NOT NULL,  -- SHA-256
+  uploader_id UUID NOT NULL,
   
   -- OCR処理
-  ocr_processed BOOLEAN DEFAULT FALSE,
-  ocr_text TEXT,
+  ocr_text TEXT NOT NULL,  -- 結合されたOCRテキスト全体
   language_code VARCHAR(10) DEFAULT 'ja',
+  
+  -- 自動生成bucket_name
+  bucket_name VARCHAR(255) GENERATED ALWAYS AS (
+    get_ocr_bucket_name(content_type)
+  ) STORED,
   
   -- セキュリティ
   is_encrypted BOOLEAN DEFAULT FALSE,
@@ -1987,88 +2178,88 @@ CREATE TABLE master_ocr_contents (
   
   -- タイムスタンプ
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  
-  -- 排他制約: content_typeに応じて参照先を制限
-  CONSTRAINT chk_master_ocr_contents_ref CHECK (
-    (content_type = 'exercises' AND exam_id IS NOT NULL AND question_id IS NULL AND sub_question_id IS NULL) OR
-    (content_type = 'material' AND exam_id IS NULL AND (question_id IS NOT NULL OR sub_question_id IS NOT NULL))
-  )
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- インデックス
 CREATE INDEX idx_master_ocr_content_type ON master_ocr_contents(content_type, created_at DESC);
 CREATE INDEX idx_master_ocr_exam_id ON master_ocr_contents(exam_id) 
   WHERE content_type = 'exercises' AND is_active = TRUE;
-CREATE INDEX idx_master_ocr_question_id ON master_ocr_contents(question_id) 
-  WHERE content_type = 'material' AND is_active = TRUE;
-CREATE INDEX idx_master_ocr_sub_question_id ON master_ocr_contents(sub_question_id) 
-  WHERE content_type = 'material' AND is_active = TRUE;
 CREATE INDEX idx_master_ocr_uploader_id ON master_ocr_contents(uploader_id);
-CREATE INDEX idx_master_ocr_file_hash ON master_ocr_contents(file_hash) WHERE is_active = TRUE;
-CREATE INDEX idx_master_ocr_ocr_processed ON master_ocr_contents(ocr_processed);
-CREATE INDEX idx_master_ocr_is_encrypted ON master_ocr_contents(is_encrypted);
+CREATE INDEX idx_master_ocr_source_files ON master_ocr_contents USING gin(source_file_ids);
 CREATE INDEX idx_master_ocr_created_at ON master_ocr_contents(created_at DESC);
 ```
 
 **設計注記:**
 - **統合設計（v7.3.0）**: master_exams, master_materials から統合
-- **ENUM型分類**: 'exercises'（演習問題）、'material'（授業資料）
+- **v7.4.1修正**: exam との 1対1 関係に特化、material タイプは将来拡張用に予約
+- **ENUM型分類**: 'exercises'（演習問題）を使用
 - **'exercises'命名理由**: 公開用のExam（試験データ）との誤解防止。OCRテキスト元データは「演習問題」として明確化
 - **bucket_name自動生成**: GENERATED ALWAYS AS により、content_typeから自動決定
   - 'exercises' → 'edumint-master-exercises'
-  - 'material' → 'edumint-master-materials'
-- **排他制約**: content_typeに応じて関連エンティティを厳格に制限
-  - 'exercises': exam_id 必須、question_id/sub_question_id NULL
-  - 'material': question_id または sub_question_id 必須、exam_id NULL
+  - 'material' → 'edumint-master-materials'（将来拡張用）
+- **source_file_ids配列**: 複数ファイルから1つのOCRコンテンツを生成する場合に対応
+- **GINインデックス**: source_file_ids配列の高速検索（ファイルIDからOCRコンテンツを検索）
 - **物理DB分離**（v7.2.0継続）: セキュリティ強化、IAMロール分離
-- **原本ファイル保存はedumintFilesが担当**: file_metadata参照、本テーブルはOCRテキストとメタデータのみ
-- **edumintFilesとの連携**: original_filename, stored_filenameは edumintFiles の file_metadata を参照
-- **OCRテキストの保存**: ocr_text フィールドにOCR処理結果を格納
+- **原本ファイル保存はedumintFilesが担当**: source_file_ids経由で file_metadata を参照
+- **OCRテキストの保存**: ocr_text フィールドに結合されたOCR処理結果を格納
 - LLM学習データとして活用
 - 通報時の検証用ソースとして参照
 - ユーザーは**直接ダウンロード不可**
+
+**試験生成フロー（v7.4.1）:**
+1. ユーザーが複数のPDF/画像ファイルをアップロード（+ オプションでテキスト入力）
+2. edumintFiles が file_metadata レコードを作成（各ファイルごと）
+3. OCR処理サービスが各ファイルをOCR処理
+4. **OCR結果結合サービス**が複数のOCR結果を1つのテキストに結合
+5. master_ocr_contents レコード作成（source_file_ids配列に全ファイルIDを記録）
+6. AI構造分析サービスが ocr_text を解析
+7. **Exam生成サービス**が exams レコードを作成（master_ocr_content_id を設定）
+8. master_ocr_contents の exam_id を更新（双方向参照の完成）
 
 **sqlcクエリ例:**
 
 ```sql
 -- name: InsertExerciseOCR :one
 INSERT INTO master_ocr_contents (
-  public_id, content_type, exam_id, uploader_id,
-  original_filename, stored_filename, file_size_bytes,
-  mime_type, storage_path, file_hash, ocr_text
+  public_id, content_type, uploader_id,
+  source_file_ids, source_file_count,
+  has_text_input, text_input_content,
+  ocr_text, language_code
 ) VALUES (
-  $1, 'exercises', $2, $3, $4, $5, $6, $7, $8, $9, $10
+  $1, 'exercises', $2, $3, $4, $5, $6, $7, $8
 )
 RETURNING *;
 
--- name: InsertMaterialOCR :one
-INSERT INTO master_ocr_contents (
-  public_id, content_type, question_id, uploader_id,
-  original_filename, stored_filename, file_size_bytes,
-  mime_type, storage_path, file_hash, ocr_text
-) VALUES (
-  $1, 'material', $2, $3, $4, $5, $6, $7, $8, $9, $10
-)
-RETURNING *;
+-- name: UpdateOCRExamID :exec
+UPDATE master_ocr_contents
+SET exam_id = $1, updated_at = CURRENT_TIMESTAMP
+WHERE id = $2 AND content_type = 'exercises';
 
--- name: GetOCRByExamID :many
+-- name: GetOCRByExamID :one
 SELECT * FROM master_ocr_contents
 WHERE content_type = 'exercises' AND exam_id = $1 AND is_active = TRUE
-ORDER BY created_at DESC;
+LIMIT 1;
 
--- name: GetOCRByQuestionID :many
+-- name: GetOCRBySourceFileID :many
 SELECT * FROM master_ocr_contents
-WHERE content_type = 'material' AND question_id = $1 AND is_active = TRUE
+WHERE $1 = ANY(source_file_ids) AND is_active = TRUE
 ORDER BY created_at DESC;
 
 -- name: ExportAllOCRForLLM :many
 SELECT 
-  id, public_id, content_type,
-  COALESCE(exam_id::TEXT, question_id::TEXT, sub_question_id::TEXT) AS entity_id,
+  id, public_id, content_type, exam_id,
   ocr_text, language_code, created_at
 FROM master_ocr_contents
-WHERE ocr_processed = TRUE AND is_active = TRUE
+WHERE is_active = TRUE
+ORDER BY created_at DESC;
+
+-- name: ExportExercisesOCRForLLM :many
+SELECT 
+  id, public_id, exam_id, ocr_text, language_code, created_at
+FROM master_ocr_contents
+WHERE content_type = 'exercises' 
+  AND is_active = TRUE
 ORDER BY created_at DESC;
 
 -- name: ExportExercisesOCRForLLM :many
@@ -2080,30 +2271,6 @@ WHERE content_type = 'exercises'
   AND is_active = TRUE
 ORDER BY created_at DESC;
 
--- name: ExportMaterialsOCRForLLM :many
-SELECT 
-  id, public_id, question_id, sub_question_id, ocr_text, language_code, created_at
-FROM master_ocr_contents
-WHERE content_type = 'material' 
-  AND ocr_processed = TRUE 
-  AND is_active = TRUE
-ORDER BY created_at DESC;
-
--- name: SearchOCRByHash :one
-SELECT * FROM master_ocr_contents
-WHERE file_hash = $1 AND is_active = TRUE
-LIMIT 1;
-
--- name: SearchOCRByTextFragment :many
-SELECT 
-  id, public_id, content_type,
-  COALESCE(exam_id::TEXT, question_id::TEXT, sub_question_id::TEXT) AS entity_id,
-  ocr_text, created_at
-FROM master_ocr_contents
-WHERE ocr_text ILIKE '%' || $1 || '%'
-  AND is_active = TRUE
-ORDER BY created_at DESC
-LIMIT 10;
 ```
 
 **Goコード例:**
@@ -2126,19 +2293,74 @@ func (e OcrContentTypeEnum) Valid() bool {
 }
 
 // internal/service/ocr_service.go
-func (s *OCRService) UploadExercise(ctx context.Context, req UploadExerciseRequest) error {
-    _, err := s.queries.InsertOCRContent(ctx, dbgen.InsertOCRContentParams{
+// OCR結果結合サービス（v7.4.1新設）
+func (s *OCRService) CombineOCRResults(ctx context.Context, req CombineOCRRequest) (*MasterOCRContent, error) {
+    // 複数ファイルのOCR結果を結合
+    var combinedText strings.Builder
+    for _, fileID := range req.SourceFileIDs {
+        ocrResult, err := s.getOCRResultByFileID(ctx, fileID)
+        if err != nil {
+            return nil, err
+        }
+        combinedText.WriteString(ocrResult)
+        combinedText.WriteString("\n\n")
+    }
+    
+    // テキスト入力がある場合は追加
+    if req.HasTextInput {
+        combinedText.WriteString("--- ユーザー入力 ---\n")
+        combinedText.WriteString(req.TextInputContent)
+    }
+    
+    // master_ocr_contents レコード作成
+    ocr, err := s.queries.InsertExerciseOCR(ctx, dbgen.InsertExerciseOCRParams{
         PublicID:         req.PublicID,
-        ContentType:      dbgen.OcrContentTypeEnumExercises,  // ENUM型安全
-        ExamID:           uuid.NullUUID{UUID: req.ExamID, Valid: true},
+        ContentType:      dbgen.OcrContentTypeEnumExercises,
         UploaderID:       req.UploaderID,
-        OriginalFilename: req.Filename,
-        StoredFilename:   req.StoredFilename,
-        FileHash:         req.FileHash,
-        OcrText:          req.OCRText,
-        // bucket_nameは自動生成（'edumint-master-exercises'）
+        SourceFileIDs:    req.SourceFileIDs,  // UUID配列
+        SourceFileCount:  int32(len(req.SourceFileIDs)),
+        HasTextInput:     req.HasTextInput,
+        TextInputContent: sql.NullString{String: req.TextInputContent, Valid: req.HasTextInput},
+        OcrText:          combinedText.String(),
+        LanguageCode:     req.LanguageCode,
     })
-    return err
+    return ocr, err
+}
+
+// Exam生成サービス（v7.4.1修正）
+func (s *ExamService) CreateExamFromOCR(ctx context.Context, ocrContentID uuid.UUID) (*Exam, error) {
+    // master_ocr_contents から OCR テキストを取得
+    ocrContent, err := s.queries.GetOCRByID(ctx, ocrContentID)
+    if err != nil {
+        return nil, err
+    }
+    
+    // AI構造分析（OCRテキストから試験情報を抽出）
+    examData, err := s.aiAnalyzer.AnalyzeExamStructure(ctx, ocrContent.OcrText)
+    if err != nil {
+        return nil, err
+    }
+    
+    // exams レコード作成
+    exam, err := s.queries.InsertExam(ctx, dbgen.InsertExamParams{
+        PublicID:            examData.PublicID,
+        SubjectID:           examData.SubjectID,
+        UploaderID:          ocrContent.UploaderID,
+        Title:               examData.Title,
+        MasterOcrContentID:  uuid.NullUUID{UUID: ocrContentID, Valid: true},  // 1対1関係
+        // ... 他のフィールド
+    })
+    if err != nil {
+        return nil, err
+    }
+    
+    // master_ocr_contents の exam_id を更新（双方向参照）
+    err = s.queries.UpdateOCRExamID(ctx, dbgen.UpdateOCRExamIDParams{
+        ExamID: exam.ID,
+        ID:     ocrContentID,
+    })
+    
+    return exam, err
 }
 ```
 
