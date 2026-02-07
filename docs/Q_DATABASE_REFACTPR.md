@@ -969,11 +969,13 @@ CREATE TABLE oauth_clients (
   grant_types TEXT[],
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ  -- v7.5.1: 論理削除対応
 );
 
 CREATE INDEX idx_oauth_clients_public_id ON oauth_clients(public_id);
 CREATE INDEX idx_oauth_clients_active ON oauth_clients(is_active);
+CREATE INDEX idx_oauth_clients_deleted_at ON oauth_clients(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **oauth_tokens**
@@ -1018,6 +1020,7 @@ CREATE TABLE idp_links (
   is_active BOOLEAN DEFAULT TRUE,  -- v7.5.0: アクティブ状態
   linked_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   last_used_at TIMESTAMPTZ,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(user_id, provider, meta_platform)  -- v7.5.0: Meta統合対応
 );
 
@@ -1025,6 +1028,7 @@ CREATE INDEX idx_idp_links_user_id ON idp_links(user_id);
 CREATE INDEX idx_idp_links_provider ON idp_links(provider, provider_user_id);
 CREATE INDEX idx_idp_links_user_primary ON idp_links(user_id, is_primary) WHERE is_primary = TRUE;  -- v7.5.0
 CREATE INDEX idx_idp_links_meta_platform ON idp_links(meta_platform) WHERE meta_platform IS NOT NULL;  -- v7.5.0
+CREATE INDEX idx_idp_links_deleted_at ON idp_links(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **users**
@@ -1709,6 +1713,7 @@ CREATE TABLE keywords (
   usage_count INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   PRIMARY KEY (id, public_id),
   UNIQUE(name, region_code)
 );
@@ -1718,6 +1723,7 @@ CREATE INDEX idx_keywords_name ON keywords(name);
 CREATE INDEX idx_keywords_display_name ON keywords(display_name);
 CREATE INDEX idx_keywords_usage_count ON keywords(usage_count DESC);
 CREATE INDEX idx_keywords_region_code ON keywords(region_code);
+CREATE INDEX idx_keywords_deleted_at ON keywords(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **exam_keywords (試験キーワード関連付け)**
@@ -1952,12 +1958,14 @@ CREATE TABLE subject_terms (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(subject_id, term, language_code)
 );
 
 CREATE INDEX idx_subject_terms_subject_id ON subject_terms(subject_id);
 CREATE INDEX idx_subject_terms_term ON subject_terms USING gin(to_tsvector('japanese', term));
 CREATE INDEX idx_subject_terms_type ON subject_terms(term_type);
+CREATE INDEX idx_subject_terms_deleted_at ON subject_terms(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **institution_terms (機関検索用語)**
@@ -1975,12 +1983,14 @@ CREATE TABLE institution_terms (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(institution_id, term, language_code)
 );
 
 CREATE INDEX idx_institution_terms_institution_id ON institution_terms(institution_id);
 CREATE INDEX idx_institution_terms_term ON institution_terms USING gin(to_tsvector('japanese', term));
 CREATE INDEX idx_institution_terms_type ON institution_terms(term_type);
+CREATE INDEX idx_institution_terms_deleted_at ON institution_terms(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **faculty_terms (学部検索用語)**
@@ -1998,12 +2008,14 @@ CREATE TABLE faculty_terms (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(faculty_id, term, language_code)
 );
 
 CREATE INDEX idx_faculty_terms_faculty_id ON faculty_terms(faculty_id);
 CREATE INDEX idx_faculty_terms_term ON faculty_terms USING gin(to_tsvector('japanese', term));
 CREATE INDEX idx_faculty_terms_type ON faculty_terms(term_type);
+CREATE INDEX idx_faculty_terms_deleted_at ON faculty_terms(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **teacher_terms (教員検索用語)**
@@ -2021,12 +2033,14 @@ CREATE TABLE teacher_terms (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMPTZ,  -- v7.5.1: 論理削除対応
   UNIQUE(teacher_id, term, language_code)
 );
 
 CREATE INDEX idx_teacher_terms_teacher_id ON teacher_terms(teacher_id);
 CREATE INDEX idx_teacher_terms_term ON teacher_terms USING gin(to_tsvector('japanese', term));
 CREATE INDEX idx_teacher_terms_type ON teacher_terms(term_type);
+CREATE INDEX idx_teacher_terms_deleted_at ON teacher_terms(deleted_at) WHERE deleted_at IS NULL;  -- v7.5.1
 ```
 
 #### **term_generation_jobs (用語生成ジョブ)**
