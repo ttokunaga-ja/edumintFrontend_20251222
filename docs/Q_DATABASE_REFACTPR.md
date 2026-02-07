@@ -1,8 +1,17 @@
-# **EduMint 統合データモデル設計書 v7.4.1**
+# **EduMint 統合データモデル設計書 v7.5.1**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
 **最終更新日: 2026-02-07**
+
+**v7.5.1 主要更新:**
+- **edumintSearch完全定義**: search_queries, search_cache本体DBテーブル、search_logsパーティション設計、Elasticsearch同期戦略を追加
+- **OCRコンテンツタイプENUM簡略化**: 5タイプ → 2タイプ（exercises, materials）に集約、過度な分類を避けメタデータで詳細管理
+- **edumintFiles参照の明確化**: マイクロサービス境界の物理FK非設定原則、アプリケーション層バリデーション実装例を追加
+- **Kafkaトピック設計統合**: CDC/アプリケーションイベントの明確な分類と使い分けガイドを追加
+- **edumintSocialログテーブル追加**: social_logsテーブル（パーティション設計、event_type一覧、sqlcクエリ例）を新設
+- **国際化対応完全実装指針**: 全エンティティ（faculties, departments, teachers, subjects）の国際化テーブルDDL、API設計、フロントエンド実装例を追加
+- **不正防止戦略実装詳細**: 異常アクセスパターン検出（Redisレート制限、Prometheusメトリクス、Grafanaダッシュボード、自動通報システム）の具体的実装を追加
 
 **v7.4.1 主要更新:**
 - **段階的コンテンツ開示機能**: 大問1全文+大問2以降構造のみ表示、広告視聴後に全文解除
@@ -371,15 +380,26 @@ CREATE TYPE academic_field_enum AS ENUM (
 );
 ```
 
-#### **1.3.1. OCRコンテンツタイプENUM（v7.3.0新設）**
+#### **1.3.1. OCRコンテンツタイプENUM（v7.3.0新設、v7.5.1簡略化）**
+
+**設計方針:**
+- 過度な分類を避け、2つのカテゴリに集約
+- `exercises`: 試験問題、演習問題、過去問など
+- `materials`: 教科書、講義資料、ノートなど
+- 詳細な分類はメタデータ（JSONB）で管理
 
 ```sql
--- OCRコンテンツタイプ（v7.3.0新設）
-CREATE TYPE ocr_content_type_enum AS ENUM (
-  'exercises',   -- 演習問題OCRテキスト（旧: exam）
-  'material'     -- 授業資料OCRテキスト
+-- OCRコンテンツタイプ（v7.3.0新設、v7.5.1簡略化）
+CREATE TYPE ocr_content_type AS ENUM (
+  'exercises',  -- 演習問題・試験問題
+  'materials'   -- 教材・資料
 );
 ```
+
+**file_type ENUMとの関係:**
+- `file_metadata.file_type`: 物理ファイル形式（PDF, IMAGE, DOCXなど）
+- `master_ocr_contents.content_type`: 論理コンテンツ種別（exercises, materials）
+- 同一PDFファイルでもOCR解析結果によって `content_type` が決定される
 
 **設計注記:**
 - **'exercises'命名理由**: 公開用のExam（試験データ）との誤解防止。OCRテキスト元データは「演習問題」として明確化
@@ -3411,6 +3431,29 @@ COMMENT ON COLUMN file_metadata.is_system_managed IS 'システム管理ファ�
 COMMENT ON COLUMN file_metadata.is_llm_training_data IS 'LLM学習データ対象ファイル';
 ```
 
+**マイクロサービス参照の設計原則（v7.5.1追加）:**
+- `uploader_id` は `edumintUsers.users.id` を参照
+- マイクロサービス境界のため**物理FOREIGN KEYは設定しない**
+- アプリケーション層でバリデーション必須
+  ```go
+  // ファイルアップロード前のユーザー存在確認
+  func (s *FileService) UploadFile(ctx context.Context, uploaderID uuid.UUID, file io.Reader) error {
+      // edumintUsersサービスにgRPC/HTTPで問い合わせ
+      userExists, err := s.userClient.CheckUserExists(ctx, uploaderID)
+      if err != nil || !userExists {
+          return errors.New("invalid uploader_id: user not found")
+      }
+      
+      // ファイル保存処理
+      return s.queries.InsertFileMetadata(ctx, ...)
+  }
+  ```
+
+**整合性保証戦略:**
+1. ファイルアップロード時: edumintUsersのユーザー存在確認
+2. ユーザー削除時: Kafkaイベント `user.deleted` を受信して論理削除フラグ設定
+3. 定期バッチ: 孤立ファイルの検出と警告ログ出力
+
 ### 6.4 補助テーブル設計
 
 #### 6.4.1 file_migration_logs（移行ログ）
@@ -4216,35 +4259,89 @@ edumintSearch (Elasticsearch + ログDB)
 
 ### 設計変更点（v7.0.0からの継続）
 
-### 6.1 ログテーブル (DB分離設計)
+### 7.1 本体DBテーブル (DDL例)
+
+**物理DB:** `edumint_search`
+
+#### **search_queries (検索クエリ履歴)**
+```sql
+CREATE TABLE search_queries (
+  query_id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID, -- NULL許可（未ログインユーザー対応）
+  query_text TEXT NOT NULL,
+  filters JSONB, -- {institution_id: [...], difficulty: [...]}
+  result_count INT NOT NULL,
+  clicked_exam_ids UUID[], -- クリックされた試験ID配列
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_search_queries_user ON search_queries(user_id, created_at DESC);
+CREATE INDEX idx_search_queries_text ON search_queries USING gin(to_tsvector('japanese', query_text));
+```
+
+#### **search_cache (Redis連携キャッシュテーブル)**
+```sql
+CREATE TABLE search_cache (
+  cache_key VARCHAR(255) PRIMARY KEY, -- SHA256(query_text + filters)
+  cached_results JSONB NOT NULL, -- Elasticsearch結果のスナップショット
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_search_cache_expires ON search_cache(expires_at);
+```
+
+### 7.2 ログテーブル (DB分離設計)
 
 **物理DB:** `edumint_search_logs`
 
 #### **search_logs**
-
-検索クエリ履歴を記録します。
-
 ```sql
 CREATE TABLE search_logs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  user_id UUID,  -- NULL許可（非ログインユーザー）
-  query_text TEXT NOT NULL,
-  search_type VARCHAR(50),  -- 'keyword', 'semantic', 'autocomplete'
-  filters JSONB,
-  result_count INT,
-  clicked_result_ids UUID[],
-  response_time_ms INT,
-  ip_address INET,
-  user_agent TEXT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  log_id UUID PRIMARY KEY DEFAULT uuidv7(),
+  query_id UUID NOT NULL, -- search_queries.query_id参照
+  event_type VARCHAR(50) NOT NULL, -- 'query_executed', 'result_clicked', 'no_results'
+  latency_ms INT, -- Elasticsearch応答時間
+  error_message TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX idx_search_logs_user_id ON search_logs(user_id, created_at);
-CREATE INDEX idx_search_logs_query_text ON search_logs USING gin(to_tsvector('japanese', query_text));
-CREATE INDEX idx_search_logs_created_at ON search_logs(created_at);
+CREATE INDEX idx_search_logs_query ON search_logs(query_id, created_at DESC);
+CREATE INDEX idx_search_logs_event ON search_logs(event_type, created_at DESC);
 ```
 
-### 6.2 Elasticsearch設計
+**パーティション設計:**
+```sql
+-- 月次パーティション（3ヶ月保持）
+CREATE TABLE search_logs_2026_02 PARTITION OF search_logs
+  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+
+CREATE TABLE search_logs_2026_03 PARTITION OF search_logs
+  FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+```
+
+**保持期間:** 3ヶ月（分析用）
+**バックアップ:** BigQuery日次エクスポート
+
+### 7.3 Elasticsearch同期戦略
+
+#### Debezium CDC連携
+- `dbz.edumint.contents_search.public.exams_search` トピックをsubscribe
+- 変更イベント受信時にElasticsearchインデックス更新
+- 失敗時はKafka DLQに送信し、手動リトライ
+
+#### 初回インデックス構築
+```bash
+# Postgresから全件取得してElasticsearchにバルクインサート
+curl -X POST "localhost:9200/_bulk" -H 'Content-Type: application/json' --data-binary @exams_bulk.json
+```
+
+#### インデックス再構築トリガー
+- スキーマ変更時（Atlasマイグレーション後）
+- 検索精度劣化時（週次バッチで品質スコア計測）
+
+### 7.4 Elasticsearch設計
 
 #### **exams インデックス（v7.4.0更新）**
 
@@ -4617,6 +4714,92 @@ subscriptions:
 - edumintSocialは統計情報の更新責務を持たない
 - Kafkaイベントを購読して通知生成のみ実行
 - edumintContentsが統計情報のSource of Truthとなる
+
+### 10.4 ログテーブル (DB分離設計)
+
+**物理DB:** `edumint_social_logs`
+
+#### **social_logs**
+```sql
+CREATE TABLE social_logs (
+  log_id UUID PRIMARY KEY DEFAULT uuidv7(),
+  event_type VARCHAR(50) NOT NULL, -- 'comment_created', 'post_liked', 'dm_sent', 'match_requested'
+  user_id UUID NOT NULL, -- アクションを実行したユーザー
+  target_user_id UUID, -- 対象ユーザー（DM、マッチングなど）
+  target_id UUID, -- exam_id, post_id, comment_id, dm_id等
+  metadata JSONB, -- イベント固有の詳細情報
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+) PARTITION BY RANGE (created_at);
+
+CREATE INDEX idx_social_logs_user_created ON social_logs(user_id, created_at DESC);
+CREATE INDEX idx_social_logs_event_created ON social_logs(event_type, created_at DESC);
+CREATE INDEX idx_social_logs_target ON social_logs(target_id, created_at DESC) WHERE target_id IS NOT NULL;
+```
+
+**パーティション設計:**
+```sql
+-- 月次パーティション（3ヶ月保持）
+CREATE TABLE social_logs_2026_02 PARTITION OF social_logs
+  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+
+CREATE TABLE social_logs_2026_03 PARTITION OF social_logs
+  FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+```
+
+**event_type一覧:**
+```sql
+-- コメント関連
+'comment_created'       -- コメント投稿
+'comment_liked'         -- コメントいいね
+'comment_deleted'       -- コメント削除
+
+-- 投稿関連
+'post_created'          -- 投稿作成
+'post_liked'            -- 投稿いいね
+'post_commented'        -- 投稿へのコメント
+'post_deleted'          -- 投稿削除
+
+-- DM関連
+'dm_sent'               -- DM送信
+'dm_read'               -- DM既読
+'dm_thread_created'     -- DMスレッド作成
+
+-- マッチング関連（Phase 3）
+'match_requested'       -- マッチングリクエスト
+'match_accepted'        -- マッチング承認
+'match_rejected'        -- マッチング拒否
+```
+
+**保持期間:** 3ヶ月（分析用）
+**バックアップ:** BigQuery日次エクスポート
+**用途:**
+- ユーザー行動分析
+- スパム検出（短時間の大量いいね等）
+- レコメンデーションアルゴリズムの学習データ
+
+**sqlcクエリ例:**
+```sql
+-- name: InsertSocialLog :exec
+INSERT INTO social_logs (event_type, user_id, target_user_id, target_id, metadata)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: GetUserActivityLogs :many
+SELECT event_type, target_id, metadata, created_at
+FROM social_logs
+WHERE user_id = $1 
+  AND created_at >= $2
+ORDER BY created_at DESC
+LIMIT $3;
+
+-- name: DetectSpamActivity :many
+-- 直近10分間で同一ユーザーが同じイベントを20回以上実行
+SELECT user_id, event_type, COUNT(*) as event_count
+FROM social_logs
+WHERE created_at >= NOW() - INTERVAL '10 minutes'
+GROUP BY user_id, event_type
+HAVING COUNT(*) > 20
+ORDER BY event_count DESC;
+```
 
 ---
 
@@ -5492,9 +5675,44 @@ kafka-topics --bootstrap-server kafka:9092 \
 
 ### Kafkaトピック設計
 
-EduMintでは以下のKafkaトピックを通じてマイクロサービス間でイベント駆動連携を実現します。
+#### CDC (Change Data Capture) トピック
+データベースの変更を自動的にキャプチャし、他サービスに伝播するためのトピック。
 
-#### **主要トピック一覧**
+**命名規則:** `dbz.{service}.{schema}.{table}`
+
+| トピック名 | 説明 | Publisher | Subscribers |
+|----------|------|-----------|-------------|
+| `dbz.edumint.users.public.users` | ユーザー情報の変更 | Debezium | edumintFiles, edumintSocial |
+| `dbz.edumint.users.public.user_profiles` | プロフィール変更 | Debezium | edumintSearch |
+| `dbz.edumint.contents.public.exams` | 試験情報の変更 | Debezium | edumintSearch, edumintRevenue |
+| `dbz.edumint.contents.public.questions` | 問題情報の変更 | Debezium | edumintSearch |
+| `dbz.edumint.contents_search.public.exams_search` | 検索用試験情報の変更 | Debezium | edumintSearch (Elasticsearch同期) |
+| `dbz.edumint.contents_search.public.questions_search` | 検索用問題情報の変更 | Debezium | edumintSearch (Elasticsearch同期) |
+
+#### アプリケーションイベントトピック
+ビジネスロジックによって明示的に発行されるイベント。
+
+**命名規則:** `edumint.{service}.events`
+
+| トピック名 | 説明 | Publisher | Subscribers |
+|----------|------|-----------|-------------|
+| `edumint.users.events` | ユーザー関連イベント | edumintUsers | 全サービス |
+| `edumint.contents.events` | コンテンツイベント | edumintContents | edumintSearch, edumintRevenue |
+| `edumint.files.events` | ファイルイベント | edumintFiles | edumintContents, edumintModeration |
+| `edumint.social.events` | ソーシャルイベント | edumintSocial | edumintUsers, edumintRevenue |
+| `edumint.moderation.events` | 通報・審査イベント | edumintModeration | edumintUsers, edumintContents |
+| `edumint.monetize.events` | 収益イベント | edumintMonetizeWallet | edumintRevenue, edumintUsers |
+
+**CDC vs アプリケーションイベントの使い分け:**
+- **CDC**: データベースの変更を機械的に伝播（低レベル）
+- **アプリケーションイベント**: ビジネスロジックの意図を伝達（高レベル）
+- 例: 試験アップロード時
+  - CDC: `dbz.edumint.contents.public.exams` に INSERT イベント
+  - アプリケーション: `edumint.contents.events` に `exam.uploaded` イベント（メタデータ含む）
+
+#### 主要トピック一覧
+
+EduMintでは以下のKafkaトピックを通じてマイクロサービス間でイベント駆動連携を実現します。
 
 | トピック名 | Producer | Consumer | イベント例 | 用途 |
 |-----------|----------|----------|-----------|------|
@@ -7529,6 +7747,284 @@ INSERT INTO institutions (
   $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
 RETURNING *;
+```
+
+### 18.3.2 全エンティティ国際化対応方針（v7.5.1新設）
+
+#### 対応必須エンティティ
+- ✅ institutions (v7.4.0対応済み)
+- 🔴 faculties (要対応)
+- 🔴 departments (要対応)
+- 🔴 teachers (要対応)
+- 🔴 subjects (要対応)
+
+#### 国際化テーブル命名規則
+- `{entity}_translations` (例: `faculties_translations`)
+
+#### DDLテンプレート
+
+##### faculties_translations
+```sql
+CREATE TABLE faculties_translations (
+  faculty_id UUID NOT NULL,
+  lang_code VARCHAR(5) NOT NULL, -- 'ja', 'en', 'zh', 'ko'
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  PRIMARY KEY (faculty_id, lang_code),
+  FOREIGN KEY (faculty_id) REFERENCES faculties(faculty_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_faculties_translations_lang ON faculties_translations(lang_code);
+```
+
+##### departments_translations
+```sql
+CREATE TABLE departments_translations (
+  department_id UUID NOT NULL,
+  lang_code VARCHAR(5) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  PRIMARY KEY (department_id, lang_code),
+  FOREIGN KEY (department_id) REFERENCES departments(department_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_departments_translations_lang ON departments_translations(lang_code);
+```
+
+##### teachers_translations
+```sql
+CREATE TABLE teachers_translations (
+  teacher_id UUID NOT NULL,
+  lang_code VARCHAR(5) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  biography TEXT,
+  PRIMARY KEY (teacher_id, lang_code),
+  FOREIGN KEY (teacher_id) REFERENCES teachers(teacher_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_teachers_translations_lang ON teachers_translations(lang_code);
+```
+
+##### subjects_translations
+```sql
+CREATE TABLE subjects_translations (
+  subject_id UUID NOT NULL,
+  lang_code VARCHAR(5) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  PRIMARY KEY (subject_id, lang_code),
+  FOREIGN KEY (subject_id) REFERENCES subjects(subject_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_subjects_translations_lang ON subjects_translations(lang_code);
+```
+
+#### API設計
+
+##### Accept-Languageヘッダーパース
+```go
+// internal/i18n/lang.go
+package i18n
+
+import "strings"
+
+// ParseAcceptLanguage はAccept-Languageヘッダーから優先言語を抽出
+// 例: "ja-JP,en;q=0.9,zh;q=0.8" → "ja"
+func ParseAcceptLanguage(header string) string {
+    if header == "" {
+        return "ja" // デフォルト
+    }
+    
+    // 最初の言語コードを取得
+    parts := strings.Split(header, ",")
+    if len(parts) == 0 {
+        return "ja"
+    }
+    
+    lang := strings.TrimSpace(parts[0])
+    lang = strings.Split(lang, ";")[0] // q値を除去
+    lang = strings.Split(lang, "-")[0] // 地域コードを除去（ja-JP → ja）
+    
+    // サポート言語リスト
+    supported := map[string]bool{
+        "ja": true,
+        "en": true,
+        "zh": true,
+        "ko": true,
+    }
+    
+    if supported[lang] {
+        return lang
+    }
+    
+    return "ja" // デフォルト
+}
+```
+
+##### サービス層実装
+```go
+// internal/service/institution_service.go
+func (s *InstitutionService) GetInstitution(ctx context.Context, id uuid.UUID, acceptLang string) (*Institution, error) {
+    langCode := i18n.ParseAcceptLanguage(acceptLang)
+    
+    // フォールバック戦略: 指定言語 → 英語 → デフォルト名
+    inst, err := s.queries.GetInstitutionWithTranslation(ctx, db.GetInstitutionWithTranslationParams{
+        InstitutionID: id,
+        LangCode:      langCode,
+        FallbackLang:  "en",
+    })
+    
+    if err != nil {
+        return nil, err
+    }
+    
+    return inst, nil
+}
+```
+
+#### sqlcクエリ定義（フォールバック対応）
+
+##### institutions
+```sql
+-- name: GetInstitutionWithTranslation :one
+SELECT 
+  i.institution_id,
+  COALESCE(
+    (SELECT name FROM institution_translations WHERE institution_id = i.institution_id AND lang_code = $2),
+    (SELECT name FROM institution_translations WHERE institution_id = i.institution_id AND lang_code = $3),
+    i.name_ja
+  ) AS name,
+  i.institution_type,
+  i.established_year,
+  i.prefecture
+FROM institutions i
+WHERE i.institution_id = $1 AND i.deleted_at IS NULL;
+```
+
+##### faculties
+```sql
+-- name: GetFacultyWithTranslation :one
+SELECT 
+  f.faculty_id,
+  COALESCE(
+    (SELECT name FROM faculties_translations WHERE faculty_id = f.faculty_id AND lang_code = $2),
+    (SELECT name FROM faculties_translations WHERE faculty_id = f.faculty_id AND lang_code = $3),
+    f.name_ja
+  ) AS name,
+  f.institution_id
+FROM faculties f
+WHERE f.faculty_id = $1 AND f.deleted_at IS NULL;
+```
+
+##### subjects
+```sql
+-- name: GetSubjectWithTranslation :one
+SELECT 
+  s.subject_id,
+  COALESCE(
+    (SELECT name FROM subjects_translations WHERE subject_id = s.subject_id AND lang_code = $2),
+    (SELECT name FROM subjects_translations WHERE subject_id = s.subject_id AND lang_code = $3),
+    s.name_ja
+  ) AS name,
+  s.subject_code,
+  s.credits
+FROM subjects s
+WHERE s.subject_id = $1 AND s.deleted_at IS NULL;
+```
+
+#### フロントエンド実装例（React + i18next）
+
+##### 言語切り替えコンポーネント
+```typescript
+// src/components/LanguageSwitcher.tsx
+import { useTranslation } from 'react-i18next';
+
+export const LanguageSwitcher = () => {
+  const { i18n } = useTranslation();
+
+  const changeLanguage = (lang: string) => {
+    i18n.changeLanguage(lang);
+    // APIリクエストのヘッダーも自動的に更新される
+  };
+
+  return (
+    <select value={i18n.language} onChange={(e) => changeLanguage(e.target.value)}>
+      <option value="ja">日本語</option>
+      <option value="en">English</option>
+      <option value="zh">中文</option>
+      <option value="ko">한국어</option>
+    </select>
+  );
+};
+```
+
+##### API呼び出し
+```typescript
+// src/api/institutions.ts
+import { useTranslation } from 'react-i18next';
+
+export const useInstitution = (id: string) => {
+  const { i18n } = useTranslation();
+
+  const fetchInstitution = async () => {
+    const response = await fetch(`/api/institutions/${id}`, {
+      headers: {
+        'Accept-Language': i18n.language, // "ja", "en", "zh", "ko"
+      },
+    });
+    return response.json();
+  };
+
+  return useQuery(['institution', id, i18n.language], fetchInstitution);
+};
+```
+
+#### 実装優先順位
+1. **Phase 1 (MVP):** institutions, faculties, subjects のみ対応
+2. **Phase 2:** departments, teachers を追加
+3. **Phase 3:** 全エンティティ対応完了
+
+#### Atlas HCL定義例
+
+##### faculties_translations.hcl
+```hcl
+table "faculties_translations" {
+  schema = schema.public
+  
+  column "faculty_id" {
+    type = uuid
+    null = false
+  }
+  
+  column "lang_code" {
+    type = varchar(5)
+    null = false
+  }
+  
+  column "name" {
+    type = varchar(255)
+    null = false
+  }
+  
+  column "description" {
+    type = text
+    null = true
+  }
+  
+  primary_key {
+    columns = [column.faculty_id, column.lang_code]
+  }
+  
+  foreign_key "fk_faculties_translations_faculty" {
+    columns = [column.faculty_id]
+    ref_columns = [table.faculties.column.faculty_id]
+    on_delete = CASCADE
+  }
+  
+  index "idx_faculties_translations_lang" {
+    columns = [column.lang_code]
+  }
+}
 ```
 
 ### 18.4 開発ワークフロー
@@ -10752,6 +11248,305 @@ func (s *SecurityService) DetectAbnormalAccess(ctx context.Context, userID strin
     
     return nil
 }
+```
+
+### 22.8.6 異常アクセスパターン検出の具体的実装（v7.5.1新設）
+
+#### 検知パターンと対応
+
+##### パターン1: 短時間での大量トークン生成
+
+**Redisカウンター実装:**
+```go
+// internal/service/ad_service.go
+func (s *AdService) checkTokenGenerationRate(ctx context.Context, userID uuid.UUID) error {
+    key := fmt.Sprintf("ad:token:rate:%s", userID.String())
+    
+    count, err := s.redis.Incr(ctx, key).Result()
+    if err != nil {
+        return fmt.Errorf("redis incr failed: %w", err)
+    }
+    
+    // 初回アクセス時にTTL設定
+    if count == 1 {
+        s.redis.Expire(ctx, key, 1*time.Minute)
+    }
+    
+    // 閾値: 1分間に5回以上トークン生成
+    if count > 5 {
+        s.logger.Warn("suspicious token generation rate detected",
+            slog.String("user_id", userID.String()),
+            slog.Int64("count", count),
+        )
+        
+        // Prometheus メトリクス記録
+        metrics.AdFraudDetected.WithLabelValues("excessive_token_generation").Inc()
+        
+        // 一時的にアカウント凍結（15分間）
+        return s.blockUser(ctx, userID, 15*time.Minute, "suspicious_ad_token_generation")
+    }
+    
+    return nil
+}
+
+// アカウント一時凍結
+func (s *AdService) blockUser(ctx context.Context, userID uuid.UUID, duration time.Duration, reason string) error {
+    blockKey := fmt.Sprintf("user:blocked:%s", userID.String())
+    
+    err := s.redis.Set(ctx, blockKey, reason, duration).Err()
+    if err != nil {
+        return err
+    }
+    
+    // 監査ログ記録
+    s.logger.Warn("user temporarily blocked",
+        slog.String("user_id", userID.String()),
+        slog.String("reason", reason),
+        slog.Duration("duration", duration),
+    )
+    
+    // edumintModerationへイベント送信
+    return s.publishEvent(ctx, "user.blocked", map[string]interface{}{
+        "user_id":  userID.String(),
+        "reason":   reason,
+        "duration": duration.String(),
+    })
+}
+```
+
+##### パターン2: トークン未使用での新規生成
+
+**sqlcクエリ定義:**
+```sql
+-- name: CountUnusedTokens :one
+SELECT COUNT(*) 
+FROM content_unlock_tokens
+WHERE user_id = $1 
+  AND used_at IS NULL 
+  AND expires_at > NOW();
+```
+
+**サービス層実装:**
+```go
+func (s *AdService) GenerateUnlockToken(ctx context.Context, req GenerateTokenRequest) (*Token, error) {
+    // 1. 未使用トークン数チェック
+    unusedCount, err := s.queries.CountUnusedTokens(ctx, req.UserID)
+    if err != nil {
+        return nil, fmt.Errorf("count unused tokens failed: %w", err)
+    }
+    
+    if unusedCount >= 3 {
+        s.logger.Warn("too many unused tokens",
+            slog.String("user_id", req.UserID.String()),
+            slog.Int64("unused_count", unusedCount),
+        )
+        return nil, errors.New("too many unused tokens: please use existing tokens first")
+    }
+    
+    // 2. トークン生成レート制限チェック
+    if err := s.checkTokenGenerationRate(ctx, req.UserID); err != nil {
+        return nil, err
+    }
+    
+    // 3. 正常処理: トークン生成
+    tokenValue := gonanoid.Must(32)
+    
+    tokenID, err := s.queries.InsertUnlockToken(ctx, db.InsertUnlockTokenParams{
+        UserID:    req.UserID,
+        ExamID:    req.ExamID,
+        Token:     tokenValue,
+        ExpiresAt: time.Now().Add(10 * time.Minute),
+    })
+    
+    if err != nil {
+        return nil, fmt.Errorf("insert token failed: %w", err)
+    }
+    
+    return &Token{
+        TokenID:   tokenID,
+        Token:     tokenValue,
+        ExpiresAt: time.Now().Add(10 * time.Minute),
+    }, nil
+}
+```
+
+##### パターン3: 同一試験への異常アクセス頻度
+
+**Redisレート制限:**
+```go
+func (s *ExamService) checkExamAccessRate(ctx context.Context, userID, examID uuid.UUID) error {
+    key := fmt.Sprintf("exam:access:%s:%s", userID.String(), examID.String())
+    
+    count, err := s.redis.Incr(ctx, key).Result()
+    if err != nil {
+        return err
+    }
+    
+    if count == 1 {
+        s.redis.Expire(ctx, key, 1*time.Hour)
+    }
+    
+    // 閾値: 1時間に10回以上アクセス
+    if count > 10 {
+        s.logger.Warn("suspicious exam access rate detected",
+            slog.String("user_id", userID.String()),
+            slog.String("exam_id", examID.String()),
+            slog.Int64("count", count),
+        )
+        
+        // Prometheus メトリクス
+        metrics.AdFraudDetected.WithLabelValues("excessive_exam_access").Inc()
+        
+        // 通報システムに自動送信
+        return s.reportSuspiciousActivity(ctx, userID, examID, "excessive_exam_access")
+    }
+    
+    return nil
+}
+
+// 自動通報
+func (s *ExamService) reportSuspiciousActivity(ctx context.Context, userID, examID uuid.UUID, activityType string) error {
+    return s.publishEvent(ctx, "moderation.auto_report", map[string]interface{}{
+        "user_id":       userID.String(),
+        "exam_id":       examID.String(),
+        "activity_type": activityType,
+        "severity":      "medium",
+        "auto_generated": true,
+    })
+}
+```
+
+#### モニタリングダッシュボード（Grafana）
+
+**Prometheusメトリクス定義:**
+```go
+// internal/metrics/ad_metrics.go
+package metrics
+
+import "github.com/prometheus/client_golang/prometheus"
+
+var (
+    AdFraudDetected = prometheus.NewCounterVec(
+        prometheus.CounterOpts{
+            Name: "edumint_ad_fraud_detected_total",
+            Help: "Total number of ad fraud detections",
+        },
+        []string{"fraud_type"},
+    )
+    
+    UserBlocked = prometheus.NewCounterVec(
+        prometheus.CounterOpts{
+            Name: "edumint_user_blocked_total",
+            Help: "Total number of users blocked",
+        },
+        []string{"block_reason"},
+    )
+    
+    TokenGenerationRate = prometheus.NewHistogramVec(
+        prometheus.HistogramOpts{
+            Name:    "edumint_ad_token_generation_rate",
+            Help:    "Rate of token generation per user",
+            Buckets: prometheus.LinearBuckets(0, 1, 10),
+        },
+        []string{"user_id"},
+    )
+)
+
+func init() {
+    prometheus.MustRegister(AdFraudDetected)
+    prometheus.MustRegister(UserBlocked)
+    prometheus.MustRegister(TokenGenerationRate)
+}
+```
+
+**Grafanaダッシュボードクエリ:**
+```promql
+# 不正検知アラート数（1時間あたり）
+sum(rate(edumint_ad_fraud_detected_total[1h])) by (fraud_type)
+
+# ユーザー凍結数（日次）
+sum(increase(edumint_user_blocked_total[24h])) by (block_reason)
+
+# トークン生成レート異常（1分間に5回以上）
+count(rate(edumint_ad_token_generated_total[1m]) > 5) by (user_id)
+
+# 試験アクセス異常（1時間に10回以上）
+count(rate(edumint_exam_access_total[1h]) > 10) by (user_id, exam_id)
+```
+
+#### 手動レビュー対象の自動抽出
+
+**日次バッチSQL:**
+```sql
+-- sqlc: name: GetSuspiciousAccounts :many
+-- 疑わしいアカウントの日次レポート
+SELECT 
+  user_id,
+  COUNT(DISTINCT exam_id) AS unique_exams_accessed,
+  COUNT(*) AS total_token_generations,
+  COUNT(*) FILTER (WHERE used_at IS NULL) AS unused_tokens,
+  AVG(EXTRACT(EPOCH FROM (used_at - created_at))) AS avg_token_use_delay_sec,
+  MIN(created_at) AS first_activity,
+  MAX(created_at) AS last_activity
+FROM content_unlock_tokens
+WHERE created_at >= NOW() - INTERVAL '24 hours'
+GROUP BY user_id
+HAVING 
+  COUNT(*) > 50 -- 1日50回以上トークン生成
+  OR COUNT(*) FILTER (WHERE used_at IS NULL) > 10 -- 未使用トークン10個以上
+  OR AVG(EXTRACT(EPOCH FROM (used_at - created_at))) < 5 -- 平均使用までの時間が5秒未満
+ORDER BY total_token_generations DESC;
+```
+
+**バッチ実装:**
+```go
+// cmd/batch/suspicious_accounts_report.go
+func main() {
+    ctx := context.Background()
+    queries := db.New(dbConn)
+    
+    // 疑わしいアカウント抽出
+    accounts, err := queries.GetSuspiciousAccounts(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // レポート生成
+    report := generateReport(accounts)
+    
+    // Slack通知
+    sendSlackAlert(report)
+    
+    // BigQueryエクスポート
+    exportToBigQuery(accounts)
+}
+```
+
+#### アラート設定
+
+**Alertmanager設定:**
+```yaml
+groups:
+- name: ad_fraud_detection
+  interval: 1m
+  rules:
+  - alert: HighTokenGenerationRate
+    expr: rate(edumint_ad_token_generated_total[1m]) > 5
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High token generation rate detected"
+      description: "User {{ $labels.user_id }} is generating tokens at {{ $value }} tokens/min"
+  
+  - alert: ExcessiveUserBlocking
+    expr: increase(edumint_user_blocked_total[1h]) > 10
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Excessive user blocking detected"
+      description: "{{ $value }} users blocked in the last hour"
 ```
 
 ---
