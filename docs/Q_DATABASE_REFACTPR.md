@@ -5,6 +5,14 @@
 **最終更新日: 2026-02-07**
 
 **v7.4.1 主要更新:**
+- **段階的コンテンツ開示機能**: 大問1全文+大問2以降構造のみ表示、広告視聴後に全文解除
+- **広告配信制御強化**: 外部要因対応（MVP期間、広告障害、キャンペーン）のad_delivery_configテーブル新設
+- **ユーザー広告免除設定**: 新規ユーザー判定（登録後7日間）、MintCoin自動使用のuser_ad_exemptionsテーブル新設
+- **コンテンツ解除トークン管理**: JWT署名・不正防止のcontent_unlock_tokensテーブル新設
+- **Redis戦略導入**: 広告配信ステータス、ユーザー免除設定、トークン検証のキャッシュ層（TTL: 60秒〜300秒）
+- **レート制限実装**: コンテンツアクセス（10回/時）、トークン発行（5回/時）、広告視聴完了（5回/分）
+- **不正防止戦略**: トークン再利用防止、改竄検出、異常アクセスパターン検出
+- **API設計追加**: 初期表示API、広告視聴完了API、コンテンツ解除API（section 22.7-22.9）
 - **ENUM型の徹底化**: 高優先度・中優先度のENUM型を全面導入（IdPプロバイダー、マッチングタイプ、トークンタイプ、投稿タイプ、通報理由など）
 - **IdPプロバイダー拡張**: Meta系サービス（Facebook、Instagram）追加、電話番号認証対応IdPを優先採用
 - **マッチングタイプ拡張**: 友達探し、先輩/後輩探し、恋人探し等の新規タイプ追加
@@ -17,6 +25,7 @@
 - **exams テーブル修正**: 
   - `master_ocr_content_id UUID UNIQUE` 追加（1対1関係）
   - `file_input_id` 削除（master_ocr_contents経由でファイル追跡）
+- **usersテーブル更新**: `registration_completed_at TIMESTAMPTZ` 追加（新規ユーザー判定用）
 - **既存テーブルのENUM型適用**: oauth_tokens, idp_links, user_posts, dm_conversations, user_matches, content_reports, user_reports, revenue_reports, copyright_claims 等
 
 **v7.4.0 主要更新:**
@@ -562,6 +571,32 @@ CREATE TYPE claim_status_enum AS ENUM (
   'dismissed',
   'appealed'
 );
+
+-- 広告配信ステータス（v7.4.1新設: 段階的コンテンツ開示機能）
+CREATE TYPE ad_delivery_status_enum AS ENUM (
+  'active',           -- 通常配信中
+  'mvp_free',         -- MVP期間（広告無料）
+  'provider_outage',  -- 広告プロバイダー障害
+  'campaign_free',    -- キャンペーン期間（広告無料）
+  'maintenance'       -- メンテナンス中
+);
+
+-- 広告視聴権限ロール（v7.4.1新設: ユーザー広告免除設定）
+CREATE TYPE ad_exemption_role_enum AS ENUM (
+  'standard',         -- 標準ユーザー（広告視聴必須）
+  'new_user',         -- 新規ユーザー（登録後7日間免除）
+  'mintcoin_auto',    -- MintCoin自動使用
+  'premium',          -- プレミアム会員
+  'staff'             -- スタッフ・管理者
+);
+
+-- コンテンツ解除トークンステータス（v7.4.1新設: 不正防止機能）
+CREATE TYPE content_unlock_token_status_enum AS ENUM (
+  'valid',            -- 有効
+  'expired',          -- 期限切れ
+  'revoked',          -- 無効化済み
+  'fraud_detected'    -- 不正検出
+);
 ```
 
 #### **1.7. ソーシャル機能関連ENUM（v7.4.1新設）**
@@ -932,6 +967,7 @@ CREATE TABLE users (
   language_code VARCHAR(10) DEFAULT 'ja',  -- BCP 47
   region_code CHAR(2) DEFAULT 'JP',        -- ISO 3166-1 alpha-2
   email_verified BOOLEAN DEFAULT FALSE,
+  registration_completed_at TIMESTAMPTZ,   -- v7.4.1: 新規ユーザー判定用（プロフィール完成日時）
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   last_login_at TIMESTAMPTZ
@@ -942,6 +978,7 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_registration_completed ON users(registration_completed_at);  -- v7.4.1: 新規ユーザー検索用
 ```
 
 #### **user_profiles**
@@ -2044,6 +2081,271 @@ CREATE INDEX idx_ad_viewing_progress_first_viewed ON ad_viewing_progress(first_v
 - total_view_countで全体の閲覧回数追跡
 - ユーザーエクスペリエンス最適化（段階別の広告スキップ制御）
 
+#### **ad_delivery_config (広告配信ステータス管理)**
+
+外部要因（MVP期間、広告障害、キャンペーン）による広告配信制御を管理します（v7.4.1新設: 段階的コンテンツ開示機能）。
+
+```sql
+CREATE TABLE ad_delivery_config (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  
+  -- 配信ステータス
+  status ad_delivery_status_enum NOT NULL DEFAULT 'active',
+  
+  -- 有効期間
+  effective_from TIMESTAMPTZ NOT NULL,
+  effective_until TIMESTAMPTZ,  -- NULLの場合は無期限
+  
+  -- メタデータ
+  reason TEXT,  -- ステータス変更理由（例: "広告プロバイダーメンテナンス"）
+  created_by_user_id UUID,  -- 設定者（管理者）
+  
+  -- タイムスタンプ
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  
+  -- 排他制約: 同時期に複数の有効設定は不可
+  CONSTRAINT no_overlapping_periods EXCLUDE USING gist (
+    tstzrange(effective_from, COALESCE(effective_until, 'infinity'::timestamptz), '[)') WITH &&
+  )
+);
+
+CREATE INDEX idx_ad_delivery_config_status ON ad_delivery_config(status);
+CREATE INDEX idx_ad_delivery_config_effective ON ad_delivery_config(effective_from, effective_until);
+CREATE INDEX idx_ad_delivery_config_current ON ad_delivery_config(effective_from, effective_until) 
+  WHERE effective_until IS NULL OR effective_until > CURRENT_TIMESTAMP;
+
+COMMENT ON TABLE ad_delivery_config IS 
+  'v7.4.1新設: 広告配信ステータス管理（外部要因対応）';
+COMMENT ON COLUMN ad_delivery_config.status IS 
+  'active: 通常配信, mvp_free: MVP期間, provider_outage: 障害, campaign_free: キャンペーン, maintenance: メンテナンス';
+```
+
+**設計注記:**
+- **外部要因対応**: MVP版、広告配信障害、キャンペーン等の統一管理
+- **期間管理**: effective_from/until による有効期間制御
+- **排他制約**: 同時期の設定重複を防止（GiSTインデックス使用）
+- **Redis連携**: アクティブな設定はRedisにキャッシュ（TTL: 60秒）
+- **優先度**: active < mvp_free < provider_outage < campaign_free < maintenance
+
+**sqlcクエリ例:**
+
+```sql
+-- name: GetCurrentAdDeliveryConfig :one
+SELECT * FROM ad_delivery_config
+WHERE effective_from <= CURRENT_TIMESTAMP
+  AND (effective_until IS NULL OR effective_until > CURRENT_TIMESTAMP)
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: CreateAdDeliveryConfig :one
+INSERT INTO ad_delivery_config (
+  status, effective_from, effective_until, reason, created_by_user_id
+) VALUES (
+  $1, $2, $3, $4, $5
+) RETURNING *;
+
+-- name: UpdateAdDeliveryConfig :one
+UPDATE ad_delivery_config
+SET 
+  status = $2,
+  effective_until = $3,
+  reason = $4,
+  updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;
+```
+
+#### **user_ad_exemptions (ユーザー広告免除設定)**
+
+ユーザーごとの広告視聴免除設定を管理します（v7.4.1新設: 新規ユーザー判定・MintCoin自動使用）。
+
+```sql
+CREATE TABLE user_ad_exemptions (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID NOT NULL,  -- users.idを参照（論理的）
+  
+  -- 免除ロール
+  exemption_role ad_exemption_role_enum NOT NULL DEFAULT 'standard',
+  
+  -- 新規ユーザー判定
+  is_new_user BOOLEAN GENERATED ALWAYS AS (
+    exemption_role = 'new_user'
+  ) STORED,
+  
+  -- MintCoin自動使用設定
+  auto_use_mintcoin BOOLEAN DEFAULT false,  -- true: 広告の代わりにMintCoin自動消費
+  mintcoin_per_ad INTEGER DEFAULT 10,  -- 広告1回あたりのMintCoin消費量
+  
+  -- 有効期間（new_userロールの場合のみ使用）
+  exemption_valid_until TIMESTAMPTZ,  -- 新規ユーザー: 登録後7日間
+  
+  -- タイムスタンプ
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  
+  UNIQUE(user_id)
+);
+
+CREATE INDEX idx_user_ad_exemptions_user_id ON user_ad_exemptions(user_id);
+CREATE INDEX idx_user_ad_exemptions_role ON user_ad_exemptions(exemption_role);
+CREATE INDEX idx_user_ad_exemptions_new_user ON user_ad_exemptions(is_new_user) WHERE is_new_user = true;
+CREATE INDEX idx_user_ad_exemptions_auto_mintcoin ON user_ad_exemptions(auto_use_mintcoin) WHERE auto_use_mintcoin = true;
+
+COMMENT ON TABLE user_ad_exemptions IS 
+  'v7.4.1新設: ユーザー広告免除設定（新規ユーザー判定・MintCoin自動使用）';
+COMMENT ON COLUMN user_ad_exemptions.exemption_role IS 
+  'standard: 標準, new_user: 新規ユーザー, mintcoin_auto: MintCoin自動, premium: プレミアム, staff: スタッフ';
+COMMENT ON COLUMN user_ad_exemptions.auto_use_mintcoin IS 
+  'true: 広告視聴の代わりにMintCoinを自動消費してコンテンツ解除';
+```
+
+**設計注記:**
+- **新規ユーザー判定**: 登録後7日間は自動的にnew_userロール
+- **MintCoin自動使用**: ユーザー設定で広告スキップ可能（コイン消費）
+- **ロール優先度**: staff > premium > new_user > mintcoin_auto > standard
+- **Redis連携**: ユーザー設定はRedisにキャッシュ（TTL: 300秒）
+- **usersテーブル連携**: registration_completed_at で新規判定
+
+**sqlcクエリ例:**
+
+```sql
+-- name: GetUserAdExemption :one
+SELECT * FROM user_ad_exemptions
+WHERE user_id = $1;
+
+-- name: CreateUserAdExemption :one
+INSERT INTO user_ad_exemptions (
+  user_id, exemption_role, auto_use_mintcoin, mintcoin_per_ad, exemption_valid_until
+) VALUES (
+  $1, $2, $3, $4, $5
+) RETURNING *;
+
+-- name: UpdateUserAdExemption :one
+UPDATE user_ad_exemptions
+SET 
+  exemption_role = $2,
+  auto_use_mintcoin = $3,
+  mintcoin_per_ad = $4,
+  exemption_valid_until = $5,
+  updated_at = CURRENT_TIMESTAMP
+WHERE user_id = $1
+RETURNING *;
+
+-- name: CheckUserAdExemptionStatus :one
+-- 新規ユーザー判定とMintCoin自動使用チェック
+SELECT 
+  exemption_role,
+  is_new_user,
+  auto_use_mintcoin,
+  mintcoin_per_ad,
+  (exemption_valid_until IS NULL OR exemption_valid_until > CURRENT_TIMESTAMP) AS is_valid
+FROM user_ad_exemptions
+WHERE user_id = $1;
+```
+
+#### **content_unlock_tokens (コンテンツ解除トークン)**
+
+広告視聴完了後のコンテンツ解除トークンを管理します（v7.4.1新設: 不正防止機能）。
+
+```sql
+CREATE TABLE content_unlock_tokens (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(21) NOT NULL UNIQUE,  -- NanoID 21文字（トークンID）
+  
+  -- 関連エンティティ
+  user_id UUID NOT NULL,  -- users.idを参照（論理的）
+  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+  ad_display_event_id UUID REFERENCES ad_display_events(id),  -- 広告視聴イベントとの紐付け
+  
+  -- トークン情報
+  token_hash VARCHAR(64) NOT NULL,  -- SHA-256ハッシュ（JWT署名検証用）
+  status content_unlock_token_status_enum NOT NULL DEFAULT 'valid',
+  
+  -- 有効期間
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMPTZ NOT NULL,  -- 発行後5分間有効
+  
+  -- 不正検出
+  access_count INTEGER DEFAULT 0,  -- アクセス回数（1回のみ許可）
+  last_accessed_at TIMESTAMPTZ,
+  last_access_ip INET,
+  
+  -- タイムスタンプ
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  
+  UNIQUE(user_id, exam_id, issued_at)
+);
+
+CREATE INDEX idx_content_unlock_tokens_user_id ON content_unlock_tokens(user_id);
+CREATE INDEX idx_content_unlock_tokens_exam_id ON content_unlock_tokens(exam_id);
+CREATE INDEX idx_content_unlock_tokens_status ON content_unlock_tokens(status);
+CREATE INDEX idx_content_unlock_tokens_expires ON content_unlock_tokens(expires_at) WHERE status = 'valid';
+CREATE INDEX idx_content_unlock_tokens_ad_event ON content_unlock_tokens(ad_display_event_id);
+
+COMMENT ON TABLE content_unlock_tokens IS 
+  'v7.4.1新設: コンテンツ解除トークン管理（JWT署名・不正防止）';
+COMMENT ON COLUMN content_unlock_tokens.token_hash IS 
+  'JWT署名のSHA-256ハッシュ（改竄検出用）';
+COMMENT ON COLUMN content_unlock_tokens.access_count IS 
+  '不正防止: 2回目のアクセスでfraud_detectedに変更';
+```
+
+**設計注記:**
+- **JWT署名**: フロントエンド側でJWTトークンを生成、バックエンドで検証
+- **使い捨てトークン**: access_count = 1 で自動無効化（不正再利用防止）
+- **短時間有効**: 発行後5分間のみ有効（expires_at）
+- **不正検出**: アクセス回数・IPアドレス監視
+- **Redis連携**: トークン検証結果をRedisキャッシュ（TTL: 300秒）
+- **レート制限**: ユーザーあたり試験あたり1時間に最大5回まで
+
+**sqlcクエリ例:**
+
+```sql
+-- name: CreateContentUnlockToken :one
+INSERT INTO content_unlock_tokens (
+  public_id, user_id, exam_id, ad_display_event_id, token_hash, expires_at
+) VALUES (
+  $1, $2, $3, $4, $5, $6
+) RETURNING *;
+
+-- name: VerifyContentUnlockToken :one
+SELECT * FROM content_unlock_tokens
+WHERE public_id = $1 AND user_id = $2 AND exam_id = $3
+  AND status = 'valid'
+  AND expires_at > CURRENT_TIMESTAMP
+FOR UPDATE;
+
+-- name: IncrementTokenAccessCount :one
+UPDATE content_unlock_tokens
+SET 
+  access_count = access_count + 1,
+  last_accessed_at = CURRENT_TIMESTAMP,
+  last_access_ip = $2,
+  status = CASE 
+    WHEN access_count >= 1 THEN 'fraud_detected'::content_unlock_token_status_enum
+    ELSE status
+  END,
+  updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;
+
+-- name: RevokeContentUnlockToken :exec
+UPDATE content_unlock_tokens
+SET 
+  status = 'revoked',
+  updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
+-- name: GetUserTokenRateLimit :one
+-- レート制限チェック: 過去1時間のトークン発行数
+SELECT COUNT(*) AS token_count
+FROM content_unlock_tokens
+WHERE user_id = $1 AND exam_id = $2
+  AND issued_at > CURRENT_TIMESTAMP - INTERVAL '1 hour';
+```
+
 #### 5.1.2 edumint_contents_search (検索用DB)
 
 **物理DB:** `edumint_contents_search`
@@ -2585,6 +2887,268 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 - 全コンテンツの変更履歴を一元管理
 - 本体DBと分離してパフォーマンス確保
 - パーティショニングで大量データに対応
+
+---
+
+### 5.6 Redis戦略: キャッシュとレート制限（v7.4.1新設）
+
+**目的:**
+- 広告配信ステータスの高速キャッシュ
+- ユーザー広告免除設定のキャッシュ
+- コンテンツ解除トークン検証の高速化
+- レート制限の実装
+
+#### **Redisキー設計**
+
+```
+# 広告配信ステータスキャッシュ
+ad:delivery:config:current
+  - Value: JSON (ad_delivery_config)
+  - TTL: 60秒
+  - 更新タイミング: PostgreSQLで設定変更時に即座に更新
+
+# ユーザー広告免除設定キャッシュ
+ad:exemption:user:{user_id}
+  - Value: JSON (user_ad_exemptions)
+  - TTL: 300秒 (5分)
+  - 更新タイミング: ユーザー設定変更時に即座に更新
+
+# コンテンツメタデータキャッシュ（段階的開示用）
+content:metadata:exam:{exam_id}
+  - Value: JSON (exam基本情報 + questions構造のみ)
+  - TTL: 300秒 (5分)
+  - 更新タイミング: examが公開・更新時に更新
+
+# トークン検証結果キャッシュ
+token:verify:{token_public_id}
+  - Value: JSON (token検証結果)
+  - TTL: 300秒 (5分)
+  - 更新タイミング: トークン使用時に削除
+
+# レート制限: コンテンツアクセス
+ratelimit:content:access:{user_id}:{exam_id}
+  - Value: Counter
+  - TTL: 3600秒 (1時間)
+  - 制限: 1時間に10回まで
+
+# レート制限: トークン発行
+ratelimit:token:issue:{user_id}:{exam_id}
+  - Value: Counter
+  - TTL: 3600秒 (1時間)
+  - 制限: 1時間に5回まで
+
+# レート制限: 広告視聴完了通知
+ratelimit:ad:complete:{user_id}
+  - Value: Counter
+  - TTL: 60秒 (1分)
+  - 制限: 1分に5回まで
+```
+
+#### **TTL設定戦略**
+
+| キータイプ | TTL | 理由 |
+|-----------|-----|------|
+| 広告配信ステータス | 60秒 | 外部要因変更を迅速に反映 |
+| ユーザー免除設定 | 300秒 | ユーザー設定は頻繁に変更されない |
+| コンテンツメタデータ | 300秒 | 試験情報は比較的安定 |
+| トークン検証結果 | 300秒 | セキュリティとパフォーマンスのバランス |
+| レート制限カウンタ | 3600秒 | 1時間ウィンドウで制限 |
+
+#### **Redisクライアント実装例**
+
+```go
+// internal/infrastructure/redis/ad_cache.go
+package redis
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "time"
+    
+    "github.com/go-redis/redis/v8"
+    "github.com/edumint/edumint-content/internal/domain"
+)
+
+type AdCacheRepository struct {
+    client *redis.Client
+}
+
+func NewAdCacheRepository(client *redis.Client) *AdCacheRepository {
+    return &AdCacheRepository{client: client}
+}
+
+// GetCurrentAdDeliveryConfig: 広告配信ステータスを取得（キャッシュ優先）
+func (r *AdCacheRepository) GetCurrentAdDeliveryConfig(ctx context.Context) (*domain.AdDeliveryConfig, error) {
+    key := "ad:delivery:config:current"
+    
+    // Redisから取得
+    val, err := r.client.Get(ctx, key).Result()
+    if err == redis.Nil {
+        // キャッシュミス: PostgreSQLから取得（別途実装）
+        return nil, fmt.Errorf("cache miss: %w", err)
+    }
+    if err != nil {
+        return nil, fmt.Errorf("redis get error: %w", err)
+    }
+    
+    var config domain.AdDeliveryConfig
+    if err := json.Unmarshal([]byte(val), &config); err != nil {
+        return nil, fmt.Errorf("json unmarshal error: %w", err)
+    }
+    
+    return &config, nil
+}
+
+// SetCurrentAdDeliveryConfig: 広告配信ステータスをキャッシュ
+func (r *AdCacheRepository) SetCurrentAdDeliveryConfig(ctx context.Context, config *domain.AdDeliveryConfig) error {
+    key := "ad:delivery:config:current"
+    
+    data, err := json.Marshal(config)
+    if err != nil {
+        return fmt.Errorf("json marshal error: %w", err)
+    }
+    
+    if err := r.client.Set(ctx, key, data, 60*time.Second).Err(); err != nil {
+        return fmt.Errorf("redis set error: %w", err)
+    }
+    
+    return nil
+}
+
+// GetUserAdExemption: ユーザー広告免除設定を取得（キャッシュ優先）
+func (r *AdCacheRepository) GetUserAdExemption(ctx context.Context, userID string) (*domain.UserAdExemption, error) {
+    key := fmt.Sprintf("ad:exemption:user:%s", userID)
+    
+    val, err := r.client.Get(ctx, key).Result()
+    if err == redis.Nil {
+        return nil, fmt.Errorf("cache miss: %w", err)
+    }
+    if err != nil {
+        return nil, fmt.Errorf("redis get error: %w", err)
+    }
+    
+    var exemption domain.UserAdExemption
+    if err := json.Unmarshal([]byte(val), &exemption); err != nil {
+        return nil, fmt.Errorf("json unmarshal error: %w", err)
+    }
+    
+    return &exemption, nil
+}
+
+// SetUserAdExemption: ユーザー広告免除設定をキャッシュ
+func (r *AdCacheRepository) SetUserAdExemption(ctx context.Context, userID string, exemption *domain.UserAdExemption) error {
+    key := fmt.Sprintf("ad:exemption:user:%s", userID)
+    
+    data, err := json.Marshal(exemption)
+    if err != nil {
+        return fmt.Errorf("json marshal error: %w", err)
+    }
+    
+    if err := r.client.Set(ctx, key, data, 300*time.Second).Err(); err != nil {
+        return fmt.Errorf("redis set error: %w", err)
+    }
+    
+    return nil
+}
+
+// CheckRateLimit: レート制限チェック
+func (r *AdCacheRepository) CheckRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (bool, error) {
+    count, err := r.client.Incr(ctx, key).Result()
+    if err != nil {
+        return false, fmt.Errorf("redis incr error: %w", err)
+    }
+    
+    // 初回アクセスの場合はTTL設定
+    if count == 1 {
+        if err := r.client.Expire(ctx, key, window).Err(); err != nil {
+            return false, fmt.Errorf("redis expire error: %w", err)
+        }
+    }
+    
+    return count <= limit, nil
+}
+
+// GetContentMetadata: コンテンツメタデータ取得（段階的開示用）
+func (r *AdCacheRepository) GetContentMetadata(ctx context.Context, examID string) (map[string]interface{}, error) {
+    key := fmt.Sprintf("content:metadata:exam:%s", examID)
+    
+    val, err := r.client.Get(ctx, key).Result()
+    if err == redis.Nil {
+        return nil, fmt.Errorf("cache miss: %w", err)
+    }
+    if err != nil {
+        return nil, fmt.Errorf("redis get error: %w", err)
+    }
+    
+    var metadata map[string]interface{}
+    if err := json.Unmarshal([]byte(val), &metadata); err != nil {
+        return nil, fmt.Errorf("json unmarshal error: %w", err)
+    }
+    
+    return metadata, nil
+}
+
+// SetContentMetadata: コンテンツメタデータ設定
+func (r *AdCacheRepository) SetContentMetadata(ctx context.Context, examID string, metadata map[string]interface{}) error {
+    key := fmt.Sprintf("content:metadata:exam:%s", examID)
+    
+    data, err := json.Marshal(metadata)
+    if err != nil {
+        return fmt.Errorf("json marshal error: %w", err)
+    }
+    
+    if err := r.client.Set(ctx, key, data, 300*time.Second).Err(); err != nil {
+        return fmt.Errorf("redis set error: %w", err)
+    }
+    
+    return nil
+}
+```
+
+#### **レート制限戦略**
+
+**コンテンツアクセス:**
+- 制限: 1時間に10回まで（同一ユーザー、同一試験）
+- 目的: 不正なクローリング防止
+
+**トークン発行:**
+- 制限: 1時間に5回まで（同一ユーザー、同一試験）
+- 目的: トークン不正発行防止
+
+**広告視聴完了通知:**
+- 制限: 1分に5回まで（同一ユーザー）
+- 目的: API濫用防止
+
+**実装例:**
+
+```go
+// レート制限チェック（コンテンツアクセス）
+func (s *ContentService) CheckContentAccessRateLimit(ctx context.Context, userID, examID string) error {
+    key := fmt.Sprintf("ratelimit:content:access:%s:%s", userID, examID)
+    allowed, err := s.cache.CheckRateLimit(ctx, key, 10, 1*time.Hour)
+    if err != nil {
+        return fmt.Errorf("rate limit check failed: %w", err)
+    }
+    if !allowed {
+        return fmt.Errorf("rate limit exceeded: too many content access attempts")
+    }
+    return nil
+}
+
+// レート制限チェック（トークン発行）
+func (s *TokenService) CheckTokenIssueRateLimit(ctx context.Context, userID, examID string) error {
+    key := fmt.Sprintf("ratelimit:token:issue:%s:%s", userID, examID)
+    allowed, err := s.cache.CheckRateLimit(ctx, key, 5, 1*time.Hour)
+    if err != nil {
+        return fmt.Errorf("rate limit check failed: %w", err)
+    }
+    if !allowed {
+        return fmt.Errorf("rate limit exceeded: too many token issue attempts")
+    }
+    return nil
+}
+```
 
 ---
 
@@ -9535,6 +10099,635 @@ type UploadExamResponse struct {
 type ErrorResponse struct {
     Error string `json:"error"`
 }
+```
+
+---
+
+### 22.7 段階的コンテンツ開示API設計（v7.4.1新設）
+
+#### **初期表示API**
+
+段階的コンテンツ開示戦略に基づき、大問1の全文+大問2以降の構造のみを返します。
+
+```go
+// internal/api/handlers/content_disclosure_handler.go
+package handlers
+
+import (
+    "net/http"
+    
+    "github.com/edumint/edumint-content/internal/service"
+    "github.com/labstack/echo/v5"
+)
+
+type ContentDisclosureHandler struct {
+    adService      *service.AdService
+    contentService *service.ContentService
+}
+
+func NewContentDisclosureHandler(
+    adService *service.AdService,
+    contentService *service.ContentService,
+) *ContentDisclosureHandler {
+    return &ContentDisclosureHandler{
+        adService:      adService,
+        contentService: contentService,
+    }
+}
+
+// GetInitialContent: 初期表示（大問1全文+大問2以降構造のみ）
+// GET /api/v1/exams/{exam_public_id}/initial
+func (h *ContentDisclosureHandler) GetInitialContent(c echo.Context) error {
+    ctx := c.Request().Context()
+    
+    examPublicID := c.Param("exam_public_id")
+    userID := c.Get("user_id").(string) // 認証ミドルウェアで設定
+    
+    // 1. 広告配信ステータスチェック（Redis優先）
+    adConfig, err := h.adService.GetCurrentAdDeliveryConfig(ctx)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, ErrorResponse{
+            Error: "failed to get ad config",
+        })
+    }
+    
+    // 2. ユーザー広告免除設定チェック（Redis優先）
+    exemption, err := h.adService.GetUserAdExemption(ctx, userID)
+    if err != nil {
+        // 免除設定なし: デフォルトはstandard
+        exemption = &service.UserAdExemption{
+            ExemptionRole: "standard",
+        }
+    }
+    
+    // 3. 広告表示要否判定
+    shouldShowAd := h.adService.ShouldShowAd(adConfig, exemption)
+    
+    // 4. コンテンツ取得（段階的開示）
+    content, err := h.contentService.GetInitialContent(ctx, examPublicID)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, ErrorResponse{
+            Error: "failed to get content",
+        })
+    }
+    
+    return c.JSON(http.StatusOK, InitialContentResponse{
+        ExamID:       content.ExamID,
+        ExamTitle:    content.ExamTitle,
+        Question1:    content.Question1, // 大問1全文
+        OtherQuestions: content.OtherQuestions, // 大問2以降は構造のみ
+        RequireAd:    shouldShowAd,
+        AdProviderConfig: map[string]interface{}{
+            "status": adConfig.Status,
+            "provider": "google_admob", // 実際の広告プロバイダー
+        },
+    })
+}
+
+type InitialContentResponse struct {
+    ExamID         string                   `json:"exam_id"`
+    ExamTitle      string                   `json:"exam_title"`
+    Question1      *QuestionDetail          `json:"question_1"` // 大問1全文
+    OtherQuestions []QuestionStructureOnly  `json:"other_questions"` // 構造のみ
+    RequireAd      bool                     `json:"require_ad"`
+    AdProviderConfig map[string]interface{} `json:"ad_provider_config,omitempty"`
+}
+
+type QuestionDetail struct {
+    QuestionNumber int             `json:"question_number"`
+    Title          string          `json:"title"`
+    Content        string          `json:"content"` // 全文
+    SubQuestions   []SubQuestion   `json:"sub_questions"`
+}
+
+type QuestionStructureOnly struct {
+    QuestionNumber int    `json:"question_number"`
+    Title          string `json:"title"`
+    SubQuestionCount int  `json:"sub_question_count"` // 小問の数のみ
+}
+
+type SubQuestion struct {
+    SubQuestionNumber int    `json:"sub_question_number"`
+    Content           string `json:"content"`
+}
+```
+
+#### **広告視聴完了通知API**
+
+広告視聴完了後、コンテンツ解除トークンを発行します。
+
+```go
+// CompleteAdView: 広告視聴完了通知
+// POST /api/v1/ads/view-completed
+func (h *ContentDisclosureHandler) CompleteAdView(c echo.Context) error {
+    ctx := c.Request().Context()
+    
+    var req AdViewCompletedRequest
+    if err := c.Bind(&req); err != nil {
+        return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request"})
+    }
+    
+    userID := c.Get("user_id").(string)
+    
+    // 1. レート制限チェック（1分に5回まで）
+    if err := h.adService.CheckAdCompleteRateLimit(ctx, userID); err != nil {
+        return c.JSON(http.StatusTooManyRequests, ErrorResponse{
+            Error: "rate limit exceeded",
+        })
+    }
+    
+    // 2. 広告視聴イベント記録
+    adEvent, err := h.adService.RecordAdDisplayEvent(ctx, service.RecordAdDisplayEventRequest{
+        UserID:       userID,
+        ExamID:       req.ExamID,
+        DisplayStage: req.DisplayStage,
+        AdProviderID: req.AdProviderID,
+        AdUnitID:     req.AdUnitID,
+    })
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, ErrorResponse{
+            Error: "failed to record ad event",
+        })
+    }
+    
+    // 3. 広告視聴進捗更新
+    if err := h.adService.UpdateAdViewingProgress(ctx, userID, req.ExamID, req.DisplayStage); err != nil {
+        return c.JSON(http.StatusInternalServerError, ErrorResponse{
+            Error: "failed to update ad progress",
+        })
+    }
+    
+    // 4. コンテンツ解除トークン発行
+    token, err := h.contentService.IssueUnlockToken(ctx, service.IssueUnlockTokenRequest{
+        UserID:           userID,
+        ExamID:           req.ExamID,
+        AdDisplayEventID: adEvent.ID,
+    })
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, ErrorResponse{
+            Error: "failed to issue unlock token",
+        })
+    }
+    
+    return c.JSON(http.StatusOK, AdViewCompletedResponse{
+        UnlockToken: token.JWTToken, // JWT署名付きトークン
+        ExpiresAt:   token.ExpiresAt,
+    })
+}
+
+type AdViewCompletedRequest struct {
+    ExamID       string `json:"exam_id"`
+    DisplayStage string `json:"display_stage"` // "answer_explanation" or "download"
+    AdProviderID string `json:"ad_provider_id"`
+    AdUnitID     string `json:"ad_unit_id"`
+}
+
+type AdViewCompletedResponse struct {
+    UnlockToken string    `json:"unlock_token"` // JWT
+    ExpiresAt   time.Time `json:"expires_at"`
+}
+```
+
+#### **コンテンツ解除API**
+
+トークンを検証してコンテンツを解除します。
+
+```go
+// UnlockContent: コンテンツ解除（トークン検証）
+// POST /api/v1/exams/{exam_public_id}/unlock
+func (h *ContentDisclosureHandler) UnlockContent(c echo.Context) error {
+    ctx := c.Request().Context()
+    
+    examPublicID := c.Param("exam_public_id")
+    userID := c.Get("user_id").(string)
+    
+    var req UnlockContentRequest
+    if err := c.Bind(&req); err != nil {
+        return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request"})
+    }
+    
+    // 1. レート制限チェック（1時間に5回まで）
+    if err := h.contentService.CheckTokenIssueRateLimit(ctx, userID, examPublicID); err != nil {
+        return c.JSON(http.StatusTooManyRequests, ErrorResponse{
+            Error: "rate limit exceeded",
+        })
+    }
+    
+    // 2. トークン検証
+    token, err := h.contentService.VerifyUnlockToken(ctx, service.VerifyUnlockTokenRequest{
+        TokenJWT: req.UnlockToken,
+        UserID:   userID,
+        ExamID:   examPublicID,
+    })
+    if err != nil {
+        return c.JSON(http.StatusUnauthorized, ErrorResponse{
+            Error: "invalid or expired token",
+        })
+    }
+    
+    // 3. トークンアクセス回数インクリメント（不正検出）
+    if err := h.contentService.IncrementTokenAccessCount(ctx, token.ID, c.RealIP()); err != nil {
+        return c.JSON(http.StatusForbidden, ErrorResponse{
+            Error: "token reuse detected",
+        })
+    }
+    
+    // 4. 完全なコンテンツ取得
+    content, err := h.contentService.GetFullContent(ctx, examPublicID)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, ErrorResponse{
+            Error: "failed to get content",
+        })
+    }
+    
+    return c.JSON(http.StatusOK, UnlockContentResponse{
+        ExamID:    content.ExamID,
+        ExamTitle: content.ExamTitle,
+        Questions: content.Questions, // 全問題の全文
+    })
+}
+
+type UnlockContentRequest struct {
+    UnlockToken string `json:"unlock_token"` // JWT
+}
+
+type UnlockContentResponse struct {
+    ExamID    string            `json:"exam_id"`
+    ExamTitle string            `json:"exam_title"`
+    Questions []QuestionDetail  `json:"questions"` // 全問題
+}
+```
+
+---
+
+### 22.8 不正防止戦略（v7.4.1新設）
+
+#### **1. Dev機能での広告スキップ防止**
+
+**問題:**
+- ブラウザ開発者ツールでJavaScriptを操作し、広告視聴をスキップ
+
+**対策:**
+- **サーバーサイド検証**: 広告視聴完了はバックエンドで必ず検証
+- **JWT署名**: トークンにHMAC-SHA256署名を付与、改竄不可
+- **タイムスタンプ検証**: 視聴開始から完了までの時間が妥当かチェック
+
+```go
+// 広告視聴時間検証
+func (s *AdService) ValidateAdViewDuration(startTime, endTime time.Time) error {
+    duration := endTime.Sub(startTime)
+    minDuration := 15 * time.Second // 広告最低視聴時間
+    maxDuration := 120 * time.Second // 最大許容時間
+    
+    if duration < minDuration {
+        return fmt.Errorf("ad view duration too short: %v", duration)
+    }
+    if duration > maxDuration {
+        return fmt.Errorf("ad view duration too long: %v", duration)
+    }
+    
+    return nil
+}
+```
+
+#### **2. HTML確認でのコンテンツ取得防止**
+
+**問題:**
+- ブラウザ開発者ツールでDOMを確認し、隠されたコンテンツを閲覧
+
+**対策:**
+- **段階的配信**: 初期表示では大問1のみ送信、大問2以降は未送信
+- **API分離**: 完全なコンテンツは別APIエンドポイントで提供
+- **トークン必須**: 完全コンテンツAPIはトークン検証必須
+
+#### **3. トークン再利用・改竄防止**
+
+**問題:**
+- トークンを保存して複数回使用、または改竄して不正利用
+
+**対策:**
+- **使い捨てトークン**: access_count = 1 で自動無効化
+- **短時間有効**: 発行後5分間のみ有効
+- **SHA-256ハッシュ**: トークンのハッシュをDBに保存、改竄検出
+
+```go
+// トークン検証
+func (s *ContentService) VerifyUnlockToken(ctx context.Context, req VerifyUnlockTokenRequest) (*domain.ContentUnlockToken, error) {
+    // 1. JWT検証
+    claims, err := s.jwtService.VerifyToken(req.TokenJWT)
+    if err != nil {
+        return nil, fmt.Errorf("jwt verification failed: %w", err)
+    }
+    
+    // 2. DB検証
+    token, err := s.repo.GetTokenByPublicID(ctx, claims.TokenID)
+    if err != nil {
+        return nil, fmt.Errorf("token not found: %w", err)
+    }
+    
+    // 3. ステータス確認
+    if token.Status != "valid" {
+        return nil, fmt.Errorf("token status invalid: %s", token.Status)
+    }
+    
+    // 4. 有効期限確認
+    if time.Now().After(token.ExpiresAt) {
+        return nil, fmt.Errorf("token expired")
+    }
+    
+    // 5. ユーザー・試験一致確認
+    if token.UserID != req.UserID || token.ExamID != req.ExamID {
+        return nil, fmt.Errorf("token mismatch")
+    }
+    
+    return token, nil
+}
+```
+
+#### **4. レート制限**
+
+**対策:**
+- **コンテンツアクセス**: 1時間に10回まで
+- **トークン発行**: 1時間に5回まで
+- **広告視聴完了通知**: 1分に5回まで
+
+```go
+// Redis実装（section 5.6参照）
+func (s *RateLimitService) CheckLimit(ctx context.Context, key string, limit int64, window time.Duration) error {
+    allowed, err := s.cache.CheckRateLimit(ctx, key, limit, window)
+    if err != nil {
+        return fmt.Errorf("rate limit check failed: %w", err)
+    }
+    if !allowed {
+        return fmt.Errorf("rate limit exceeded")
+    }
+    return nil
+}
+```
+
+#### **5. 異常アクセスパターン検出**
+
+**対策:**
+- **IPアドレス監視**: 同一IPから短時間に大量アクセス
+- **ユーザー行動分析**: 人間らしくない操作パターン
+- **機械学習**: 異常検出モデルでBot判定
+
+```go
+// 異常アクセス検出
+func (s *SecurityService) DetectAbnormalAccess(ctx context.Context, userID string, examID string, ipAddress string) error {
+    // 1. 同一IPからのアクセス回数チェック
+    count, err := s.repo.GetAccessCountByIP(ctx, ipAddress, 1*time.Hour)
+    if err != nil {
+        return fmt.Errorf("failed to get access count: %w", err)
+    }
+    if count > 100 {
+        return fmt.Errorf("too many accesses from same IP")
+    }
+    
+    // 2. ユーザーの操作パターン分析
+    pattern, err := s.analyzer.AnalyzeUserBehavior(ctx, userID)
+    if err != nil {
+        return fmt.Errorf("failed to analyze behavior: %w", err)
+    }
+    if pattern.IsSuspicious {
+        return fmt.Errorf("suspicious user behavior detected")
+    }
+    
+    return nil
+}
+```
+
+---
+
+### 22.9 フロントエンド実装例（React）（v7.4.1新設）
+
+#### **初期表示コンポーネント**
+
+```typescript
+// src/components/ExamViewer.tsx
+import React, { useState, useEffect } from 'react';
+import { AdPlayer } from './AdPlayer';
+
+interface ExamViewerProps {
+  examPublicId: string;
+}
+
+export const ExamViewer: React.FC<ExamViewerProps> = ({ examPublicId }) => {
+  const [initialContent, setInitialContent] = useState<any>(null);
+  const [fullContent, setFullContent] = useState<any>(null);
+  const [showAd, setShowAd] = useState(false);
+  const [unlockToken, setUnlockToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchInitialContent();
+  }, [examPublicId]);
+
+  const fetchInitialContent = async () => {
+    try {
+      const response = await fetch(`/api/v1/exams/${examPublicId}/initial`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+      const data = await response.json();
+      setInitialContent(data);
+      setShowAd(data.require_ad);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch initial content:', error);
+      setLoading(false);
+    }
+  };
+
+  const handleAdCompleted = async (adProviderData: any) => {
+    try {
+      const response = await fetch('/api/v1/ads/view-completed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+        body: JSON.stringify({
+          exam_id: examPublicId,
+          display_stage: 'answer_explanation',
+          ad_provider_id: adProviderData.providerId,
+          ad_unit_id: adProviderData.unitId,
+        }),
+      });
+      const data = await response.json();
+      setUnlockToken(data.unlock_token);
+      setShowAd(false);
+      await unlockContent(data.unlock_token);
+    } catch (error) {
+      console.error('Failed to complete ad view:', error);
+    }
+  };
+
+  const unlockContent = async (token: string) => {
+    try {
+      const response = await fetch(`/api/v1/exams/${examPublicId}/unlock`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+        body: JSON.stringify({
+          unlock_token: token,
+        }),
+      });
+      const data = await response.json();
+      setFullContent(data);
+    } catch (error) {
+      console.error('Failed to unlock content:', error);
+    }
+  };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (showAd) {
+    return (
+      <div>
+        <h2>広告視聴後に続きを閲覧できます</h2>
+        <AdPlayer
+          config={initialContent.ad_provider_config}
+          onAdCompleted={handleAdCompleted}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h1>{initialContent?.exam_title || fullContent?.exam_title}</h1>
+      
+      {/* 初期表示: 大問1全文 */}
+      {initialContent && !fullContent && (
+        <>
+          <div className="question-full">
+            <h2>大問{initialContent.question_1.question_number}</h2>
+            <p>{initialContent.question_1.content}</p>
+            {initialContent.question_1.sub_questions.map((sq: any) => (
+              <div key={sq.sub_question_number}>
+                <h3>小問{sq.sub_question_number}</h3>
+                <p>{sq.content}</p>
+              </div>
+            ))}
+          </div>
+          
+          {/* 大問2以降: 構造のみ */}
+          <div className="question-structure-only">
+            <h2>その他の問題（広告視聴後に表示）</h2>
+            {initialContent.other_questions.map((q: any) => (
+              <div key={q.question_number}>
+                <p>大問{q.question_number} - 小問数: {q.sub_question_count}</p>
+              </div>
+            ))}
+          </div>
+          
+          <button onClick={() => setShowAd(true)}>
+            続きを見る（広告視聴が必要）
+          </button>
+        </>
+      )}
+      
+      {/* 解除後: 全問題 */}
+      {fullContent && (
+        <div className="full-content">
+          {fullContent.questions.map((q: any) => (
+            <div key={q.question_number}>
+              <h2>大問{q.question_number}</h2>
+              <p>{q.content}</p>
+              {q.sub_questions.map((sq: any) => (
+                <div key={sq.sub_question_number}>
+                  <h3>小問{sq.sub_question_number}</h3>
+                  <p>{sq.content}</p>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+```
+
+#### **広告プレーヤー統合**
+
+```typescript
+// src/components/AdPlayer.tsx
+import React, { useEffect, useRef } from 'react';
+
+interface AdPlayerProps {
+  config: {
+    status: string;
+    provider: string;
+  };
+  onAdCompleted: (adData: any) => void;
+}
+
+export const AdPlayer: React.FC<AdPlayerProps> = ({ config, onAdCompleted }) => {
+  const adContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (config.status !== 'active') {
+      // 広告配信停止中: 即座にスキップ
+      onAdCompleted({
+        providerId: 'skip',
+        unitId: 'skip',
+      });
+      return;
+    }
+
+    // Google AdMob統合
+    if (config.provider === 'google_admob') {
+      loadGoogleAdMob();
+    }
+  }, [config]);
+
+  const loadGoogleAdMob = () => {
+    // Google AdMob SDKロード
+    const script = document.createElement('script');
+    script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
+    script.async = true;
+    document.head.appendChild(script);
+
+    script.onload = () => {
+      // AdMob広告表示
+      if (adContainerRef.current) {
+        const ins = document.createElement('ins');
+        ins.className = 'adsbygoogle';
+        ins.style.display = 'block';
+        ins.setAttribute('data-ad-client', 'ca-pub-XXXXXXXXXXXXXXXX');
+        ins.setAttribute('data-ad-slot', 'XXXXXXXXXX');
+        ins.setAttribute('data-ad-format', 'auto');
+        ins.setAttribute('data-full-width-responsive', 'true');
+        adContainerRef.current.appendChild(ins);
+        
+        // @ts-ignore
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      }
+
+      // 広告視聴完了検出（簡易実装）
+      setTimeout(() => {
+        onAdCompleted({
+          providerId: 'google_admob',
+          unitId: 'ca-pub-XXXXXXXXXXXXXXXX',
+        });
+      }, 15000); // 15秒後に完了とみなす
+    };
+  };
+
+  return (
+    <div className="ad-player">
+      <div ref={adContainerRef} className="ad-container"></div>
+      <p className="ad-notice">広告が表示されない場合は、広告ブロッカーを無効にしてください</p>
+    </div>
+  );
+};
 ```
 
 ---
