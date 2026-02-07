@@ -9155,6 +9155,346 @@ func (s *InstitutionService) ListInstitutionsByCountry(
 }
 ```
 
+### 22.6 試験生成フロー実装（v7.4.1追加）
+
+#### **OCR結果結合サービス**
+
+複数ファイルのOCR結果を1つのマスターOCRコンテンツに結合します。
+
+```go
+// internal/service/ocr_combiner_service.go
+package service
+
+import (
+    "context"
+    "fmt"
+    "strings"
+    
+    "github.com/edumint/edumint-content/internal/db/dbgen"
+    "github.com/google/uuid"
+)
+
+type OCRCombinerService struct {
+    queries *dbgen.Queries
+}
+
+func NewOCRCombinerService(queries *dbgen.Queries) *OCRCombinerService {
+    return &OCRCombinerService{queries: queries}
+}
+
+// CombineOCRResults: 複数ファイルのOCR結果を結合してマスターOCRコンテンツを作成
+func (s *OCRCombinerService) CombineOCRResults(
+    ctx context.Context,
+    req CombineOCRRequest,
+) (*dbgen.MasterOcrContent, error) {
+    
+    // 各ファイルのOCR結果を取得
+    var combinedText strings.Builder
+    for i, fileID := range req.SourceFileIDs {
+        // edumintFiles サービスからOCR結果を取得
+        ocrResult, err := s.getOCRResultFromFile(ctx, fileID)
+        if err != nil {
+            return nil, fmt.Errorf("failed to get OCR for file %s: %w", fileID, err)
+        }
+        
+        // ファイル区切りを追加
+        if i > 0 {
+            combinedText.WriteString("\n\n--- ファイル ")
+            combinedText.WriteString(fmt.Sprintf("%d", i+1))
+            combinedText.WriteString(" ---\n\n")
+        }
+        
+        combinedText.WriteString(ocrResult)
+    }
+    
+    // テキスト入力がある場合は追加
+    if req.HasTextInput && req.TextInputContent != "" {
+        combinedText.WriteString("\n\n--- ユーザー入力テキスト ---\n\n")
+        combinedText.WriteString(req.TextInputContent)
+    }
+    
+    // master_ocr_contents レコード作成
+    ocr, err := s.queries.InsertExerciseOCR(ctx, dbgen.InsertExerciseOCRParams{
+        PublicID:         req.PublicID,
+        ContentType:      dbgen.OcrContentTypeEnumExercises,
+        UploaderID:       req.UploaderID,
+        SourceFileIDs:    req.SourceFileIDs,
+        SourceFileCount:  int32(len(req.SourceFileIDs)),
+        HasTextInput:     req.HasTextInput,
+        TextInputContent: sql.NullString{
+            String: req.TextInputContent,
+            Valid:  req.HasTextInput,
+        },
+        OcrText:      combinedText.String(),
+        LanguageCode: req.LanguageCode,
+    })
+    
+    if err != nil {
+        return nil, fmt.Errorf("failed to insert OCR content: %w", err)
+    }
+    
+    return ocr, nil
+}
+
+// getOCRResultFromFile: edumintFiles サービスからOCR結果を取得
+func (s *OCRCombinerService) getOCRResultFromFile(
+    ctx context.Context,
+    fileID uuid.UUID,
+) (string, error) {
+    // 実装: edumintFiles サービスのAPIを呼び出し
+    // または、file_metadata テーブルに保存されたOCRテキストを取得
+    // ここでは簡略化のため省略
+    return "", nil
+}
+
+type CombineOCRRequest struct {
+    PublicID         string
+    UploaderID       uuid.UUID
+    SourceFileIDs    []uuid.UUID
+    HasTextInput     bool
+    TextInputContent string
+    LanguageCode     string
+}
+```
+
+#### **Exam生成サービス**
+
+master_ocr_contentsからExamレコードを生成し、双方向参照を確立します。
+
+```go
+// internal/service/exam_generator_service.go
+package service
+
+import (
+    "context"
+    "fmt"
+    
+    "github.com/edumint/edumint-content/internal/db/dbgen"
+    "github.com/google/uuid"
+)
+
+type ExamGeneratorService struct {
+    queries     *dbgen.Queries
+    aiAnalyzer  AIAnalyzerClient
+}
+
+func NewExamGeneratorService(
+    queries *dbgen.Queries,
+    aiAnalyzer AIAnalyzerClient,
+) *ExamGeneratorService {
+    return &ExamGeneratorService{
+        queries:    queries,
+        aiAnalyzer: aiAnalyzer,
+    }
+}
+
+// CreateExamFromOCR: master_ocr_contentsからExamを生成
+func (s *ExamGeneratorService) CreateExamFromOCR(
+    ctx context.Context,
+    ocrContentID uuid.UUID,
+) (*dbgen.Exam, error) {
+    
+    // 1. master_ocr_contents からOCRテキストを取得
+    ocrContent, err := s.queries.GetOCRByID(ctx, ocrContentID)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get OCR content: %w", err)
+    }
+    
+    // 2. AI構造分析: OCRテキストから試験情報を抽出
+    examData, err := s.aiAnalyzer.AnalyzeExamStructure(ctx, AnalyzeRequest{
+        OCRText:      ocrContent.OcrText,
+        LanguageCode: ocrContent.LanguageCode,
+        UploaderID:   ocrContent.UploaderID,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("AI analysis failed: %w", err)
+    }
+    
+    // 3. トランザクション開始
+    tx, err := s.queries.BeginTx(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("failed to begin transaction: %w", err)
+    }
+    defer tx.Rollback(ctx)
+    
+    qtx := s.queries.WithTx(tx)
+    
+    // 4. exams レコード作成
+    exam, err := qtx.InsertExam(ctx, dbgen.InsertExamParams{
+        PublicID:           examData.PublicID,
+        SubjectID:          examData.SubjectID,
+        TeacherID:          uuid.NullUUID{UUID: examData.TeacherID, Valid: examData.TeacherID != uuid.Nil},
+        UploaderID:         ocrContent.UploaderID,
+        Title:              examData.Title,
+        AcademicYear:       examData.AcademicYear,
+        Semester:           examData.Semester,
+        ExamType:           examData.ExamType,
+        MasterOcrContentID: uuid.NullUUID{UUID: ocrContentID, Valid: true},
+        Status:             dbgen.ExamStatusEnumDraft,
+        DisplayLanguage:    ocrContent.LanguageCode,
+        AiGenerated:        true,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to insert exam: %w", err)
+    }
+    
+    // 5. master_ocr_contents の exam_id を更新（双方向参照）
+    err = qtx.UpdateOCRExamID(ctx, dbgen.UpdateOCRExamIDParams{
+        ExamID: exam.ID,
+        ID:     ocrContentID,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to update OCR exam_id: %w", err)
+    }
+    
+    // 6. 問題レコードを作成
+    for i, question := range examData.Questions {
+        _, err := qtx.InsertQuestion(ctx, dbgen.InsertQuestionParams{
+            PublicID:     question.PublicID,
+            ExamID:       exam.ID,
+            SortOrder:    int32(i + 1),
+            QuestionType: question.QuestionType,
+            QuestionText: question.QuestionText,
+            Options:      question.Options,
+            CorrectAnswer: question.CorrectAnswer,
+            Explanation:  question.Explanation,
+            DifficultyLevel: question.DifficultyLevel,
+        })
+        if err != nil {
+            return nil, fmt.Errorf("failed to insert question %d: %w", i, err)
+        }
+    }
+    
+    // 7. コミット
+    if err := tx.Commit(ctx); err != nil {
+        return nil, fmt.Errorf("failed to commit transaction: %w", err)
+    }
+    
+    return exam, nil
+}
+
+// AIAnalyzerClient: AI構造分析クライアント（インターフェース）
+type AIAnalyzerClient interface {
+    AnalyzeExamStructure(ctx context.Context, req AnalyzeRequest) (*AnalyzeResponse, error)
+}
+
+type AnalyzeRequest struct {
+    OCRText      string
+    LanguageCode string
+    UploaderID   uuid.UUID
+}
+
+type AnalyzeResponse struct {
+    PublicID     string
+    SubjectID    uuid.UUID
+    TeacherID    uuid.UUID
+    Title        string
+    AcademicYear int32
+    Semester     dbgen.SemesterEnum
+    ExamType     dbgen.ExamTypeEnum
+    Questions    []QuestionData
+}
+
+type QuestionData struct {
+    PublicID        string
+    QuestionType    dbgen.QuestionTypeEnum
+    QuestionText    string
+    Options         []byte // JSONB
+    CorrectAnswer   []byte // JSONB
+    Explanation     string
+    DifficultyLevel dbgen.DifficultyLevelEnum
+}
+```
+
+#### **統合エンドポイント実装**
+
+```go
+// internal/api/handlers/exam_upload_handler.go
+package handlers
+
+import (
+    "net/http"
+    
+    "github.com/edumint/edumint-content/internal/service"
+    "github.com/labstack/echo/v5"
+)
+
+type ExamUploadHandler struct {
+    combiner  *service.OCRCombinerService
+    generator *service.ExamGeneratorService
+}
+
+func NewExamUploadHandler(
+    combiner *service.OCRCombinerService,
+    generator *service.ExamGeneratorService,
+) *ExamUploadHandler {
+    return &ExamUploadHandler{
+        combiner:  combiner,
+        generator: generator,
+    }
+}
+
+// UploadExam: 試験アップロード（複数ファイル + オプションテキスト → Exam生成）
+func (h *ExamUploadHandler) UploadExam(c echo.Context) error {
+    ctx := c.Request().Context()
+    
+    // リクエスト解析
+    var req UploadExamRequest
+    if err := c.Bind(&req); err != nil {
+        return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request"})
+    }
+    
+    // 1. OCR結果結合
+    ocrContent, err := h.combiner.CombineOCRResults(ctx, service.CombineOCRRequest{
+        PublicID:         req.PublicID,
+        UploaderID:       req.UploaderID,
+        SourceFileIDs:    req.FileIDs,
+        HasTextInput:     req.TextInput != "",
+        TextInputContent: req.TextInput,
+        LanguageCode:     req.LanguageCode,
+    })
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, ErrorResponse{
+            Error: "OCR combination failed",
+        })
+    }
+    
+    // 2. Exam生成
+    exam, err := h.generator.CreateExamFromOCR(ctx, ocrContent.ID)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, ErrorResponse{
+            Error: "Exam generation failed",
+        })
+    }
+    
+    return c.JSON(http.StatusCreated, UploadExamResponse{
+        ExamID:           exam.PublicID,
+        MasterOCRContentID: ocrContent.PublicID,
+        Status:           string(exam.Status),
+        CreatedAt:        exam.CreatedAt,
+    })
+}
+
+type UploadExamRequest struct {
+    PublicID     string      `json:"public_id"`
+    UploaderID   uuid.UUID   `json:"uploader_id"`
+    FileIDs      []uuid.UUID `json:"file_ids"`
+    TextInput    string      `json:"text_input,omitempty"`
+    LanguageCode string      `json:"language_code"`
+}
+
+type UploadExamResponse struct {
+    ExamID             string    `json:"exam_id"`
+    MasterOCRContentID string    `json:"master_ocr_content_id"`
+    Status             string    `json:"status"`
+    CreatedAt          time.Time `json:"created_at"`
+}
+
+type ErrorResponse struct {
+    Error string `json:"error"`
+}
+```
+
 ---
 
 ## **23. AIエージェント協働**
