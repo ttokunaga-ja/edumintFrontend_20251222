@@ -8712,6 +8712,106 @@ func parseInt(s string, defaultVal int) int {
 }
 ```
 
+#### **pgxpool接続設定（v7.5.1追加: IAM認証対応）**
+
+```go
+package database
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/jackc/pgx/v5"
+    "github.com/jackc/pgx/v5/pgxpool"
+    "log/slog"
+)
+
+// NewPool creates a new database connection pool with IAM auth support
+func NewPool(ctx context.Context, config *DatabaseConfig) (*pgxpool.Pool, error) {
+    dsn := fmt.Sprintf(
+        "host=%s port=%s dbname=%s user=%s password=%s sslmode=%s",
+        config.Host, config.Port, config.Name, config.User, config.Password, config.SSLMode,
+    )
+    
+    poolConfig, err := pgxpool.ParseConfig(dsn)
+    if err != nil {
+        return nil, fmt.Errorf("parse pool config: %w", err)
+    }
+    
+    // IAM認証対応設定（v7.5.1追加）
+    poolConfig.MaxConnLifetime = 50 * time.Minute  // IAMトークン有効期限（60分）前に再接続
+    poolConfig.MaxConnIdleTime = 10 * time.Minute  // アイドル接続の早期切断
+    poolConfig.HealthCheckPeriod = 1 * time.Minute // 定期ヘルスチェック
+    
+    // 基本設定
+    poolConfig.MaxConns = config.MaxConns
+    poolConfig.MinConns = config.MinConns
+    
+    // 接続取得前の検証フック
+    poolConfig.BeforeAcquire = func(ctx context.Context, conn *pgx.Conn) bool {
+        // 接続取得前にトークン有効性確認
+        var result int
+        err := conn.QueryRow(ctx, "SELECT 1").Scan(&result)
+        if err != nil {
+            slog.Warn("connection validation failed", "error", err)
+            return false // 無効な接続を破棄
+        }
+        return true
+    }
+    
+    return pgxpool.NewWithConfig(ctx, poolConfig)
+}
+```
+
+**IAM認証時の接続ライフサイクル管理（v7.5.1新設）**
+
+##### 問題の所在
+- Cloud SQL IAM認証トークンは60分で失効
+- 失効後の接続使用で`ERROR: IAM authentication token expired`
+
+##### 解決策
+1. **MaxConnLifetime = 50分**: トークン失効前に接続を強制クローズ
+2. **MaxConnIdleTime = 10分**: アイドル接続の早期切断でメモリ効率化
+3. **HealthCheckPeriod = 1分**: 定期的な接続有効性確認
+4. **BeforeAcquire Hook**: 接続プールからの取得時に即座に検証
+
+##### モニタリング
+```promql
+# IAM認証エラー率
+rate(pgx_connection_errors_total{reason="iam_token_expired"}[5m]) > 0
+
+# 接続ライフタイム分布（50分以下であることを確認）
+histogram_quantile(0.99, rate(pgx_connection_lifetime_seconds_bucket[5m])) < 3000
+```
+
+##### Grafanaダッシュボード
+```json
+{
+  "dashboard": {
+    "title": "Cloud SQL IAM接続監視",
+    "panels": [
+      {
+        "title": "IAM Token Expiration Errors",
+        "targets": [
+          {
+            "expr": "rate(pgx_connection_errors_total{reason=\"iam_token_expired\"}[5m])"
+          }
+        ]
+      },
+      {
+        "title": "Connection Lifetime (P99)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(pgx_connection_lifetime_seconds_bucket[5m]))"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ### 19.4 監視・アラート設定
 
 ```bash
