@@ -2999,50 +2999,109 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 - コンテンツ解除トークン検証の高速化
 - レート制限の実装
 
-#### **Redisキー設計**
+#### **Redisキー設計（v7.5.1標準化）**
 
+##### **統一フォーマット**
 ```
-# 広告配信ステータスキャッシュ
-ad:delivery:config:current
-  - Value: JSON (ad_delivery_config)
-  - TTL: 60秒
-  - 更新タイミング: PostgreSQLで設定変更時に即座に更新
+{service}:{feature}:{identifier}
+```
 
-# ユーザー広告免除設定キャッシュ
-ad:exemption:user:{user_id}
-  - Value: JSON (user_ad_exemptions)
-  - TTL: 300秒 (5分)
-  - 更新タイミング: ユーザー設定変更時に即座に更新
+##### **キーカテゴリ別設計**
 
-# コンテンツメタデータキャッシュ（段階的開示用）
-content:metadata:exam:{exam_id}
+**キャッシュキー:**
+```
+# 試験情報キャッシュ
+contents:exam:{exam_id}
   - Value: JSON (exam基本情報 + questions構造のみ)
   - TTL: 300秒 (5分)
   - 更新タイミング: examが公開・更新時に更新
 
-# トークン検証結果キャッシュ
-token:verify:{token_public_id}
-  - Value: JSON (token検証結果)
+# ユーザープロフィールキャッシュ
+users:profile:{user_id}
+  - Value: JSON (user_profiles)
   - TTL: 300秒 (5分)
-  - 更新タイミング: トークン使用時に削除
+  - 更新タイミング: プロフィール更新時に更新
 
-# レート制限: コンテンツアクセス
-ratelimit:content:access:{user_id}:{exam_id}
-  - Value: Counter
-  - TTL: 3600秒 (1時間)
-  - 制限: 1時間に10回まで
+# 検索結果キャッシュ
+search:query:{query_hash}
+  - Value: JSON (検索結果)
+  - TTL: 300秒 (5分)
+  - 更新タイミング: クエリ実行時に更新
+```
 
-# レート制限: トークン発行
-ratelimit:token:issue:{user_id}:{exam_id}
+**レート制限キー:**
+```
+# 新規登録レート制限
+ratelimit:users:register:{ip}
   - Value: Counter
   - TTL: 3600秒 (1時間)
   - 制限: 1時間に5回まで
 
-# レート制限: 広告視聴完了通知
-ratelimit:ad:complete:{user_id}
+# アップロードレート制限
+ratelimit:contents:upload:{user_id}
+  - Value: Counter
+  - TTL: 3600秒 (1時間)
+  - 制限: 1時間に10回まで
+
+# コメント投稿レート制限
+ratelimit:social:comment:{user_id}
   - Value: Counter
   - TTL: 60秒 (1分)
   - 制限: 1分に5回まで
+
+# コンテンツアクセスレート制限
+ratelimit:contents:access:{user_id}:{exam_id}
+  - Value: Counter
+  - TTL: 3600秒 (1時間)
+  - 制限: 1時間に10回まで
+
+# トークン発行レート制限
+ratelimit:contents:token_issue:{user_id}:{exam_id}
+  - Value: Counter
+  - TTL: 3600秒 (1時間)
+  - 制限: 1時間に5回まで
+
+# 広告視聴完了通知レート制限
+ratelimit:contents:ad_complete:{user_id}
+  - Value: Counter
+  - TTL: 60秒 (1分)
+  - 制限: 1分に5回まで
+```
+
+**セッションキー:**
+```
+# アクセストークンセッション
+session:access:{token_jti}
+  - Value: JSON (token情報)
+  - TTL: 3600秒 (1時間)
+  - 更新タイミング: トークン発行時
+
+# リフレッシュトークンセッション
+session:refresh:{token_id}
+  - Value: JSON (token情報)
+  - TTL: 2592000秒 (30日)
+  - 更新タイミング: トークン発行時
+```
+
+**一時データキー:**
+```
+# コンテンツ解除トークン
+temp:unlock_token:{token}
+  - Value: JSON (token検証結果)
+  - TTL: 300秒 (5分)
+  - 更新タイミング: トークン使用時に削除
+
+# メール認証コード
+temp:email_verify:{code}
+  - Value: JSON (user_id, email)
+  - TTL: 600秒 (10分)
+  - 更新タイミング: 認証完了時に削除
+
+# 広告配信ステータス
+temp:ad_config:current
+  - Value: JSON (ad_delivery_config)
+  - TTL: 60秒
+  - 更新タイミング: PostgreSQLで設定変更時に即座に更新
 ```
 
 #### **TTL設定戦略**
@@ -3081,7 +3140,7 @@ func NewAdCacheRepository(client *redis.Client) *AdCacheRepository {
 
 // GetCurrentAdDeliveryConfig: 広告配信ステータスを取得（キャッシュ優先）
 func (r *AdCacheRepository) GetCurrentAdDeliveryConfig(ctx context.Context) (*domain.AdDeliveryConfig, error) {
-    key := "ad:delivery:config:current"
+    key := "temp:ad_config:current"  // v7.5.1: 標準化されたキー形式
     
     // Redisから取得
     val, err := r.client.Get(ctx, key).Result()
@@ -3103,7 +3162,7 @@ func (r *AdCacheRepository) GetCurrentAdDeliveryConfig(ctx context.Context) (*do
 
 // SetCurrentAdDeliveryConfig: 広告配信ステータスをキャッシュ
 func (r *AdCacheRepository) SetCurrentAdDeliveryConfig(ctx context.Context, config *domain.AdDeliveryConfig) error {
-    key := "ad:delivery:config:current"
+    key := "temp:ad_config:current"  // v7.5.1: 標準化されたキー形式
     
     data, err := json.Marshal(config)
     if err != nil {
@@ -3119,7 +3178,7 @@ func (r *AdCacheRepository) SetCurrentAdDeliveryConfig(ctx context.Context, conf
 
 // GetUserAdExemption: ユーザー広告免除設定を取得（キャッシュ優先）
 func (r *AdCacheRepository) GetUserAdExemption(ctx context.Context, userID string) (*domain.UserAdExemption, error) {
-    key := fmt.Sprintf("ad:exemption:user:%s", userID)
+    key := fmt.Sprintf("users:ad_exemption:%s", userID)  // v7.5.1: 標準化されたキー形式
     
     val, err := r.client.Get(ctx, key).Result()
     if err == redis.Nil {
@@ -3139,7 +3198,7 @@ func (r *AdCacheRepository) GetUserAdExemption(ctx context.Context, userID strin
 
 // SetUserAdExemption: ユーザー広告免除設定をキャッシュ
 func (r *AdCacheRepository) SetUserAdExemption(ctx context.Context, userID string, exemption *domain.UserAdExemption) error {
-    key := fmt.Sprintf("ad:exemption:user:%s", userID)
+    key := fmt.Sprintf("users:ad_exemption:%s", userID)  // v7.5.1: 標準化されたキー形式
     
     data, err := json.Marshal(exemption)
     if err != nil {
@@ -3172,7 +3231,7 @@ func (r *AdCacheRepository) CheckRateLimit(ctx context.Context, key string, limi
 
 // GetContentMetadata: コンテンツメタデータ取得（段階的開示用）
 func (r *AdCacheRepository) GetContentMetadata(ctx context.Context, examID string) (map[string]interface{}, error) {
-    key := fmt.Sprintf("content:metadata:exam:%s", examID)
+    key := fmt.Sprintf("contents:exam:%s", examID)  // v7.5.1: 標準化されたキー形式
     
     val, err := r.client.Get(ctx, key).Result()
     if err == redis.Nil {
@@ -3192,7 +3251,7 @@ func (r *AdCacheRepository) GetContentMetadata(ctx context.Context, examID strin
 
 // SetContentMetadata: コンテンツメタデータ設定
 func (r *AdCacheRepository) SetContentMetadata(ctx context.Context, examID string, metadata map[string]interface{}) error {
-    key := fmt.Sprintf("content:metadata:exam:%s", examID)
+    key := fmt.Sprintf("contents:exam:%s", examID)  // v7.5.1: 標準化されたキー形式
     
     data, err := json.Marshal(metadata)
     if err != nil {
@@ -3226,7 +3285,7 @@ func (r *AdCacheRepository) SetContentMetadata(ctx context.Context, examID strin
 ```go
 // レート制限チェック（コンテンツアクセス）
 func (s *ContentService) CheckContentAccessRateLimit(ctx context.Context, userID, examID string) error {
-    key := fmt.Sprintf("ratelimit:content:access:%s:%s", userID, examID)
+    key := fmt.Sprintf("ratelimit:contents:access:%s:%s", userID, examID)  // v7.5.1: 標準化されたキー形式
     allowed, err := s.cache.CheckRateLimit(ctx, key, 10, 1*time.Hour)
     if err != nil {
         return fmt.Errorf("rate limit check failed: %w", err)
@@ -3239,7 +3298,7 @@ func (s *ContentService) CheckContentAccessRateLimit(ctx context.Context, userID
 
 // レート制限チェック（トークン発行）
 func (s *TokenService) CheckTokenIssueRateLimit(ctx context.Context, userID, examID string) error {
-    key := fmt.Sprintf("ratelimit:token:issue:%s:%s", userID, examID)
+    key := fmt.Sprintf("ratelimit:contents:token_issue:%s:%s", userID, examID)  // v7.5.1: 標準化されたキー形式
     allowed, err := s.cache.CheckRateLimit(ctx, key, 5, 1*time.Hour)
     if err != nil {
         return fmt.Errorf("rate limit check failed: %w", err)
