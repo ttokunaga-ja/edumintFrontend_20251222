@@ -5766,6 +5766,43 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 | `revenue.reports` | edumintRevenue | - | `RevenueCalculated`, `PaymentProcessed` | 収益レポート |
 | `moderation.events` | edumintModeration | edumintContents, edumintUsers | `ContentReported`, `ContentTakenDown`, `UserBanned` | モデレーションイベント |
 
+#### **ファイル管理イベント（v7.5.1追加）**
+
+**`edumint.files.file_migration_completed`**
+- **Producer**: edumintFiles
+- **Consumers**: edumintContents（OCRテキスト参照先更新）、edumintRevenue（ストレージコスト再計算）
+- **Key**: `file_id (UUID)`
+- **Value Schema**:
+  ```json
+  {
+    "file_id": "uuid",
+    "old_bucket": "edumint-staging-asia",
+    "new_bucket": "edumint-vault-asia",
+    "old_storage_class": "STANDARD",
+    "new_storage_class": "ARCHIVE",
+    "migrated_at": "2026-02-07T12:34:56Z",
+    "file_size_bytes": 1048576
+  }
+  ```
+
+#### **統計更新イベント（v7.5.1追加）**
+
+**`edumint.contents.exam_statistics_updated`**
+- **Producer**: edumintContents
+- **Consumers**: edumintSearch（Elasticsearchインデックス更新）、edumintRevenue（人気度ベース収益分配計算）
+- **Key**: `exam_id (UUID)`
+- **Value Schema**:
+  ```json
+  {
+    "exam_id": "uuid",
+    "total_views": 12345,
+    "total_unlocks": 456,
+    "total_comments": 78,
+    "average_rating": 4.5,
+    "updated_at": "2026-02-07T12:34:56Z"
+  }
+  ```
+
 ### イベントフロー例
 
 #### **1. 試験アップロードフロー（v7.1.0更新）**
