@@ -9,7 +9,7 @@
 - **広告視聴進捗管理テーブル新設**: `ad_viewing_progress` テーブル作成、ユーザー別視聴段階記録
 - **広告スキップロジック実装**: 視聴段階に基づく広告表示判定機能の追加
 - **国際化対応強化**: `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `keywords` に国際化サポート追加
-  - `country_code CHAR(2)` カラム追加（ISO 3166-1 alpha-2）
+  - `region_code CHAR(2)` カラム追加（ISO 3166-1 alpha-2）
   - SEO最適化のため `name` カラムを英語化
   - 既存 `name_main` → `display_name` に移行（多言語表示用）
   - `display_language VARCHAR(10)` 追加（BCP 47準拠）
@@ -1105,7 +1105,7 @@ CREATE TABLE institutions (
   name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
   display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
   display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠（ja, en, zh, ko等）
-  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  region_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
   
   institution_type institution_type_enum NOT NULL,
   prefecture prefecture_enum,
@@ -1119,7 +1119,7 @@ CREATE TABLE institutions (
 CREATE INDEX idx_institutions_public_id ON institutions(public_id);
 CREATE INDEX idx_institutions_type ON institutions(institution_type);
 CREATE INDEX idx_institutions_prefecture ON institutions(prefecture);
-CREATE INDEX idx_institutions_country_code ON institutions(country_code);
+CREATE INDEX idx_institutions_region_code ON institutions(region_code);
 CREATE INDEX idx_institutions_name ON institutions USING gin(to_tsvector('english', name));
 CREATE INDEX idx_institutions_display_name ON institutions USING gin(to_tsvector('japanese', display_name));
 ```
@@ -1132,7 +1132,7 @@ CREATE INDEX idx_institutions_display_name ON institutions USING gin(to_tsvector
   - `name`: 英語名（SEO最適化、検索エンジン対応）
   - `display_name`: 多言語表示名（日本語、英語、中国語等）
   - `display_language`: 表示言語コード（BCP 47準拠）
-  - `country_code`: 国コード（ISO 3166-1 alpha-2）
+  - `region_code`: 国コード（ISO 3166-1 alpha-2）
   - `name_sub1`, `name_sub2`, `name_sub3` 削除（単一カラムに統合）
 
 #### **faculties (学部)**
@@ -1149,7 +1149,7 @@ CREATE TABLE faculties (
   name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
   display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
   display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
-  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  region_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
   
   academic_field academic_field_enum,
   is_active BOOLEAN DEFAULT TRUE,
@@ -1161,7 +1161,7 @@ CREATE TABLE faculties (
 CREATE INDEX idx_faculties_public_id ON faculties(public_id);
 CREATE INDEX idx_faculties_institution_id ON faculties(institution_id);
 CREATE INDEX idx_faculties_academic_field ON faculties(academic_field);
-CREATE INDEX idx_faculties_country_code ON faculties(country_code);
+CREATE INDEX idx_faculties_region_code ON faculties(region_code);
 CREATE INDEX idx_faculties_name ON faculties USING gin(to_tsvector('english', name));
 CREATE INDEX idx_faculties_display_name ON faculties USING gin(to_tsvector('japanese', display_name));
 ```
@@ -1180,7 +1180,7 @@ CREATE TABLE departments (
   name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
   display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
   display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
-  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  region_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
   
   academic_field academic_field_enum,
   academic_track academic_track_enum,
@@ -1193,7 +1193,7 @@ CREATE TABLE departments (
 CREATE INDEX idx_departments_public_id ON departments(public_id);
 CREATE INDEX idx_departments_faculty_id ON departments(faculty_id);
 CREATE INDEX idx_departments_academic_field ON departments(academic_field);
-CREATE INDEX idx_departments_country_code ON departments(country_code);
+CREATE INDEX idx_departments_region_code ON departments(region_code);
 CREATE INDEX idx_departments_name ON departments USING gin(to_tsvector('english', name));
 CREATE INDEX idx_departments_display_name ON departments USING gin(to_tsvector('japanese', display_name));
 ```
@@ -1211,7 +1211,7 @@ CREATE TABLE teachers (
   name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
   display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
   display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
-  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  region_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
   
   department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
   title VARCHAR(100),  -- 教授、准教授、etc.
@@ -1224,7 +1224,7 @@ CREATE TABLE teachers (
 
 CREATE UNIQUE INDEX idx_teachers_public_id ON teachers(public_id);
 CREATE INDEX idx_teachers_department_id ON teachers(department_id);
-CREATE INDEX idx_teachers_country_code ON teachers(country_code);
+CREATE INDEX idx_teachers_region_code ON teachers(region_code);
 CREATE INDEX idx_teachers_name ON teachers USING gin(to_tsvector('english', name));
 CREATE INDEX idx_teachers_display_name ON teachers USING gin(to_tsvector('japanese', display_name));
 ```
@@ -1248,7 +1248,7 @@ CREATE TABLE subjects (
   name VARCHAR(255) NOT NULL,  -- 英語名（SEO最適化）
   display_name VARCHAR(255) NOT NULL,  -- 表示名（多言語対応）
   display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
-  country_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  region_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
   
   academic_field academic_field_enum,
   credits INT,
@@ -1261,7 +1261,7 @@ CREATE TABLE subjects (
 CREATE INDEX idx_subjects_public_id ON subjects(public_id);
 CREATE INDEX idx_subjects_department_id ON subjects(department_id);
 CREATE INDEX idx_subjects_teacher_id ON subjects(teacher_id);
-CREATE INDEX idx_subjects_country_code ON subjects(country_code);
+CREATE INDEX idx_subjects_region_code ON subjects(region_code);
 CREATE INDEX idx_subjects_name ON subjects USING gin(to_tsvector('english', name));
 CREATE INDEX idx_subjects_display_name ON subjects USING gin(to_tsvector('japanese', display_name));
 ```
@@ -1390,20 +1390,20 @@ CREATE TABLE keywords (
   name VARCHAR(100) NOT NULL,  -- 英語キーワード（SEO最適化）
   display_name VARCHAR(100) NOT NULL,  -- 表示名（多言語対応）
   display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
-  country_code CHAR(2) DEFAULT 'JP',  -- ISO 3166-1 alpha-2
+  region_code CHAR(2) DEFAULT 'JP',  -- ISO 3166-1 alpha-2
   
   usage_count INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id, public_id),
-  UNIQUE(name, country_code)
+  UNIQUE(name, region_code)
 );
 
 CREATE UNIQUE INDEX idx_keywords_public_id ON keywords(public_id);
 CREATE INDEX idx_keywords_name ON keywords(name);
 CREATE INDEX idx_keywords_display_name ON keywords(display_name);
 CREATE INDEX idx_keywords_usage_count ON keywords(usage_count DESC);
-CREATE INDEX idx_keywords_country_code ON keywords(country_code);
+CREATE INDEX idx_keywords_region_code ON keywords(region_code);
 ```
 
 #### **exam_keywords (試験キーワード関連付け)**
@@ -3430,7 +3430,7 @@ CREATE INDEX idx_search_logs_created_at ON search_logs(created_at);
         }
       },
       "institution_display_name": { "type": "text", "analyzer": "kuromoji" },
-      "country_code": { "type": "keyword" },
+      "region_code": { "type": "keyword" },
       
       "faculty_name": { "type": "text", "analyzer": "kuromoji" },
       "department_name": { "type": "text", "analyzer": "kuromoji" },
@@ -3495,7 +3495,7 @@ CREATE INDEX idx_search_logs_created_at ON search_logs(created_at);
 - Debezium CDCで自動同期
 - **v7.4.0追加:**
   - 多言語アナライザー対応（日本語・英語）
-  - 国際化フィールド（institution_name, country_code）
+  - 国際化フィールド（institution_name, region_code）
   - 広告統計フィールド（ad_display_count, ad_revenue_estimated）
 
 ---
@@ -6319,7 +6319,7 @@ table "institutions" {
     comment = "BCP 47準拠の言語コード"
   }
   
-  column "country_code" {
+  column "region_code" {
     type    = char(2)
     default = "JP"
     null    = false
@@ -6375,8 +6375,8 @@ table "institutions" {
     columns = [column.prefecture]
   }
   
-  index "idx_institutions_country_code" {
-    columns = [column.country_code]
+  index "idx_institutions_region_code" {
+    columns = [column.region_code]
   }
   
   # GINインデックス（全文検索）
@@ -6410,7 +6410,7 @@ SELECT
   name,
   display_name,
   display_language,
-  country_code,
+  region_code,
   institution_type,
   prefecture,
   address,
@@ -6428,11 +6428,11 @@ SELECT
   name,
   display_name,
   display_language,
-  country_code,
+  region_code,
   institution_type,
   prefecture
 FROM institutions
-WHERE country_code = $1 
+WHERE region_code = $1 
   AND is_active = true
 ORDER BY display_name
 LIMIT $2 OFFSET $3;
@@ -6445,7 +6445,7 @@ SELECT
   name,
   display_name,
   display_language,
-  country_code,
+  region_code,
   institution_type
 FROM institutions
 WHERE (
@@ -6464,7 +6464,7 @@ INSERT INTO institutions (
   name,
   display_name,
   display_language,
-  country_code,
+  region_code,
   institution_type,
   prefecture,
   address,
@@ -8829,7 +8829,7 @@ type InstitutionDetail struct {
     Name            string `json:"name"`             // 英語名（SEO）
     DisplayName     string `json:"display_name"`     // 表示名（多言語）
     DisplayLanguage string `json:"display_language"` // 表示言語
-    CountryCode     string `json:"country_code"`     // 国コード
+    CountryCode     string `json:"region_code"`     // 国コード
     InstitutionType string `json:"institution_type"`
     Prefecture      string `json:"prefecture,omitempty"`
     Address         string `json:"address,omitempty"`
@@ -9264,7 +9264,7 @@ AI: [テストケース生成]
 3. **国際化対応強化**
    - 対象テーブル: `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `keywords`
    - カラム追加:
-     - `country_code CHAR(2) NOT NULL DEFAULT 'JP'`: ISO 3166-1 alpha-2国コード
+     - `region_code CHAR(2) NOT NULL DEFAULT 'JP'`: ISO 3166-1 alpha-2国コード
    - SEO最適化のため `name` カラムを英語化:
      - 既存 `name_main` → `display_name` (多言語表示用) に移行
      - 新規 `name` カラムに英語名を設定（SEO最適化）
@@ -9303,7 +9303,7 @@ AI: [テストケース生成]
    - `institution_name` フィールドの多言語アナライザー対応
      - 日本語（kuromoji）、英語（standard）の両方をサポート
    - `institution_display_name` フィールド追加
-   - `country_code` フィールド追加
+   - `region_code` フィールド追加
    - 広告統計フィールド追加:
      - `ad_display_count`: 広告表示回数
      - `ad_revenue_estimated`: 推定広告収益
