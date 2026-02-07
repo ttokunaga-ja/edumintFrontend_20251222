@@ -12375,6 +12375,123 @@ ALTER TABLE idp_links
 DROP TYPE idp_provider_enum_old;
 ```
 
+#### **22.10.7 プライマリIdP管理（v7.5.1新設）**
+
+##### 設計背景
+ユーザーが複数のIdP（Google、Meta、Apple等）を紐付けた場合、アカウント復旧時の基準となる「プライマリIdP」を明確化する必要がある。
+
+##### 優先順位ルール
+1. **初回登録時のIdPを永続的にプライマリとする**
+   - `users.primary_idp_link_id`カラムを追加（idp_links.id参照）
+   - セキュリティ理由：アカウント乗っ取り時の復旧基準を明確化
+
+2. **ユーザー自身による変更を許可**
+   - UI: "プライマリ認証方法の変更"ボタン
+   - セキュリティ検証：変更前にプライマリIdPでの再認証を要求
+
+##### DDL追加
+```sql
+-- usersテーブルへのカラム追加
+ALTER TABLE users 
+ADD COLUMN primary_idp_link_id UUID REFERENCES idp_links(id),
+ADD CONSTRAINT check_primary_idp_not_deleted 
+  CHECK (primary_idp_link_id IS NULL OR 
+         EXISTS (SELECT 1 FROM idp_links 
+                 WHERE id = primary_idp_link_id 
+                 AND user_id = users.id 
+                 AND deleted_at IS NULL));
+```
+
+##### sqlcクエリ定義
+```sql
+-- name: SetPrimaryIdP :exec
+UPDATE users
+SET primary_idp_link_id = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
+-- name: GetPrimaryIdP :one
+SELECT il.* 
+FROM idp_links il
+JOIN users u ON u.primary_idp_link_id = il.id
+WHERE u.id = $1 AND il.deleted_at IS NULL;
+```
+
+##### サービス層実装
+```go
+func (s *AuthService) ChangePrimaryIdP(
+    ctx context.Context, 
+    userID uuid.UUID, 
+    newPrimaryLinkID uuid.UUID,
+    reauthToken string,
+) error {
+    // 1. 現在のプライマリIdPで再認証検証
+    currentPrimary, err := s.queries.GetPrimaryIdP(ctx, userID)
+    if err != nil {
+        return fmt.Errorf("get primary idp: %w", err)
+    }
+    
+    if err := s.verifyReauthToken(ctx, currentPrimary, reauthToken); err != nil {
+        return fiber.NewError(fiber.StatusUnauthorized, "再認証が必要です")
+    }
+    
+    // 2. 新しいプライマリIdPの所有確認
+    link, err := s.queries.GetIdPLink(ctx, newPrimaryLinkID)
+    if err != nil || link.UserID != userID {
+        return fiber.NewError(fiber.StatusForbidden, "指定されたIdPはこのアカウントに紐付いていません")
+    }
+    
+    // 3. プライマリIdP更新
+    return s.queries.SetPrimaryIdP(ctx, db.SetPrimaryIdPParams{
+        ID:                userID,
+        PrimaryIdpLinkID:  newPrimaryLinkID,
+    })
+}
+```
+
+##### UI/UX設計
+```typescript
+// プライマリ認証方法変更ダイアログ
+const ChangePrimaryIdPDialog: React.FC = () => {
+  const [selectedIdP, setSelectedIdP] = useState<string>('');
+  const [reauthRequired, setReauthRequired] = useState(false);
+
+  const handleChange = async () => {
+    try {
+      await authAPI.changePrimaryIdP(selectedIdP);
+      toast.success('プライマリ認証方法を変更しました');
+    } catch (error) {
+      if (error.code === 'REAUTH_REQUIRED') {
+        setReauthRequired(true);
+        // 現在のプライマリIdPで再認証ダイアログ表示
+      }
+    }
+  };
+
+  return (
+    <Dialog>
+      <DialogTitle>プライマリ認証方法の変更</DialogTitle>
+      <DialogContent>
+        <Alert severity="warning">
+          アカウント復旧時の基準となる認証方法を変更します。
+          この操作には現在のプライマリ認証方法での再認証が必要です。
+        </Alert>
+        <RadioGroup value={selectedIdP} onChange={(e) => setSelectedIdP(e.target.value)}>
+          {linkedIdPs.map(idp => (
+            <FormControlLabel 
+              key={idp.id} 
+              value={idp.id} 
+              label={idp.provider} 
+              disabled={idp.isPrimary}
+            />
+          ))}
+        </RadioGroup>
+      </DialogContent>
+    </Dialog>
+  );
+};
+```
+
 ---
 
 ### 22.11 UI/UX方針(OAuth専用認証時代の認証導線設計)
