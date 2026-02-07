@@ -5510,6 +5510,7 @@ CREATE PUBLICATION dbz_publication_contents_search FOR TABLE
     "database.dbname": "edumint_contents",
     "database.server.name": "edumint_contents",
     "table.include.list": "public.institutions,public.faculties,public.departments,public.teachers,public.subjects,public.exams,public.questions,public.sub_questions,public.keywords,public.exam_keywords,public.exam_statistics,public.exam_interaction_events,public.ad_display_events,public.ad_viewing_progress",
+    "column.exclude.list": "public.exams.file_metadata",
     "plugin.name": "pgoutput",
     "publication.name": "dbz_publication_contents",
     "slot.name": "debezium_edumint_contents",
@@ -5528,6 +5529,20 @@ CREATE PUBLICATION dbz_publication_contents_search FOR TABLE
 - 検索用語テーブル（`*_terms`, `term_generation_*`）を除外
 - 広告管理テーブル（`ad_display_events`, `ad_viewing_progress`）を追加（v7.4.0でad_viewing_historyから移行）
 - table.include.listを最適化（読み取り専用テーブルのみ）
+- **column.exclude.list（v7.5.1追加）**: 大容量カラムのCDC除外
+  - `exams.file_metadata`: ファイルメタデータJSON（最大1MB）
+
+**大容量カラム除外の理由（v7.5.1新設）:**
+
+大容量カラムをCDC対象にすると以下の問題が発生:
+- **Kafkaメッセージサイズ肥大化**: デフォルト1MB制限を超過する可能性
+- **レプリケーション遅延**: 大量データ転送によるパフォーマンス低下
+- **ストレージコスト増加**: Kafkaトピックの容量圧迫
+
+**代替戦略:**
+- 変更検知は`updated_at`タイムスタンプで実施
+- 実データはREST API経由で取得
+- Elasticsearchには概要情報のみを格納
 
 #### Debezium Connector 設定（edumint_contents_search 検索用DB） *NEW*
 
