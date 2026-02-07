@@ -1,8 +1,17 @@
-# **EduMint 統合データモデル設計書 v7.4.1**
+# **EduMint 統合データモデル設計書 v7.5.1**
 
 本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
 **最終更新日: 2026-02-07**
+
+**v7.5.1 主要更新:**
+- **edumintSearch完全定義**: search_queries, search_cache本体DBテーブル、search_logsパーティション設計、Elasticsearch同期戦略を追加
+- **OCRコンテンツタイプENUM簡略化**: 5タイプ → 2タイプ（exercises, materials）に集約、過度な分類を避けメタデータで詳細管理
+- **edumintFiles参照の明確化**: マイクロサービス境界の物理FK非設定原則、アプリケーション層バリデーション実装例を追加
+- **Kafkaトピック設計統合**: CDC/アプリケーションイベントの明確な分類と使い分けガイドを追加
+- **edumintSocialログテーブル追加**: social_logsテーブル（パーティション設計、event_type一覧、sqlcクエリ例）を新設
+- **国際化対応完全実装指針**: 全エンティティ（faculties, departments, teachers, subjects）の国際化テーブルDDL、API設計、フロントエンド実装例を追加
+- **不正防止戦略実装詳細**: 異常アクセスパターン検出（Redisレート制限、Prometheusメトリクス、Grafanaダッシュボード、自動通報システム）の具体的実装を追加
 
 **v7.4.1 主要更新:**
 - **段階的コンテンツ開示機能**: 大問1全文+大問2以降構造のみ表示、広告視聴後に全文解除
@@ -371,15 +380,26 @@ CREATE TYPE academic_field_enum AS ENUM (
 );
 ```
 
-#### **1.3.1. OCRコンテンツタイプENUM（v7.3.0新設）**
+#### **1.3.1. OCRコンテンツタイプENUM（v7.3.0新設、v7.5.1簡略化）**
+
+**設計方針:**
+- 過度な分類を避け、2つのカテゴリに集約
+- `exercises`: 試験問題、演習問題、過去問など
+- `materials`: 教科書、講義資料、ノートなど
+- 詳細な分類はメタデータ（JSONB）で管理
 
 ```sql
--- OCRコンテンツタイプ（v7.3.0新設）
-CREATE TYPE ocr_content_type_enum AS ENUM (
-  'exercises',   -- 演習問題OCRテキスト（旧: exam）
-  'material'     -- 授業資料OCRテキスト
+-- OCRコンテンツタイプ（v7.3.0新設、v7.5.1簡略化）
+CREATE TYPE ocr_content_type AS ENUM (
+  'exercises',  -- 演習問題・試験問題
+  'materials'   -- 教材・資料
 );
 ```
+
+**file_type ENUMとの関係:**
+- `file_metadata.file_type`: 物理ファイル形式（PDF, IMAGE, DOCXなど）
+- `master_ocr_contents.content_type`: 論理コンテンツ種別（exercises, materials）
+- 同一PDFファイルでもOCR解析結果によって `content_type` が決定される
 
 **設計注記:**
 - **'exercises'命名理由**: 公開用のExam（試験データ）との誤解防止。OCRテキスト元データは「演習問題」として明確化
@@ -3411,6 +3431,29 @@ COMMENT ON COLUMN file_metadata.is_system_managed IS 'システム管理ファ�
 COMMENT ON COLUMN file_metadata.is_llm_training_data IS 'LLM学習データ対象ファイル';
 ```
 
+**マイクロサービス参照の設計原則（v7.5.1追加）:**
+- `uploader_id` は `edumintUsers.users.id` を参照
+- マイクロサービス境界のため**物理FOREIGN KEYは設定しない**
+- アプリケーション層でバリデーション必須
+  ```go
+  // ファイルアップロード前のユーザー存在確認
+  func (s *FileService) UploadFile(ctx context.Context, uploaderID uuid.UUID, file io.Reader) error {
+      // edumintUsersサービスにgRPC/HTTPで問い合わせ
+      userExists, err := s.userClient.CheckUserExists(ctx, uploaderID)
+      if err != nil || !userExists {
+          return errors.New("invalid uploader_id: user not found")
+      }
+      
+      // ファイル保存処理
+      return s.queries.InsertFileMetadata(ctx, ...)
+  }
+  ```
+
+**整合性保証戦略:**
+1. ファイルアップロード時: edumintUsersのユーザー存在確認
+2. ユーザー削除時: Kafkaイベント `user.deleted` を受信して論理削除フラグ設定
+3. 定期バッチ: 孤立ファイルの検出と警告ログ出力
+
 ### 6.4 補助テーブル設計
 
 #### 6.4.1 file_migration_logs（移行ログ）
@@ -4216,35 +4259,89 @@ edumintSearch (Elasticsearch + ログDB)
 
 ### 設計変更点（v7.0.0からの継続）
 
-### 6.1 ログテーブル (DB分離設計)
+### 7.1 本体DBテーブル (DDL例)
+
+**物理DB:** `edumint_search`
+
+#### **search_queries (検索クエリ履歴)**
+```sql
+CREATE TABLE search_queries (
+  query_id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID, -- NULL許可（未ログインユーザー対応）
+  query_text TEXT NOT NULL,
+  filters JSONB, -- {institution_id: [...], difficulty: [...]}
+  result_count INT NOT NULL,
+  clicked_exam_ids UUID[], -- クリックされた試験ID配列
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_search_queries_user ON search_queries(user_id, created_at DESC);
+CREATE INDEX idx_search_queries_text ON search_queries USING gin(to_tsvector('japanese', query_text));
+```
+
+#### **search_cache (Redis連携キャッシュテーブル)**
+```sql
+CREATE TABLE search_cache (
+  cache_key VARCHAR(255) PRIMARY KEY, -- SHA256(query_text + filters)
+  cached_results JSONB NOT NULL, -- Elasticsearch結果のスナップショット
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_search_cache_expires ON search_cache(expires_at);
+```
+
+### 7.2 ログテーブル (DB分離設計)
 
 **物理DB:** `edumint_search_logs`
 
 #### **search_logs**
-
-検索クエリ履歴を記録します。
-
 ```sql
 CREATE TABLE search_logs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  user_id UUID,  -- NULL許可（非ログインユーザー）
-  query_text TEXT NOT NULL,
-  search_type VARCHAR(50),  -- 'keyword', 'semantic', 'autocomplete'
-  filters JSONB,
-  result_count INT,
-  clicked_result_ids UUID[],
-  response_time_ms INT,
-  ip_address INET,
-  user_agent TEXT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  log_id UUID PRIMARY KEY DEFAULT uuidv7(),
+  query_id UUID NOT NULL, -- search_queries.query_id参照
+  event_type VARCHAR(50) NOT NULL, -- 'query_executed', 'result_clicked', 'no_results'
+  latency_ms INT, -- Elasticsearch応答時間
+  error_message TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX idx_search_logs_user_id ON search_logs(user_id, created_at);
-CREATE INDEX idx_search_logs_query_text ON search_logs USING gin(to_tsvector('japanese', query_text));
-CREATE INDEX idx_search_logs_created_at ON search_logs(created_at);
+CREATE INDEX idx_search_logs_query ON search_logs(query_id, created_at DESC);
+CREATE INDEX idx_search_logs_event ON search_logs(event_type, created_at DESC);
 ```
 
-### 6.2 Elasticsearch設計
+**パーティション設計:**
+```sql
+-- 月次パーティション（3ヶ月保持）
+CREATE TABLE search_logs_2026_02 PARTITION OF search_logs
+  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+
+CREATE TABLE search_logs_2026_03 PARTITION OF search_logs
+  FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+```
+
+**保持期間:** 3ヶ月（分析用）
+**バックアップ:** BigQuery日次エクスポート
+
+### 7.3 Elasticsearch同期戦略
+
+#### Debezium CDC連携
+- `dbz.edumint.contents_search.public.exams_search` トピックをsubscribe
+- 変更イベント受信時にElasticsearchインデックス更新
+- 失敗時はKafka DLQに送信し、手動リトライ
+
+#### 初回インデックス構築
+```bash
+# Postgresから全件取得してElasticsearchにバルクインサート
+curl -X POST "localhost:9200/_bulk" -H 'Content-Type: application/json' --data-binary @exams_bulk.json
+```
+
+#### インデックス再構築トリガー
+- スキーマ変更時（Atlasマイグレーション後）
+- 検索精度劣化時（週次バッチで品質スコア計測）
+
+### 7.4 Elasticsearch設計
 
 #### **exams インデックス（v7.4.0更新）**
 
@@ -4617,6 +4714,92 @@ subscriptions:
 - edumintSocialは統計情報の更新責務を持たない
 - Kafkaイベントを購読して通知生成のみ実行
 - edumintContentsが統計情報のSource of Truthとなる
+
+### 10.4 ログテーブル (DB分離設計)
+
+**物理DB:** `edumint_social_logs`
+
+#### **social_logs**
+```sql
+CREATE TABLE social_logs (
+  log_id UUID PRIMARY KEY DEFAULT uuidv7(),
+  event_type VARCHAR(50) NOT NULL, -- 'comment_created', 'post_liked', 'dm_sent', 'match_requested'
+  user_id UUID NOT NULL, -- アクションを実行したユーザー
+  target_user_id UUID, -- 対象ユーザー（DM、マッチングなど）
+  target_id UUID, -- exam_id, post_id, comment_id, dm_id等
+  metadata JSONB, -- イベント固有の詳細情報
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+) PARTITION BY RANGE (created_at);
+
+CREATE INDEX idx_social_logs_user_created ON social_logs(user_id, created_at DESC);
+CREATE INDEX idx_social_logs_event_created ON social_logs(event_type, created_at DESC);
+CREATE INDEX idx_social_logs_target ON social_logs(target_id, created_at DESC) WHERE target_id IS NOT NULL;
+```
+
+**パーティション設計:**
+```sql
+-- 月次パーティション（3ヶ月保持）
+CREATE TABLE social_logs_2026_02 PARTITION OF social_logs
+  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+
+CREATE TABLE social_logs_2026_03 PARTITION OF social_logs
+  FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+```
+
+**event_type一覧:**
+```sql
+-- コメント関連
+'comment_created'       -- コメント投稿
+'comment_liked'         -- コメントいいね
+'comment_deleted'       -- コメント削除
+
+-- 投稿関連
+'post_created'          -- 投稿作成
+'post_liked'            -- 投稿いいね
+'post_commented'        -- 投稿へのコメント
+'post_deleted'          -- 投稿削除
+
+-- DM関連
+'dm_sent'               -- DM送信
+'dm_read'               -- DM既読
+'dm_thread_created'     -- DMスレッド作成
+
+-- マッチング関連（Phase 3）
+'match_requested'       -- マッチングリクエスト
+'match_accepted'        -- マッチング承認
+'match_rejected'        -- マッチング拒否
+```
+
+**保持期間:** 3ヶ月（分析用）
+**バックアップ:** BigQuery日次エクスポート
+**用途:**
+- ユーザー行動分析
+- スパム検出（短時間の大量いいね等）
+- レコメンデーションアルゴリズムの学習データ
+
+**sqlcクエリ例:**
+```sql
+-- name: InsertSocialLog :exec
+INSERT INTO social_logs (event_type, user_id, target_user_id, target_id, metadata)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: GetUserActivityLogs :many
+SELECT event_type, target_id, metadata, created_at
+FROM social_logs
+WHERE user_id = $1 
+  AND created_at >= $2
+ORDER BY created_at DESC
+LIMIT $3;
+
+-- name: DetectSpamActivity :many
+-- 直近10分間で同一ユーザーが同じイベントを20回以上実行
+SELECT user_id, event_type, COUNT(*) as event_count
+FROM social_logs
+WHERE created_at >= NOW() - INTERVAL '10 minutes'
+GROUP BY user_id, event_type
+HAVING COUNT(*) > 20
+ORDER BY event_count DESC;
+```
 
 ---
 
@@ -5492,9 +5675,44 @@ kafka-topics --bootstrap-server kafka:9092 \
 
 ### Kafkaトピック設計
 
-EduMintでは以下のKafkaトピックを通じてマイクロサービス間でイベント駆動連携を実現します。
+#### CDC (Change Data Capture) トピック
+データベースの変更を自動的にキャプチャし、他サービスに伝播するためのトピック。
 
-#### **主要トピック一覧**
+**命名規則:** `dbz.{service}.{schema}.{table}`
+
+| トピック名 | 説明 | Publisher | Subscribers |
+|----------|------|-----------|-------------|
+| `dbz.edumint.users.public.users` | ユーザー情報の変更 | Debezium | edumintFiles, edumintSocial |
+| `dbz.edumint.users.public.user_profiles` | プロフィール変更 | Debezium | edumintSearch |
+| `dbz.edumint.contents.public.exams` | 試験情報の変更 | Debezium | edumintSearch, edumintRevenue |
+| `dbz.edumint.contents.public.questions` | 問題情報の変更 | Debezium | edumintSearch |
+| `dbz.edumint.contents_search.public.exams_search` | 検索用試験情報の変更 | Debezium | edumintSearch (Elasticsearch同期) |
+| `dbz.edumint.contents_search.public.questions_search` | 検索用問題情報の変更 | Debezium | edumintSearch (Elasticsearch同期) |
+
+#### アプリケーションイベントトピック
+ビジネスロジックによって明示的に発行されるイベント。
+
+**命名規則:** `edumint.{service}.events`
+
+| トピック名 | 説明 | Publisher | Subscribers |
+|----------|------|-----------|-------------|
+| `edumint.users.events` | ユーザー関連イベント | edumintUsers | 全サービス |
+| `edumint.contents.events` | コンテンツイベント | edumintContents | edumintSearch, edumintRevenue |
+| `edumint.files.events` | ファイルイベント | edumintFiles | edumintContents, edumintModeration |
+| `edumint.social.events` | ソーシャルイベント | edumintSocial | edumintUsers, edumintRevenue |
+| `edumint.moderation.events` | 通報・審査イベント | edumintModeration | edumintUsers, edumintContents |
+| `edumint.monetize.events` | 収益イベント | edumintMonetizeWallet | edumintRevenue, edumintUsers |
+
+**CDC vs アプリケーションイベントの使い分け:**
+- **CDC**: データベースの変更を機械的に伝播（低レベル）
+- **アプリケーションイベント**: ビジネスロジックの意図を伝達（高レベル）
+- 例: 試験アップロード時
+  - CDC: `dbz.edumint.contents.public.exams` に INSERT イベント
+  - アプリケーション: `edumint.contents.events` に `exam.uploaded` イベント（メタデータ含む）
+
+#### 主要トピック一覧
+
+EduMintでは以下のKafkaトピックを通じてマイクロサービス間でイベント駆動連携を実現します。
 
 | トピック名 | Producer | Consumer | イベント例 | 用途 |
 |-----------|----------|----------|-----------|------|
