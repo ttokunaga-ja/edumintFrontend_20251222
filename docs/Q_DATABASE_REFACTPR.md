@@ -1281,10 +1281,10 @@ CREATE TABLE exams (
   academic_year INT NOT NULL,
   semester semester_enum,
   exam_type exam_type_enum DEFAULT 'regular',
-  exam_date DATE,
   duration_minutes INT,
   status exam_status_enum DEFAULT 'draft',
-  language_code VARCHAR(10) DEFAULT 'ja',  -- BCP 47
+  display_language VARCHAR(10) DEFAULT 'ja',  -- BCP 47準拠
+  region_code CHAR(2) NOT NULL DEFAULT 'JP',  -- ISO 3166-1 alpha-2
   file_input_id UUID,  -- file_inputs.idを参照（論理的）
   ai_generated BOOLEAN DEFAULT FALSE,
   embedding vector(1536),  -- pgvector
