@@ -882,7 +882,7 @@ CREATE TABLE oauth_tokens (
   client_id UUID REFERENCES oauth_clients(id) ON DELETE CASCADE,
   access_token VARCHAR(255) NOT NULL UNIQUE,
   refresh_token VARCHAR(255) UNIQUE,
-  token_type VARCHAR(50) DEFAULT 'Bearer',
+  token_type token_type_enum DEFAULT 'Bearer',  -- v7.4.1: ENUM型適用
   expires_at TIMESTAMPTZ NOT NULL,
   scope TEXT[],
   is_revoked BOOLEAN DEFAULT FALSE,
@@ -897,13 +897,13 @@ CREATE INDEX idx_oauth_tokens_expires_at ON oauth_tokens(expires_at);
 
 #### **idp_links**
 
-外部IDプロバイダー（Google, GitHub等）とのリンク情報を管理します。
+外部IDプロバイダー（Google, Apple, Facebook, Instagram等）とのリンク情報を管理します。
 
 ```sql
 CREATE TABLE idp_links (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  provider VARCHAR(50) NOT NULL,  -- 'google', 'github', 'apple', etc.
+  provider idp_provider_enum NOT NULL,  -- v7.4.1: ENUM型適用（Meta系追加）
   provider_user_id VARCHAR(255) NOT NULL,
   email VARCHAR(255),
   profile_data JSONB,
@@ -1667,7 +1667,7 @@ CREATE TABLE exam_interaction_events (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   exam_id UUID NOT NULL,  -- exams.idを参照（論理的）
   user_id UUID,           -- NULL許可（非ログインユーザーの閲覧）
-  event_type VARCHAR(20) NOT NULL,  -- 'view', 'like', 'unlike', 'bad', 'unbad', 'share'
+  event_type interaction_event_type_enum NOT NULL,  -- v7.4.1: ENUM型適用
   session_id VARCHAR(255),
   ip_address INET,
   user_agent TEXT,
@@ -2874,7 +2874,7 @@ CREATE TABLE copyright_claims (
   dmca_counter_notice_url VARCHAR(1024),
   
   -- ステータス
-  claim_status VARCHAR(50) DEFAULT 'pending',  -- 'pending', 'reviewing', 'upheld', 'dismissed'
+  claim_status claim_status_enum DEFAULT 'pending',  -- v7.4.1: ENUM型適用
   resolution_notes TEXT,
   
   -- 処理情報
@@ -3851,7 +3851,7 @@ CREATE TABLE user_posts (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,
   user_id UUID NOT NULL,
-  post_type VARCHAR(20) NOT NULL,
+  post_type post_type_enum NOT NULL,  -- v7.4.1: ENUM型適用
   content TEXT,
   attached_exam_id UUID,
   media_urls TEXT[],
@@ -3859,7 +3859,7 @@ CREATE TABLE user_posts (
   like_count INT DEFAULT 0,
   comment_count INT DEFAULT 0,
   share_count INT DEFAULT 0,
-  visibility VARCHAR(20) DEFAULT 'public',
+  visibility post_visibility_enum DEFAULT 'public',  -- v7.4.1: ENUM型適用
   is_deleted BOOLEAN DEFAULT FALSE,
   deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -3901,7 +3901,7 @@ CREATE TABLE post_comments (
 CREATE TABLE dm_conversations (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(16) NOT NULL UNIQUE,
-  conversation_type VARCHAR(20) DEFAULT 'direct',
+  conversation_type conversation_type_enum DEFAULT 'direct',  -- v7.4.1: ENUM型適用
   conversation_name VARCHAR(255),
   created_by_user_id UUID NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
@@ -3943,7 +3943,7 @@ CREATE INDEX idx_dm_messages_conversation_id ON dm_messages(conversation_id, cre
 ```sql
 CREATE TABLE user_match_preferences (
   user_id UUID PRIMARY KEY,
-  looking_for VARCHAR(50),
+  looking_for match_purpose_enum,  -- v7.4.1: ENUM型適用（拡張版）
   institution_id UUID,
   faculty_id UUID,
   academic_fields academic_field_enum[],
@@ -3959,10 +3959,10 @@ CREATE TABLE user_matches (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   user_id_1 UUID NOT NULL,
   user_id_2 UUID NOT NULL,
-  match_type VARCHAR(50) NOT NULL,
+  match_type match_type_enum NOT NULL,  -- v7.4.1: ENUM型適用（拡張版）
   compatibility_score DECIMAL(5,2),
   match_reason JSONB,
-  status VARCHAR(20) DEFAULT 'pending',
+  status match_status_enum DEFAULT 'pending',  -- v7.4.1: ENUM型適用
   conversation_id UUID,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -4112,7 +4112,7 @@ CREATE TABLE revenue_reports (
   total_views INT DEFAULT 0,
   total_ad_impressions INT DEFAULT 0,
   total_revenue DECIMAL(15,2) DEFAULT 0.00,
-  status VARCHAR(50) DEFAULT 'pending',  -- 'pending', 'calculated', 'paid'
+  status revenue_status_enum DEFAULT 'pending',  -- v7.4.1: ENUM型適用
   calculation_date TIMESTAMPTZ,
   payment_date TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -4203,7 +4203,7 @@ CREATE TABLE content_reports (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
   reporter_user_id UUID NOT NULL,  -- users.idを参照（論理的）
-  reported_entity_type VARCHAR(50) NOT NULL,  -- 'exam', 'question', 'comment'
+  reported_entity_type reportable_entity_type_enum NOT NULL,  -- v7.4.1: ENUM型適用
   reported_entity_id UUID NOT NULL,
   reason content_report_reason_enum NOT NULL,
   description TEXT,
@@ -4225,6 +4225,7 @@ CREATE INDEX idx_content_reports_moderator ON content_reports(assigned_moderator
 **設計注記:**
 - content_report_reasonsテーブルは削除、ENUM型で管理
 - ENUMから番号ID（1, 2, 3...）を削除、文字列のみ使用
+- **v7.4.1**: reported_entity_type を reportable_entity_type_enum に変更
 
 #### **user_reports**
 
@@ -4236,7 +4237,7 @@ CREATE TABLE user_reports (
   public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
   reporter_user_id UUID NOT NULL,  -- users.idを参照（論理的）
   reported_user_id UUID NOT NULL,  -- users.idを参照（論理的）
-  reason VARCHAR(50) NOT NULL,  -- 'spam', 'harassment', 'inappropriate_content', etc.
+  reason user_report_reason_enum NOT NULL,  -- v7.4.1: ENUM型適用
   description TEXT,
   status report_status_enum DEFAULT 'pending',
   assigned_moderator_id UUID,
@@ -4261,7 +4262,7 @@ CREATE INDEX idx_user_reports_moderator ON user_reports(assigned_moderator_id, s
 ```sql
 CREATE TABLE report_files (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  report_type VARCHAR(50) NOT NULL,  -- 'content_report', 'user_report'
+  report_type report_category_enum NOT NULL,  -- v7.4.1: ENUM型適用
   report_id UUID NOT NULL,
   file_url VARCHAR(512) NOT NULL,
   file_type VARCHAR(50),
