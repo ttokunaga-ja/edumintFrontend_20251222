@@ -197,6 +197,11 @@
 | **Echo** | **v5.0.1** | 2026/01/28 | v5が正式リリース。エラーハンドリングの刷新、ルーターの最適化。 |
 | **Elasticsearch** | **9.2.4** | - | ベクトル検索統合（dense_vector）、Qdrantを完全置換。 |
 | **Debezium CDC** | - | - | PostgreSQL論理レプリケーションから移行、Kafka経由のリアルタイム差分同期。 |
+| **slog** | - | - | Goの標準ライブラリ |
+| **Testcontainers** | **v0.40.1** | 2025/11/06 | PostgresSQLにてSSL設定（WithSSLSettings）の簡略化、証明書の自動マウントと設定対応 |
+
+
+
 
 **追加の技術スタック:**
 *   **ベクトル次元**: 1536次元（gemini-embedding-001準拠、MRL互換）
