@@ -1381,7 +1381,7 @@ ENABLE_WALLET=true
 | **実装複雑度** | トランザクション管理の範囲内で実現可能 |
 | **スケーラビリティ** | パーティショニング・アーカイブ戦略が明確化 |
 
-### 13.1 本体DBテーブル (DDL例)
+### 4.1 本体DBテーブル (DDL例)
 
 #### **jobs**
 
@@ -1563,7 +1563,7 @@ func (uc *JobUseCase) CreateJob(ctx context.Context, req CreateJobRequest) (*Job
 }
 ```
 
-### 13.2 ログテーブル (DB分離設計)
+### 4.2 ログテーブル (DB分離設計)
 
 **物理DB:** `Eduanima_gateway_logs`
 
@@ -1644,7 +1644,7 @@ CREATE INDEX idx_job_logs_status ON job_logs(status, created_at);
    - `auth_event_enum` に8種類のIdP関連イベント追加
    - `auth_logs` テーブルにIdP情報記録カラム追加
 
-### 4.1 本体DBテーブル (DDL例)
+### 5.1 本体DBテーブル (DDL例)
 
 **物理DB:** `Eduanima_users`
 
@@ -1874,7 +1874,7 @@ CREATE INDEX idx_notifications_user_id ON notifications(user_id, created_at DESC
 CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read, created_at);
 ```
 
-### 4.2 ログテーブル (DB分離設計)
+### 5.2 ログテーブル (DB分離設計)
 
 **物理DB:** `Eduanima_users_logs`
 
@@ -2098,7 +2098,7 @@ EduanimaContents (4DB構成)
 - teachers, exams, questions, sub_questions, keywordsはUUID + NanoID複合主キー
 - ログテーブルを物理DB分離
 
-### 5.1 本体DBテーブル
+### 6.1 本体DBテーブル
 
 #### 5.1.1 Eduanima_contents (メインDB)
 
@@ -3231,7 +3231,7 @@ WHERE user_id = $1 AND exam_id = $2
 - `term_generation_jobs` (用語生成ジョブ)
 - `term_generation_candidates` (用語生成候補)
 
-### 5.3 Eduanima_contents_master (マスターDB)
+### 6.3 Eduanima_contents_master (マスターDB)
 
 **物理DB:** `Eduanima_contents_master`
 
@@ -3760,7 +3760,7 @@ func (s *TextService) MarkAsFallback(ctx context.Context, textID uuid.UUID, jobI
 }
 ```
 
-### 5.4 閲覧履歴・評価・コメント絞り込みの負荷分析（v7.4.0追加）
+### 6.4 閲覧履歴・評価・コメント絞り込みの負荷分析（v7.4.0追加）
 
 #### **想定クエリパターン**
 
@@ -3877,7 +3877,7 @@ metrics:
     alert: < 80%
 ```
 
-### 5.5 ログテーブル (DB分離設計)
+### 6.5 ログテーブル (DB分離設計)
 
 **物理DB:** `Eduanima_contents_logs`
 
@@ -3911,7 +3911,7 @@ CREATE INDEX idx_content_logs_user ON content_logs(changed_by_user_id, created_a
 
 ---
 
-### 5.6 Redis戦略: キャッシュとレート制限（v7.4.1新設）
+### 6.6 Redis戦略: キャッシュとレート制限（v7.4.1新設）
 
 **目的:**
 - 広告配信ステータスの高速キャッシュ
@@ -4236,7 +4236,7 @@ func (s *TokenService) CheckTokenIssueRateLimit(ctx context.Context, userID, exa
 
 **Phase: 1 (MVP - 2026 Q2-Q3)**
 
-### 6.1 設計方針（v7.3.0）
+### 7.1 設計方針（v7.3.0）
 
 **サービス責務:**
 - **2バケット構成による段階的ストレージ管理**: Staging/Vaultバケットでライフサイクル管理
@@ -4267,7 +4267,7 @@ func (s *TokenService) CheckTokenIssueRateLimit(ctx context.Context, userID, exa
 - **セキュリティ重視**: ファイルアクセスは厳格な権限チェック実施
 - **監査証跡**: 全ファイル操作とストレージ遷移を完全記録
 
-### 6.2 ENUM型定義
+### 7.2 ENUM型定義
 
 v7.3.0では全てのステータス・カテゴリをENUM型で管理し、型安全性とパフォーマンスを向上させます。
 
@@ -4356,7 +4356,7 @@ CREATE TYPE mime_category_enum AS ENUM (
 );
 ```
 
-### 6.3 file_metadataテーブル（完全版）
+### 7.3 file_metadataテーブル（完全版）
 
 **Phase: 1 (MVP)**
 
@@ -4469,7 +4469,7 @@ COMMENT ON COLUMN file_metadata.is_llm_training_data IS 'LLM学習データ対�
 2. ユーザー削除時: Kafkaイベント `user.deleted` を受信して論理削除フラグ設定
 3. 定期バッチ: 孤立ファイルの検出と警告ログ出力
 
-### 6.4 補助テーブル設計
+### 7.4 補助テーブル設計
 
 #### 6.4.1 file_migration_logs（移行ログ）
 
@@ -4665,7 +4665,7 @@ CREATE INDEX idx_storage_transitions_classes ON storage_class_transitions(from_s
 COMMENT ON TABLE storage_class_transitions IS 'ストレージクラス遷移履歴テーブル（コスト分析用）';
 ```
 
-### 6.5 インデックス設計
+### 7.5 インデックス設計
 
 v7.3.0では移行バッチ処理と検索性能を最適化したインデックスを設計します。
 
@@ -4725,7 +4725,7 @@ CREATE INDEX idx_file_metadata_vaulted ON file_metadata(
 CREATE INDEX idx_file_metadata_deleted ON file_metadata(deleted_at) WHERE deleted_at IS NOT NULL;
 ```
 
-### 6.6 トリガー定義
+### 7.6 トリガー定義
 
 #### 6.6.1 更新日時自動更新トリガー
 
@@ -4821,7 +4821,7 @@ FOR EACH ROW
 EXECUTE FUNCTION audit_file_changes();
 ```
 
-### 6.7 Row-Level Security (RLS) ポリシー
+### 7.7 Row-Level Security (RLS) ポリシー
 
 v7.3.0ではロールベースのアクセス制御をRLSで実装します。
 
@@ -4905,7 +4905,7 @@ TO Eduanima_user_role
 USING (claimant_email = current_setting('app.current_user_email')::TEXT);
 ```
 
-### 6.8 GCSバケット設計
+### 7.8 GCSバケット設計
 
 #### 6.8.1 Stagingバケット
 
@@ -4987,7 +4987,7 @@ USING (claimant_email = current_setting('app.current_user_email')::TEXT);
 - オブジェクトロック: 有効（WORM）
 - 公開アクセス: ブロック
 
-### 6.9 IAMロール設計
+### 7.9 IAMロール設計
 
 #### 6.9.1 サービスアカウント構成
 
@@ -5027,7 +5027,7 @@ Eduanima-files-audit@{project-id}.iam.gserviceaccount.com:
     - Eduanima-files-vault-{env}
 ```
 
-### 6.10 バッチ処理設計
+### 7.10 バッチ処理設計
 
 #### 6.10.1 日次移行バッチ（Cloud Run Jobs）
 
@@ -5124,7 +5124,7 @@ _, err = db.Exec(`
 `, kmsKeyName, fileID)
 ```
 
-### 6.11 ファイル種別ごとの保持期間設定
+### 7.11 ファイル種別ごとの保持期間設定
 
 v7.3.0では各ファイルカテゴリに適切な保持期間を設定します。
 
@@ -5160,7 +5160,7 @@ WHERE file_category = 'report_evidence'
   AND id = $1;
 ```
 
-### 6.12 コスト見積もり
+### 7.12 コスト見積もり
 
 #### 6.12.1 前提条件
 - 平均ファイルサイズ: 5 MB
@@ -5209,7 +5209,7 @@ WHERE file_category = 'report_evidence'
 - v7.3.0（2バケット構成）: $2.12/月
 - **月間削減額: $1.38（39%削減）**
 
-### 6.13 イベント発行・購読
+### 7.13 イベント発行・購読
 
 **発行するイベント:**
 - **`file.uploaded`**: ファイルアップロード完了
@@ -5237,7 +5237,7 @@ WHERE file_category = 'report_evidence'
   - 送信元: EduanimaUsers
   - 処理: ユーザーのファイルを論理削除
 
-### 6.14 サービス間API
+### 7.14 サービス間API
 
 **提供するAPI:**
 - `GET /files/{file_id}`: ファイルダウンロード（認証済みユーザーのみ）
@@ -5280,7 +5280,7 @@ EduanimaSearch (Elasticsearch + ログDB)
 
 ### 設計変更点（v7.0.0からの継続）
 
-### 7.1 本体DBテーブル (DDL例)
+### 8.1 本体DBテーブル (DDL例)
 
 **物理DB:** `Eduanima_search`
 
@@ -5318,7 +5318,7 @@ CREATE TABLE search_cache (
 CREATE INDEX idx_search_cache_expires ON search_cache(expires_at);
 ```
 
-### 7.2 ログテーブル (DB分離設計)
+### 8.2 ログテーブル (DB分離設計)
 
 **物理DB:** `Eduanima_search_logs`
 
@@ -5351,7 +5351,7 @@ CREATE TABLE search_logs_2026_03 PARTITION OF search_logs
 **保持期間:** 3ヶ月（分析用）
 **バックアップ:** BigQuery日次エクスポート
 
-### 7.3 Elasticsearch同期戦略
+### 8.3 Elasticsearch同期戦略
 
 #### Debezium CDC連携
 - `dbz.Eduanima.contents_search.public.exams_search` トピックをsubscribe
@@ -5368,7 +5368,7 @@ curl -X POST "localhost:9200/_bulk" -H 'Content-Type: application/json' --data-b
 - スキーマ変更時（Atlasマイグレーション後）
 - 検索精度劣化時（週次バッチで品質スコア計測）
 
-### 7.4 Elasticsearch設計
+### 8.4 Elasticsearch設計
 
 #### **exams インデックス（v7.4.0更新）**
 
@@ -5517,7 +5517,7 @@ EduanimaAiWorkerは以下の2層ログ管理を採用します：
 [Kafka] ai.results → [EduanimaContents] 結果反映
 ```
 
-### 8.1 ログDB設計（v8.6.0新設）
+### 9.1 ログDB設計（v8.6.0新設）
 
 **物理DB:** `Eduanima_ai_worker_logs`
 
@@ -5862,7 +5862,7 @@ func (s *AILoggerService) LogJobError(ctx context.Context, jobID uuid.UUID, err 
 - 全テーブルの主キーをUUIDに変更
 - ログテーブルを物理DB分離
 
-### 11.1 本体DBテーブル (DDL例)
+### 10.1 本体DBテーブル (DDL例)
 
 #### **content_reports**
 
@@ -5947,7 +5947,7 @@ CREATE TABLE report_files (
 CREATE INDEX idx_report_files_report ON report_files(report_type, report_id);
 ```
 
-### 11.2 ログテーブル (DB分離設計)
+### 10.2 ログテーブル (DB分離設計)
 
 **物理DB:** `Eduanima_moderation_logs`
 
@@ -6021,7 +6021,7 @@ CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
 - **新規テーブル**: SNS投稿、DM、マッチング機能用テーブルを追加
 - **コメント機能強化**: YouTubeスタイルのスレッド型コメント
 
-### 9.1 サービス責務（Phase別機能展開）
+### 11.1 サービス責務（Phase別機能展開）
 
 **Phase 2（製品版）- 学習補助SNS:**
 1. **試験コメント機能**: 試験に対するユーザーコメント、返信、いいね
@@ -6112,7 +6112,7 @@ export const ModeSwitch: React.FC = () => {
 };
 ```
 
-### 9.2 本体DBテーブル（Phase別分類）
+### 11.2 本体DBテーブル（Phase別分類）
 
 #### **exam_comments (試験コメント)**
 
@@ -6422,7 +6422,7 @@ CREATE TYPE switch_trigger_enum AS ENUM ('manual', 'auto', 'deep_link', 'notific
 - 自動切替（通知経由など）の効果測定
 - ドメイン間の遷移フロー最適化
 
-### 9.3 イベント駆動フロー
+### 11.3 イベント駆動フロー
 
 EduanimaSocialは`content.interaction`イベントを購読し、通知生成のみ実行します。統計情報の更新責務はEduanimaContentsが持ちます。
 
@@ -6441,7 +6441,7 @@ subscriptions:
 - Kafkaイベントを購読して通知生成のみ実行
 - EduanimaContentsが統計情報のSource of Truthとなる
 
-### 10.4 ログテーブル (DB分離設計)
+### 11.4 ログテーブル (DB分離設計)
 
 **物理DB:** `Eduanima_social_logs`
 
@@ -6537,7 +6537,7 @@ HAVING COUNT(*) > 20
 ORDER BY event_count DESC;
 ```
 
-### 9.4 Phase 3 実装ロードマップ
+### 11.4 Phase 3 実装ロードマップ
 
 **Phase 3のSNS拡張は以下の4段階でリリースします:**
 
@@ -6606,7 +6606,7 @@ compatibility_score = (
 - **Month 3**: Stage 3完了（マッチング）
 - **Month 4**: Stage 4完了（投稿強化）、Phase 3正式リリース
 
-### 9.5 Phase 3 リスク対策表
+### 11.5 Phase 3 リスク対策表
 
 | リスクカテゴリ | リスク内容 | 影響度 | 発生確率 | 対策 | 代替案 |
 |:---|:---|:---|:---|:---|:---|
@@ -6624,7 +6624,7 @@ compatibility_score = (
 2. **スケーラビリティ問題時**: Cloud SQL Read Replica追加、Redis Cache導入（即日対応可）
 3. **セキュリティ脆弱性発見時**: 該当機能の即座無効化、パッチ適用後に再公開（24時間以内）
 
-### 9.6 サブドメイン & 認証設計 技術仕様
+### 11.6 サブドメイン & 認証設計 技術仕様
 
 #### **9.6.1 Cookie戦略**
 
@@ -6876,7 +6876,7 @@ func (h *Handler) CSRFMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 - ログテーブルを物理DB分離
 - **法的要件**: ログは7年間保持（金融関連法令対応）
 
-### 10.1 本体DBテーブル (DDL例)
+### 15.1 本体DBテーブル (DDL例)
 
 #### **wallets**
 
@@ -6931,7 +6931,7 @@ CREATE INDEX idx_wallet_transactions_type ON wallet_transactions(transaction_typ
 CREATE INDEX idx_wallet_transactions_related_entity ON wallet_transactions(related_entity_type, related_entity_id);
 ```
 
-### 10.2 ログテーブル (DB分離設計、法的要件7年保持)
+### 15.2 ログテーブル (DB分離設計、法的要件7年保持)
 
 **物理DB:** `Eduanima_wallet_logs` (特別保持ポリシー)
 
@@ -6979,7 +6979,7 @@ CREATE INDEX idx_wallet_logs_retention_until ON wallet_logs(retention_until);
 - 全テーブルの主キーをUUIDに変更
 - ログテーブルを物理DB分離
 
-### 11.1 本体DBテーブル (DDL例)
+### 16.1 本体DBテーブル (DDL例)
 
 #### **revenue_reports**
 
@@ -7040,7 +7040,7 @@ CREATE INDEX idx_ad_impressions_agg_user_id ON ad_impressions_agg(user_id, aggre
 CREATE INDEX idx_ad_impressions_agg_date ON ad_impressions_agg(aggregation_date);
 ```
 
-### 11.2 ログテーブル (DB分離設計)
+### 16.2 ログテーブル (DB分離設計)
 
 **物理DB:** `Eduanima_revenue_logs`
 
@@ -7627,7 +7627,7 @@ PostgreSQLの変更をDebezium CDCで捕捉し、Kafkaを経由してElasticsear
 
 ## **19. データベース設計ガイドライン**
 
-### 16.1 命名規則
+### 19.1 命名規則
 
 #### **テーブル名**
 - 小文字のスネークケース
@@ -7646,7 +7646,7 @@ PostgreSQLの変更をDebezium CDCで捕捉し、Kafkaを経由してElasticsear
 - `_enum` サフィックス (例: `user_role_enum`, `job_status_enum`)
 - 値はスネークケース (例: `'single_choice'`, `'earn_upload'`)
 
-### 16.2 主キー設計
+### 19.2 主キー設計
 
 #### **標準テーブル (UUID単独主キー)**
 
@@ -7678,7 +7678,7 @@ CREATE TABLE special_table (
 CREATE UNIQUE INDEX idx_special_table_public_id ON special_table(public_id);
 ```
 
-### 16.3 外部キー設計
+### 19.3 外部キー設計
 
 - **常にUUIDカラムを参照**
 - サービス境界を越える参照は論理的外部キーのみ（FOREIGN KEY制約なし）
@@ -7692,7 +7692,7 @@ faculty_id UUID REFERENCES faculties(id) ON DELETE CASCADE
 user_id UUID NOT NULL  -- users.idを参照（論理的）
 ```
 
-### 16.4 インデックス設計
+### 19.4 インデックス設計
 
 #### **必須インデックス**
 
@@ -7720,7 +7720,7 @@ CREATE INDEX idx_table_embedding_hnsw ON table_name
   USING hnsw(embedding vector_cosine_ops);
 ```
 
-### 16.5 パーティショニング
+### 19.5 パーティショニング
 
 大量データを扱うログテーブルは時系列パーティショニングを採用：
 
@@ -7747,7 +7747,7 @@ CREATE TABLE log_table_2025_01 PARTITION OF log_table
 - `moderation_logs`
 - `job_logs`
 
-### 16.6 JSON/JSONBカラム
+### 19.6 JSON/JSONBカラム
 
 柔軟なデータ構造にはJSONB型を使用：
 
@@ -7764,7 +7764,7 @@ CREATE INDEX idx_table_metadata_gin ON table_name USING gin(metadata);
 CREATE INDEX idx_table_metadata_path ON table_name ((metadata->>'key'));
 ```
 
-### 16.7 タイムスタンプ
+### 19.7 タイムスタンプ
 
 全テーブルに以下のタイムスタンプカラムを推奨：
 
@@ -7790,7 +7790,7 @@ CREATE TRIGGER update_table_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 ```
 
-### 16.8 論理削除 vs 物理削除
+### 19.8 論理削除 vs 物理削除
 
 **論理削除（推奨）:**
 - `is_deleted BOOLEAN DEFAULT FALSE`
@@ -7801,7 +7801,7 @@ CREATE TRIGGER update_table_updated_at
 - ログデータ、一時データに適用
 - GDPR対応で必要な場合
 
-### 16.9 ログテーブル設計原則
+### 19.9 ログテーブル設計原則
 
 #### **物理DB分離**
 
@@ -7884,7 +7884,7 @@ VALUES (
 );
 ```
 
-### 16.10 UUID生成
+### 19.10 UUID生成
 
 #### **uuidv7()の採用**
 
@@ -7992,7 +7992,7 @@ PostgreSQL 18.1での実測値（参考）：
 - **既存テーブル**: 次回のメジャーバージョンアップ時に移行を検討
 - **セキュリティトークン**: `gen_random_uuid()`または`gen_random_bytes()`を継続使用
 
-### 16.11 データ整合性
+### 19.11 データ整合性
 
 #### **CHECK制約**
 
@@ -8018,7 +8018,7 @@ user_id UUID NOT NULL
 status exam_status_enum NOT NULL
 ```
 
-### 16.12 セキュリティ
+### 19.12 セキュリティ
 
 #### **パスワードハッシュ**
 
@@ -8038,7 +8038,7 @@ client_secret_hash VARCHAR(255) NOT NULL
 - Email, IPアドレス等は暗号化を検討
 - ログテーブルへのアクセスは厳格に制限
 
-### 16.13 パフォーマンスチューニング
+### 19.13 パフォーマンスチューニング
 
 #### **EXPLAIN ANALYZE**
 
@@ -8059,7 +8059,7 @@ SELECT * FROM exams WHERE status = 'active' ORDER BY created_at DESC LIMIT 20;
 - 読み取り専用クエリはレプリカへルーティング
 - 特にEduanimaSearchは読み取り負荷が高い
 
-### 16.14 プロジェクト全体DB設計指針
+### 19.14 プロジェクト全体DB設計指針
 
 本セクションでは、Eduanimaプロジェクト全体で共通適用すべきデータベース設計の原則と標準を定義します。これらは全マイクロサービス・全環境（開発/ステージング/本番）で必須の設計思想であり、個別サービスのスキーマ設計時には必ずこれらの指針に従う必要があります。
 
@@ -8805,7 +8805,7 @@ CREATE TABLE idp_links (
 
 ## **20. pgvector + ベクトル検索設計**
 
-### 17.1 ベクトル型カラム基本設計
+### 20.1 ベクトル型カラム基本設計
 
 Eduanimaプロジェクトでは、問題文・解説・試験内容の意味的類似度検索を実現するため、PostgreSQL 18.1の**pgvector 0.8.1**拡張を活用します。gemini-embedding-001モデル（1536次元）を使用し、HNSWインデックスで高速検索を実現します。
 
@@ -8839,7 +8839,7 @@ ALTER TABLE exams
 ADD COLUMN summary_embedding vector(1536);
 ```
 
-### 17.2 HNSWインデックス設計
+### 20.2 HNSWインデックス設計
 
 Hierarchical Navigable Small World (HNSW) インデックスは、大規模ベクトルデータの高速近似最近傍探索を実現します。
 
@@ -9024,7 +9024,7 @@ rate(pg_stat_user_indexes_idx_scan{indexrelname="idx_exams_content_vector_hnsw"}
 avg(pg_stat_statements_mean_exec_time{query=~".*content_vector.*"}[1d])
 ```
 
-### 17.3 Go型統合パターン
+### 20.3 Go型統合パターン
 
 #### **sqlc.yaml完全設定**
 
@@ -9167,7 +9167,7 @@ func (qm *QuestionManager) FindSimilarQuestions(
 }
 ```
 
-### 17.4 Atlas HCL定義
+### 20.4 Atlas HCL定義
 
 ```hcl
 # internal/db/schema/questions.hcl
@@ -9244,7 +9244,7 @@ table "questions" {
 
 ## **21. Atlas HCL + sqlcワークフロー**
 
-### 18.1 統合ディレクトリ構成
+### 21.1 統合ディレクトリ構成
 
 ```
 EduanimaContents/
@@ -9284,7 +9284,7 @@ EduanimaContents/
         └── repository_test.go
 ```
 
-### 18.2 atlas.hcl完全設定
+### 21.2 atlas.hcl完全設定
 
 ```hcl
 # atlas.hcl
@@ -9419,7 +9419,7 @@ env "production" {
 }
 ```
 
-### 18.3 ENUM型完全自動化
+### 21.3 ENUM型完全自動化
 
 #### **Atlas HCL ENUM定義**
 
@@ -9539,7 +9539,7 @@ func (s *ExamService) UpdateExamStatus(ctx context.Context, examID string, newSt
 }
 ```
 
-### 18.3.1 Eduanima_contents_master スキーマ定義（v8.6.0新設）
+### 21.3.1 Eduanima_contents_master スキーマ定義（v8.6.0新設）
 
 #### **enums.hcl - AI処理関連ENUM定義**
 
@@ -9746,7 +9746,7 @@ GROUP BY fallback_reason
 ORDER BY count DESC;
 ```
 
-### 18.3.2 国際化対応テーブル定義（v7.4.0追加）
+### 21.3.2 国際化対応テーブル定義（v7.4.0追加）
 
 #### **institutions.hcl - 国際化対応機関テーブル**
 
@@ -9943,7 +9943,7 @@ INSERT INTO institutions (
 RETURNING *;
 ```
 
-### 18.3.3 全エンティティ国際化対応方針（v7.5.1新設）
+### 21.3.3 全エンティティ国際化対応方針（v7.5.1新設）
 
 #### 対応必須エンティティ
 - ✅ institutions (v7.4.0対応済み)
@@ -10221,7 +10221,7 @@ table "faculties_translations" {
 }
 ```
 
-### 18.4 開発ワークフロー
+### 21.4 開発ワークフロー
 
 ```bash
 #!/bin/bash
@@ -10264,7 +10264,7 @@ echo "✓ ワークフロー完了"
 
 ## **22. Cloud SQL運用設定**
 
-### 19.1 推奨インスタンス設定
+### 22.1 推奨インスタンス設定
 
 #### **4DB構成のインスタンス設定（v7.2.0）**
 
@@ -10396,7 +10396,7 @@ ALTER DATABASE Eduanima_content_prod
 SET hnsw.ef_search = 40;  -- デフォルト検索精度
 ```
 
-### 19.2 IAM認証設定
+### 22.2 IAM認証設定
 
 #### **4DB構成のサービスアカウント設計（v7.2.0）**
 
@@ -10589,7 +10589,7 @@ GRANT SELECT ON TABLES TO readonly_role;
 CREATE USER "Eduanima-analyst@Eduanima-prod.iam" WITH LOGIN IN ROLE readonly_role;
 ```
 
-### 19.3 .env + Secret Manager統合
+### 22.3 .env + Secret Manager統合
 
 #### **.env設定ファイル（Dev環境）**
 
@@ -10871,7 +10871,7 @@ histogram_quantile(0.99, rate(pgx_connection_lifetime_seconds_bucket[5m])) < 300
 }
 ```
 
-### 19.4 監視・アラート設定
+### 22.4 監視・アラート設定
 
 ```bash
 # Cloud Monitoring アラートポリシー作成
@@ -10885,7 +10885,7 @@ gcloud alpha monitoring policies create   --notification-channels=CHANNEL_ID   -
 
 ## **23. 可観測性・監査ログ設計**
 
-### 20.1 OpenTelemetryトレース実装（Eduanima固有パターン）
+### 23.1 OpenTelemetryトレース実装（Eduanima固有パターン）
 
 Eduanimaでは、試験アップロードから問題解析、ベクトル埋め込み生成、インデックス登録までの一連のフローを完全にトレースします。
 
@@ -10939,7 +10939,7 @@ func (eft *ExamFlowTracer) RecordVectorGeneration(span trace.Span, questionCount
 }
 ```
 
-### 20.2 Prometheusカスタムメトリクス
+### 23.2 Prometheusカスタムメトリクス
 
 ```go
 // internal/observability/metrics.go
@@ -11002,7 +11002,7 @@ func (mr *MetricsRecorder) RecordVectorSearch(searchType string, resultCount int
 }
 ```
 
-### 20.3 構造化ログ設計（Eduanima監査要件）
+### 23.3 構造化ログ設計（Eduanima監査要件）
 
 ```go
 // internal/observability/audit_logger.go
@@ -11074,7 +11074,7 @@ func (al *AuditLogger) LogAccessControl(ctx context.Context, userID, resourceTyp
 }
 ```
 
-### 20.4 BigQuery連携（日次監査ログエクスポート）
+### 23.4 BigQuery連携（日次監査ログエクスポート）
 
 #### **エクスポート専用SQL関数**
 
@@ -12295,7 +12295,7 @@ func TestValidateEmail(t *testing.T) {
 
 ## **25. Goインテグレーション**
 
-### 22.1 推奨プロジェクト構成
+### 25.1 推奨プロジェクト構成
 
 ```
 EduanimaContents/
@@ -12335,7 +12335,7 @@ EduanimaContents/
 └── Makefile
 ```
 
-### 22.2 依存関係管理（go.mod）
+### 25.2 依存関係管理（go.mod）
 
 ```go
 module github.com/Eduanima/Eduanima-content
@@ -12371,7 +12371,7 @@ require (
 )
 ```
 
-### 22.3 クリーンアーキテクチャ実装
+### 25.3 クリーンアーキテクチャ実装
 
 ```go
 // internal/service/exam_orchestrator.go
@@ -12491,7 +12491,7 @@ func (eo *ExamOrchestrator) CreateExamWithQuestions(
 }
 ```
 
-### 22.4 ユーザー履歴取得サービス（v7.4.0追加）
+### 25.4 ユーザー履歴取得サービス（v7.4.0追加）
 
 #### **広告視聴進捗管理サービス**
 
@@ -12736,7 +12736,7 @@ DO UPDATE SET
   updated_at = CURRENT_TIMESTAMP;
 ```
 
-### 22.5 国際化対応サービス（v7.4.0追加）
+### 25.5 国際化対応サービス（v7.4.0追加）
 
 #### **機関情報多言語取得サービス**
 
@@ -12873,7 +12873,7 @@ func (s *InstitutionService) ListInstitutionsByCountry(
 }
 ```
 
-### 22.6 試験生成フロー実装（v7.4.1追加）
+### 25.6 試験生成フロー実装（v7.4.1追加）
 
 #### **OCR結果結合サービス**
 
@@ -13245,7 +13245,7 @@ type ErrorResponse struct {
 
 ---
 
-### 22.7 段階的コンテンツ開示API設計（v7.4.1新設）
+### 25.7 段階的コンテンツ開示API設計（v7.4.1新設）
 
 #### **初期表示API**
 
@@ -13665,7 +13665,7 @@ alerts:
 
 ---
 
-### 22.8 不正防止戦略（v7.4.1新設）
+### 25.8 不正防止戦略（v7.4.1新設）
 
 #### **1. Dev機能での広告スキップ防止**
 
@@ -13802,7 +13802,7 @@ func (s *SecurityService) DetectAbnormalAccess(ctx context.Context, userID strin
 }
 ```
 
-### 22.8.6 異常アクセスパターン検出の具体的実装（v7.5.1新設）
+### 25.8.6 異常アクセスパターン検出の具体的実装（v7.5.1新設）
 
 #### 検知パターンと対応
 
@@ -14103,7 +14103,7 @@ groups:
 
 ---
 
-### 22.9 フロントエンド実装例（React）（v7.4.1新設）
+### 25.9 フロントエンド実装例（React）（v7.4.1新設）
 
 #### **初期表示コンポーネント**
 
@@ -14336,7 +14336,7 @@ export const AdPlayer: React.FC<AdPlayerProps> = ({ config, onAdCompleted }) => 
 
 ---
 
-### 22.10 認証サービス実装（v7.5.0）
+### 25.10 認証サービス実装（v7.5.0）
 
 #### **新規ユーザー登録フロー**
 
@@ -15028,7 +15028,7 @@ const ChangePrimaryIdPDialog: React.FC = () => {
 
 ---
 
-### 22.11 UI/UX方針(OAuth専用認証時代の認証導線設計)
+### 25.11 UI/UX方針(OAuth専用認証時代の認証導線設計)
 
 #### **ログイン／新規登録導線の統一方針(v7.5.0)**
 
@@ -15241,7 +15241,7 @@ function handleOAuthLogin(provider: 'google' | 'apple' | 'meta' | 'microsoft') {
 
 ## **26. AIエージェント協働**
 
-### 23.1 AIコード生成プロンプトテンプレート
+### 26.1 AIコード生成プロンプトテンプレート
 
 #### **sqlcクエリ生成プロンプト**
 
@@ -15320,7 +15320,7 @@ sqlc annotation付きSQL（-- name: で開始）
 Atlas HCL v2構文
 ```
 
-### 23.2 AIコードレビューチェックリスト
+### 26.2 AIコードレビューチェックリスト
 
 ```markdown
 # Eduanimaデータベースコード変更レビューチェックリスト
@@ -15373,7 +15373,7 @@ Atlas HCL v2構文
 - [ ] エラーハンドリングの網羅的テスト
 ```
 
-### 23.3 AI協働開発フロー
+### 26.3 AI協働開発フロー
 
 ```mermaid
 graph TD
@@ -15396,7 +15396,7 @@ graph TD
     K -->|成功| N[デプロイ]
 ```
 
-### 23.4 AIペアプログラミングパターン
+### 26.4 AIペアプログラミングパターン
 
 #### **パターン1: スキーマ拡張**
 
