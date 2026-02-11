@@ -6049,13 +6049,14 @@ CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
 ### 設計変更点（v8.7.0 - Phase 3拡張設計）
 
 **Phase構成の見直し:**
-- **Phase 2（製品版）**: 試験コメント、基本DM機能（学習補助としてのSNS機能）
-- **Phase 3（SNS拡張版）**: ストーリー、マッチング、拡張DM、投稿機能（フルSNS化）
+- **Phase 1（MVP）**: 試験閲覧・検索・アップロード機能に専念、いいね/ブックマーク（非同期的機能）のみ
+- **Phase 2（SNS拡張・マネタイズ基盤）**: 試験コメント、DM、投稿機能、通知システム（学習補助+基本SNS機能）
+- **Phase 3（フルSNS化）**: ストーリー、マッチング、拡張DM（フルSNS化）、サブドメイン分離
 
 **Phase 3 主要設計決定:**
 - **サブドメイン分離**: `social.eduanima.com` での独立したSNS空間提供
 - **ハイブリッド型設計**: 学習モード（試験・問題閲覧中心）とSNSモード（投稿・DM・マッチング中心）のシームレスな切替
-- **段階的機能展開**: Phase 2で基礎機能実装、Phase 3で本格SNS化
+- **段階的機能展開**: Phase 1でMVP専念 → Phase 2でソーシャル機能統合展開 → Phase 3でフルSNS化
 - **認証統合**: メインドメイン (`eduanima.com`) と共通セッション管理
 
 **SNS設計比較分析（Phase 3検証結果）:**
