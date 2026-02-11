@@ -1402,7 +1402,7 @@ Generate table-driven unit tests for ExamService.GetExam:
 ### 2. Atlas Schema Generation
 
 ```
-Create Atlas HCL schema for "exam_comments" table:
+Create Atlas HCL schema for "exam_comments" table (Phase 2 deployment - 2026 Q4-2027 Q1):
 - id: UUID v7
 - exam_id: UUID (logical FK)
 - user_id: UUID (logical FK)
@@ -1410,6 +1410,7 @@ Create Atlas HCL schema for "exam_comments" table:
 - is_edited, is_deleted: BOOLEAN
 - created_at, updated_at: TIMESTAMPTZ
 - Indexes on exam_id, user_id
+- Add comment indicating Phase 2 deployment
 ```
 
 ---
@@ -2244,7 +2245,7 @@ table "table_name" {
 **Example:**
 
 ```
-Create Atlas HCL schema for "exam_comments" table:
+Create Atlas HCL schema for "exam_comments" table (Phase 2 - SNS拡張 - 2026 Q4-2027 Q1):
 - id: UUID v7 primary key
 - exam_id: UUID (logical FK to exams.id, no constraint)
 - user_id: UUID (logical FK to users.id, no constraint)
@@ -2257,6 +2258,8 @@ Indexes:
 - idx_exam_comments_exam_id on (exam_id, created_at DESC)
 - idx_exam_comments_user_id on user_id
 - idx_exam_comments_parent_id on parent_comment_id
+
+Add table comment: "試験コメント機能 (Phase 2以降)"
 ```
 
 ---

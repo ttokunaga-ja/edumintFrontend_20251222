@@ -1096,8 +1096,8 @@ EduanimaGateways:
 ✅ 試験PDF/画像アップロード
 ✅ OCR処理・自動分類
 ✅ 試験検索・閲覧(全コンテンツ無料開放)
-✅ 基本的なコメント機能
 ✅ 通報・著作権侵害対応
+❌ コメント・いいね機能 (Phase 2)
 ❌ 広告表示
 ❌ ポイントシステム
 ❌ 収益化
@@ -1143,6 +1143,7 @@ EduanimaSocial:
 
 #### **機能追加**
 ```
+✅ 試験コメント・いいね機能
 ✅ 広告表示(Google AdSense + 直接契約)
 ✅ ポイント付与システム
 ✅ 広告視聴でポイント獲得
@@ -6026,8 +6027,13 @@ CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
 
 ### 11.1 サービス責務（Phase別機能展開）
 
+**Phase 1（MVP）- ソーシャル機能なし:**
+- EduanimaSocialサービス未実装
+- 試験閲覧のみ（読み取り専用）
+- コメント・いいね機能なし
+
 **Phase 2（製品版）- 学習補助SNS:**
-1. **試験コメント機能**: 試験に対するユーザーコメント、返信、いいね
+1. **試験コメント機能**: 試験に対するユーザーコメント、返信、いいね (exam_comments, comment_likes)
 2. **基本DM機能**: 1対1チャット、学習相談用メッセージング
 
 **Phase 3（SNS拡張版）- フルSNS化:**
@@ -7472,9 +7478,9 @@ Eduanimaでは以下のKafkaトピックを通じてマイクロサービス間�
 | `search.indexed` | EduanimaSearch | - | `ContentIndexed` | 検索インデックス完了通知 |
 | `search.term_generation` | EduanimaSearch | EduanimaAiWorker | `TermGenerationRequested` | 用語生成要求 |
 | **`content.interaction`** | **EduanimaContents** | **EduanimaSearch, EduanimaSocial, EduanimaRevenue** | **`ExamViewed`, `ExamLiked`, `ExamUnliked`, `ExamBad`, `ExamShared`** | **ユーザーインタラクション統計イベント** |
-| `social.activity` | EduanimaSocial | EduanimaUsers, EduanimaContents | `ExamCommented`, `PostCreated`, `DMSent`, `StoryPosted` | ソーシャル活動通知 |
+| `social.activity` | EduanimaSocial | EduanimaUsers, EduanimaContents | `ExamCommented`, `PostCreated`, `DMSent`, `StoryPosted` | ソーシャル活動通知（Phase 2以降） |
 | `social.mode_switch` | EduanimaSocial | EduanimaUsers, 分析システム | `ModeSwitched`, `SubdomainAccessed` | モード切替分析イベント（Phase 3） |
-| `content.feedback` | EduanimaSocial | EduanimaContents | `ExamLiked`, `ExamCommented`, `ExamViewed` | ソーシャルフィードバック |
+| `content.feedback` | EduanimaSocial | EduanimaContents | `ExamLiked`, `ExamCommented`, `ExamViewed` | ソーシャルフィードバック（Phase 2以降） |
 | `monetization.transactions` | EduanimaMonetizeWallet | EduanimaRevenue | `CoinEarned`, `CoinSpent` | ウォレットトランザクション |
 | `revenue.reports` | EduanimaRevenue | - | `RevenueCalculated`, `PaymentProcessed` | 収益レポート |
 | `moderation.events` | EduanimaModeration | EduanimaContents, EduanimaUsers | `ContentReported`, `ContentTakenDown`, `UserBanned` | モデレーションイベント |
