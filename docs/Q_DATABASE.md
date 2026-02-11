@@ -173,6 +173,7 @@
 **サービス別設計編**
 
 **【Phase 1: MVP - 2026 Q2-Q3】**
+
 4. [EduanimaGateways (統合API Gateway)](#4-eduanimagateways-統合api-gateway)
 5. [EduanimaUsers (ユーザー管理)](#5-eduanimausers-ユーザー管理)
 6. [EduanimaContents (コンテンツ管理)](#6-eduanimacontents-コンテンツ管理)
@@ -182,12 +183,14 @@
 10. [EduanimaModeration (通報管理)](#10-eduanimamoderation-通報管理)
 
 **【Phase 2: SNS拡張 - 2026 Q4-2027 Q1】**
+
 11. [EduanimaSocial (ソーシャル機能)](#11-eduanimasocial-ソーシャル機能)
 12. [EduanimaNotification (通知サービス)](#12-eduanimanotification-通知サービス)
 13. [EduanimaAnalytics (分析サービス)](#13-eduanimaanalytics-分析サービス)
 14. [EduanimaAds (広告配信サービス)](#14-eduanimaads-広告配信サービス)
 
 **【Phase 3/4: 収益化・AI Tutor - 2027 Q2-Q3】**
+
 15. [EduanimaMonetizeWallet (ウォレット管理)](#15-eduanimamonetizewallet-ウォレット管理)
 16. [EduanimaRevenue (収益分配)](#16-eduanimarevenue-収益分配)
 
