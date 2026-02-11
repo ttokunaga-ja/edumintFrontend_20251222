@@ -1,8 +1,17 @@
-# **Eduanima 統合データモデル設計書 v7.5.1**
+# **Eduanima 統合データモデル設計書 v8.6.0**
 
 本ドキュメントは、Eduanimaのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
-**最終更新日: 2026-02-07**
+**最終更新日: 2026-02-11**
+
+**v8.6.0 主要更新:**
+- **EduanimaAiWorker ログDB設計追加**: ai_processing_logs テーブル、複数ファイル対応、Eduanima_ai_worker_logs DB新設
+- **Eduanima_contents_master 拡張**: master_submitted_texts テーブル追加（ユーザー送信テキスト管理）
+- **ENUM型統一**: ai_error_category_enum を複数テーブルで再利用、ai_fallback_reason_enum 削除
+- **file_type_enum 更新**: Gemini API対応フォーマットに拡張（29種類のファイル形式）
+- **ai_job_type_enum 追加**: AI処理ジョブタイプの明確化（10種類のジョブタイプ）
+- **Phase 1 DB数更新**: 14個 → 15個（Eduanima_ai_worker_logs追加）
+- **不要ENUM削除**: ocr_engine_enum, language_code_enum, difficulty_level_enum（Gemini一本化・個別処理不要）
 
 **v7.5.1 主要更新:**
 - **EduanimaSearch完全定義**: search_queries, search_cache本体DBテーブル、search_logsパーティション設計、Elasticsearch同期戦略を追加
@@ -719,6 +728,65 @@ CREATE TYPE interaction_event_type_enum AS ENUM (
 );
 ```
 
+#### **1.8. AI処理関連ENUM（v8.6.0新設）**
+
+```sql
+-- ファイル形式（Gemini API対応）
+CREATE TYPE file_type_enum AS ENUM (
+    -- 画像フォーマット
+    'png', 'jpeg', 'jpg', 'webp', 'heic', 'heif',
+    -- ドキュメントフォーマット
+    'pdf',
+    -- テキスト・コードフォーマット
+    'txt', 'html', 'css', 'csv', 'xml', 'rtf', 'json', 'md', 'markdown',
+    -- ソースコードフォーマット
+    'py', 'js', 'ts', 'java', 'cpp', 'c', 'go', 'rb', 'php',
+    'other'
+);
+
+-- AIジョブタイプ
+CREATE TYPE ai_job_type_enum AS ENUM (
+    'ocr',
+    'structure_analysis',
+    'question_generation',
+    'embedding',
+    'keyword_normalization',
+    'teacher_normalization',
+    'subject_normalization',
+    'quality_scoring',
+    'translation',
+    'summarization'
+);
+
+-- AIエラーカテゴリ（OCR・AI処理共通）
+CREATE TYPE ai_error_category_enum AS ENUM (
+    'file_corrupt',           -- ファイル破損
+    'unsupported_format',     -- 非対応形式
+    'low_quality_image',      -- 画像品質不良
+    'text_too_blurry',        -- テキスト不鮮明
+    'no_text_detected',       -- テキスト未検出
+    'api_rate_limit',         -- APIレート制限
+    'api_timeout',            -- APIタイムアウト
+    'api_error',              -- API一般エラー
+    'insufficient_context',   -- コンテキスト不足
+    'processing_error',       -- 処理エラー
+    'unknown'                 -- 不明
+);
+```
+
+**設計方針（v8.6.0）:**
+- **file_type_enum**: Gemini API対応の29種類のファイル形式をサポート
+- **ai_job_type_enum**: AI処理の実要件に基づく10種類のジョブタイプを定義
+- **ai_error_category_enum**: OCR処理とAI処理の両方で使用する共通エラーカテゴリ
+  - 従来の`ai_fallback_reason_enum`を削除し、`ai_error_category_enum`に統一
+  - `master_submitted_texts.fallback_reason`および`master_ocr_contents.fallback_reason`で再利用
+
+**廃止されたENUM（v8.6.0）:**
+- `ocr_engine_enum`: Gemini一本化により不要
+- `language_code_enum`: ユーザー言語を直接使用するため不要
+- `difficulty_level_enum`: 個別処理しないため不要（問題単位で保持）
+- `ai_fallback_reason_enum`: `ai_error_category_enum`に統一
+
 ---
 
 ## **2. 禁止ツール・ライブラリ一覧**
@@ -876,15 +944,23 @@ Eduanimaプロジェクトでは、以下のツール・ライブラリの使用
 | :--- | :--- | :--- | :--- | :--- |
 | **EduanimaGateways** | ジョブオーケストレーション | `jobs`, `job_events`, `job_logs` (分離DB) | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
 | **EduanimaUsers** | SSO・認証・ユーザー管理・フォロー・通知（統合） | `oauth_clients`, `oauth_tokens`, `idp_links`, `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `auth_logs` (分離DB), `user_profile_logs` (分離DB) | `auth.events`, `user.events` | `content.feedback`, `monetization.transactions`, **`content.interaction`** |
-| **EduanimaContents** | 試験・問題・統計・OCRテキスト管理（4DB構成） | **[メインDB: `Eduanima_contents`]** `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, `ad_display_events`, `ad_viewing_progress` / **[検索DB: `Eduanima_contents_search`]** `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates` / **[マスターDB: `Eduanima_contents_master`]** `master_ocr_contents` (OCRテキスト統合管理、暗号化対象) / **[ログDB: `Eduanima_contents_logs`]** `content_logs` | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
+| **EduanimaContents** | 試験・問題・統計・OCRテキスト管理（4DB構成） | **[メインDB: `Eduanima_contents`]** `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, `ad_display_events`, `ad_viewing_progress` / **[検索DB: `Eduanima_contents_search`]** `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates` / **[マスターDB: `Eduanima_contents_master`]** `master_ocr_contents` (OCRテキスト統合管理、暗号化対象), `master_submitted_texts` (ユーザー送信テキスト、v8.6.0新設) / **[ログDB: `Eduanima_contents_logs`]** `content_logs` | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
 | **EduanimaFiles** | ファイルストレージ管理 | `file_metadata`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `file.uploaded`, `file.encrypted` | `content.ocr`, `moderation.evidence` |
 | **EduanimaSearch** | 検索・インデックス（無状態化） | **Elasticsearch索引のみ（物理DB廃止）**, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle`, `content.interaction` via **Debezium CDC** |
-| **EduanimaAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `file.uploaded`, `content.ocr`, `search.term_generation` |
+| **EduanimaAiWorker** | AI処理（ステートレス + ログDB）（v8.6.0） | **[ログDB: `Eduanima_ai_worker_logs`]** `ai_processing_logs` (パーティション設計) + **ELKログ** | `ai.results` | `gateway.jobs`, `file.uploaded`, `content.ocr`, `search.term_generation` |
 | **EduanimaSocial** | SNS機能（投稿・コメント・DM・マッチング） | `user_posts`, `post_likes`, `post_comments`, `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages`, `dm_read_receipts`, `user_match_preferences`, `user_matches` | `social.activity` | `content.interaction` |
 | **EduanimaMonetizeWallet** | MintCoin管理 | `wallets`, `wallet_transactions`, `wallet_logs` (分離DB, 7年保持) | `monetization.transactions` | - |
 | **EduanimaRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions`, `content.interaction` |
 | **EduanimaModeration** | 通報管理 | `content_reports`, `user_reports`, `moderation_logs` (分離DB) | `moderation.events` | - |
 | **EduanimaAdmin** | 管理UI統合 | （他サービスのAPIを集約） | - | - |
+
+**主要変更点（v8.6.0）:**
+- **EduanimaAiWorker ログDB新設**: `Eduanima_ai_worker_logs` データベース追加
+  - `ai_processing_logs` (パーティション設計): AI処理の詳細ログを永続化
+  - 複数ファイル対応、ユーザーテキスト対応
+- **Eduanima_contents_master 拡張**: `master_submitted_texts` テーブル追加
+  - ユーザー送信テキストの暗号化対象データ管理
+- **Phase 1 データベース数**: 14個 → 15個（Eduanima_ai_worker_logs追加）
 
 **主要変更点（v7.2.0）:**
 - **EduanimaContents 4DB構成**: セキュリティ・性能・スケーラビリティの最適化
@@ -2845,6 +2921,167 @@ buckets:
         age: 7
 ```
 
+#### **master_submitted_texts (ユーザー送信テキスト - イミュータブル)（v8.6.0新設）**
+
+ユーザーが直接送信したテキストデータを保存する暗号化対象テーブルです。master_ocr_contentsと同様の構成で、テキスト入力のみのケースに対応します。
+
+**設計方針:**
+- **master_submitted_filesテーブルは不要**: ファイル情報はEduanimaFiles.file_metadataで管理
+- **複数ファイルの順序管理**: ai_processing_logs.input_metadata (JSONB)で管理
+- **ENUM統一**: fallback_reason は ai_error_category_enum を再利用（OCR専用のENUMは作成しない）
+- **イミュータブル設計**: 追加のみ、編集・削除禁止
+- **暗号化対象**: GCS Vaultに自動移行
+
+```sql
+CREATE TABLE master_submitted_texts (
+    text_id UUID PRIMARY KEY DEFAULT uuidv7(),
+    user_id UUID NOT NULL,
+    
+    -- コンテンツ（暗号化対象）
+    text_content TEXT NOT NULL,
+    content_hash VARCHAR(64) NOT NULL,  -- SHA-256ハッシュ（重複検出用）
+    
+    -- 構造情報（オプション）
+    chapter_info JSONB,  -- ユーザー指定の章立て情報
+    
+    -- GCS Vault情報（暗号化後に設定）
+    bucket_name VARCHAR(200),
+    object_path TEXT,
+    kms_key_name VARCHAR(500),
+    uploaded_at TIMESTAMPTZ,
+    
+    -- フォールバック情報（ai_error_category_enum使用）
+    is_used_as_fallback BOOLEAN DEFAULT false,
+    fallback_job_id UUID,  -- ai_processing_logs.job_idを参照（論理的）
+    fallback_reason ai_error_category_enum,
+    
+    -- タイムスタンプ（イミュータブル）
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- インデックス
+CREATE INDEX idx_master_submitted_texts_user_id ON master_submitted_texts(user_id, created_at DESC);
+CREATE INDEX idx_master_submitted_texts_hash ON master_submitted_texts(content_hash);
+CREATE INDEX idx_master_submitted_texts_fallback ON master_submitted_texts(is_used_as_fallback, fallback_reason) 
+  WHERE is_used_as_fallback = TRUE;
+CREATE INDEX idx_master_submitted_texts_vault_migration ON master_submitted_texts(created_at) 
+  WHERE bucket_name IS NULL;
+```
+
+**設計注記:**
+- **master_ocr_contentsとの整合性**: 同様の暗号化戦略、GCS Vault連携を採用
+- **content_hash**: SHA-256ハッシュで重複テキストを検出、不正利用防止
+- **chapter_info**: ユーザーが章立て情報を指定した場合に格納（JSONB形式）
+- **GCS Vault連携**: 7日経過後に自動暗号化、GCSにアップロード
+- **フォールバック用途**: 
+  - OCR処理が失敗した場合、ユーザー送信テキストをフォールバックとして使用
+  - `is_used_as_fallback=true`にマーク、`fallback_reason`に失敗理由を記録
+- **ai_error_category_enum再利用**: 
+  - OCR専用の`ai_fallback_reason_enum`は作成しない
+  - `ai_error_category_enum`を複数テーブル（master_ocr_contents, master_submitted_texts, ai_processing_logs）で共通利用
+  - エラー分類の一貫性確保、ENUM管理の簡素化
+
+**フォールバックフロー:**
+1. ユーザーがファイルをアップロード
+2. OCR処理が失敗（低品質画像、テキスト未検出など）
+3. ユーザーにテキスト入力を促す
+4. master_submitted_texts にテキストを保存
+5. `is_used_as_fallback=true`、`fallback_reason='low_quality_image'`を設定
+6. AI処理ログに記録（ai_processing_logs.user_text_id参照）
+
+**sqlcクエリ例:**
+
+```sql
+-- name: CreateMasterSubmittedText :one
+INSERT INTO master_submitted_texts (
+    user_id, text_content, content_hash, chapter_info
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING *;
+
+-- name: GetMasterSubmittedText :one
+SELECT * FROM master_submitted_texts
+WHERE text_id = $1;
+
+-- name: GetMasterSubmittedTextByHash :one
+SELECT * FROM master_submitted_texts
+WHERE content_hash = $1
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: UpdateTextFallbackStatus :exec
+UPDATE master_submitted_texts
+SET 
+    is_used_as_fallback = $1,
+    fallback_job_id = $2,
+    fallback_reason = $3
+WHERE text_id = $4;
+
+-- name: UpdateTextVaultInfo :exec
+UPDATE master_submitted_texts
+SET 
+    bucket_name = $1,
+    object_path = $2,
+    kms_key_name = $3,
+    uploaded_at = NOW()
+WHERE text_id = $4;
+
+-- name: ListTextsForVaultMigration :many
+SELECT text_id, user_id, text_content, created_at
+FROM master_submitted_texts
+WHERE bucket_name IS NULL
+  AND created_at < NOW() - INTERVAL '7 days'
+ORDER BY created_at
+LIMIT $1;
+
+-- name: GetFallbackStatsByReason :many
+SELECT 
+    fallback_reason,
+    COUNT(*) as count,
+    COUNT(DISTINCT user_id) as unique_users
+FROM master_submitted_texts
+WHERE is_used_as_fallback = TRUE
+GROUP BY fallback_reason
+ORDER BY count DESC;
+```
+
+**Goコード例:**
+
+```go
+// internal/service/text_service.go
+func (s *TextService) CreateSubmittedText(ctx context.Context, req CreateTextRequest) (*MasterSubmittedText, error) {
+    // SHA-256ハッシュ生成
+    hash := sha256.Sum256([]byte(req.TextContent))
+    contentHash := hex.EncodeToString(hash[:])
+    
+    // 重複チェック
+    existing, err := s.queries.GetMasterSubmittedTextByHash(ctx, contentHash)
+    if err == nil && existing != nil {
+        return existing, nil  // 既存テキストを返す
+    }
+    
+    // 新規テキスト作成
+    text, err := s.queries.CreateMasterSubmittedText(ctx, dbgen.CreateMasterSubmittedTextParams{
+        UserID:      req.UserID,
+        TextContent: req.TextContent,
+        ContentHash: contentHash,
+        ChapterInfo: req.ChapterInfo,  // JSONB
+    })
+    return text, err
+}
+
+// フォールバック設定
+func (s *TextService) MarkAsFallback(ctx context.Context, textID uuid.UUID, jobID uuid.UUID, reason dbgen.AiErrorCategoryEnum) error {
+    return s.queries.UpdateTextFallbackStatus(ctx, dbgen.UpdateTextFallbackStatusParams{
+        IsUsedAsFallback: true,
+        FallbackJobID:    uuid.NullUUID{UUID: jobID, Valid: true},
+        FallbackReason:   dbgen.NullAiErrorCategoryEnum{AiErrorCategoryEnum: reason, Valid: true},
+        TextID:           textID,
+    })
+}
+```
+
 ### 5.4 閲覧履歴・評価・コメント絞り込みの負荷分析（v7.4.0追加）
 
 #### **想定クエリパターン**
@@ -4542,20 +4779,33 @@ curl -X POST "localhost:9200/_bulk" -H 'Content-Type: application/json' --data-b
 
 ## **8. EduanimaAiWorker (AI処理サービス)**
 
+### 設計変更点（v8.6.0）
+
+- **ログDB新設**: PostgreSQL物理DBを新設（Eduanima_ai_worker_logs）
+- **ai_processing_logs テーブル**: AI処理の詳細ログを永続化
+- **複数ファイル対応**: file_ids配列、file_count、total_file_size_bytesカラム追加
+- **ユーザーテキスト対応**: user_text_id参照、master_submitted_textsとの連携
+- **ENUM統一**: ai_job_type_enum、ai_error_category_enumの導入
+
 ### 設計変更点（v7.0.0）
 
-- **物理DB完全削除**
-- ステートレス設計に移行
-- ログはELKスタック（Elasticsearch, Logstash, Kibana）で管理
+- **ステートレス設計**: 処理状態はKafkaイベントで管理
+- **ELKスタック**: 短期ログ（リアルタイム分析）用
+- **PostgreSQL追加（v8.6.0）**: 長期ログ（統計分析・監査）用
 
 ### 設計方針
 
-EduanimaAiWorkerは以下の理由により、PostgreSQL物理DBを持ちません：
+EduanimaAiWorkerは以下の2層ログ管理を採用します：
 
-1. **ステートレス設計**: AI処理は入力→処理→出力の単方向フロー
-2. **スケーラビリティ**: DBレスでコンテナ水平スケーリングが容易
-3. **処理速度**: DBアクセスなしで処理遅延を最小化
-4. **ログ要件**: 処理ログはELKスタックで集中管理
+1. **ELKスタック（Elasticsearch, Logstash, Kibana）**: 
+   - リアルタイムログ収集・可視化
+   - 開発環境デバッグ
+   - 保持期間: 30日
+
+2. **PostgreSQL（Eduanima_ai_worker_logs）**: 
+   - 長期ログ保存（統計分析・監査用）
+   - 構造化データ永続化
+   - 保持期間: 2年（パーティション管理）
 
 ### データフロー
 
@@ -4564,12 +4814,309 @@ EduanimaAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
    ↓
 [EduanimaAiWorker] AI処理（ステートレス）
    ↓
-[Kafka] ai.results → [EduanimaContents] 結果反映
+[ELK Stack] リアルタイムログ
    ↓
-[ELK Stack] ログ収集・分析
+[PostgreSQL] ai_processing_logs（長期保存）
+   ↓
+[Kafka] ai.results → [EduanimaContents] 結果反映
 ```
 
-### ログ管理（ELK）
+### 8.1 ログDB設計（v8.6.0新設）
+
+**物理DB:** `Eduanima_ai_worker_logs`
+
+**役割:**
+- AI処理ログの長期保存
+- 統計分析・監査証跡
+- パフォーマンスモニタリング
+
+#### **ai_processing_logs (AI処理ログ - パーティション設計)**
+
+AI処理（OCR、構造分析、問題生成、埋め込み生成など）の詳細ログを記録します。
+
+**v8.6.0設計:**
+- **複数ファイル対応**: file_ids配列、file_count、total_file_size_bytes
+- **ユーザーテキスト対応**: user_text_id参照
+- **input_metadata**: JSONB形式で柔軟な入力情報管理
+- **ai_job_type_enum**: ジョブタイプの明確化
+- **ai_error_category_enum**: エラー分類の統一
+
+```sql
+CREATE TABLE ai_processing_logs (
+    job_id UUID PRIMARY KEY DEFAULT uuidv7(),
+    
+    -- ジョブ情報
+    job_type ai_job_type_enum NOT NULL,
+    job_status job_status_enum NOT NULL DEFAULT 'pending',
+    
+    -- ユーザー情報
+    user_id UUID NOT NULL,
+    
+    -- 入力情報（複数ファイル対応）
+    file_ids UUID[],  -- file_metadata.id の配列（NULLable）
+    file_count INTEGER DEFAULT 0,
+    total_file_size_bytes BIGINT DEFAULT 0,
+    
+    -- ユーザーテキスト入力
+    user_text_id UUID,  -- master_submitted_texts.text_id を参照（論理的）
+    
+    -- 入力メタデータ（JSONB）
+    input_metadata JSONB,
+    
+    -- 処理結果
+    output_metadata JSONB,
+    result_id UUID,  -- 結果エンティティのID（exam_id, question_id等）
+    
+    -- AI処理情報
+    ai_model VARCHAR(100),
+    ai_provider VARCHAR(50),
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    total_tokens INTEGER,
+    
+    -- パフォーマンス
+    processing_time_ms INTEGER,
+    
+    -- エラー情報
+    error_message TEXT,
+    error_category ai_error_category_enum,
+    retry_count INTEGER DEFAULT 0,
+    
+    -- タイムスタンプ
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+    
+) PARTITION BY RANGE (created_at);
+
+-- 月次パーティション
+CREATE TABLE ai_processing_logs_2026_02 PARTITION OF ai_processing_logs
+    FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+
+CREATE TABLE ai_processing_logs_2026_03 PARTITION OF ai_processing_logs
+    FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+
+-- インデックス
+CREATE INDEX idx_ai_processing_logs_user_id ON ai_processing_logs(user_id, created_at DESC);
+CREATE INDEX idx_ai_processing_logs_job_type ON ai_processing_logs(job_type, job_status, created_at DESC);
+CREATE INDEX idx_ai_processing_logs_status ON ai_processing_logs(job_status, created_at DESC);
+CREATE INDEX idx_ai_processing_logs_error ON ai_processing_logs(error_category, created_at DESC) 
+  WHERE error_category IS NOT NULL;
+CREATE INDEX idx_ai_processing_logs_files ON ai_processing_logs USING gin(file_ids);
+CREATE INDEX idx_ai_processing_logs_metadata ON ai_processing_logs USING gin(input_metadata);
+```
+
+**input_metadata の例:**
+
+```json
+{
+    "files": [
+        {
+            "file_id": "550e8400-e29b-41d4-a716-446655440000",
+            "file_type": "pdf",
+            "file_size_bytes": 2048576,
+            "page_count": 10,
+            "order": 1,
+            "file_url": "https://storage.googleapis.com/eduanima-uploads/..."
+        },
+        {
+            "file_id": "550e8400-e29b-41d4-a716-446655440001",
+            "file_type": "jpeg",
+            "file_size_bytes": 512000,
+            "order": 2,
+            "file_url": "https://storage.googleapis.com/eduanima-uploads/..."
+        }
+    ],
+    "user_text_id": "550e8400-e29b-41d4-a716-446655440002",
+    "user_text_length": 500,
+    "has_chapter_info": true,
+    "user_language": "ja"
+}
+```
+
+**output_metadata の例:**
+
+```json
+{
+    "ocr_confidence": 0.95,
+    "detected_language": "ja",
+    "page_count": 10,
+    "question_count": 5,
+    "structure_analysis": {
+        "has_multiple_choice": true,
+        "has_essay": false,
+        "difficulty_distribution": {
+            "basic": 2,
+            "standard": 2,
+            "advanced": 1
+        }
+    }
+}
+```
+
+**設計注記:**
+- **複数ファイル対応**: 
+  - `file_ids`: UUID配列でファイルを追跡
+  - `file_count`: ファイル数（冗長だが統計で頻繁に使用）
+  - `total_file_size_bytes`: 合計ファイルサイズ
+  - 順序情報は`input_metadata.files[].order`で管理
+- **ユーザーテキスト対応**: 
+  - `user_text_id`: master_submitted_texts参照（論理的）
+  - OCR失敗時のフォールバックテキストとして使用
+- **input_metadata柔軟性**: 
+  - JSONB形式で多様な入力パターンに対応
+  - ファイル詳細、テキスト情報、言語設定などを格納
+- **パーティショニング**: 
+  - 月次パーティション（自動作成推奨）
+  - 2年保持、古いパーティションは自動削除
+- **ENUM統一**: 
+  - `ai_job_type_enum`: ジョブタイプの型安全性
+  - `ai_error_category_enum`: master_ocr_contents、master_submitted_textsと共通
+
+**sqlcクエリ例:**
+
+```sql
+-- name: CreateAIProcessingLog :one
+INSERT INTO ai_processing_logs (
+    job_type, job_status, user_id,
+    file_ids, file_count, total_file_size_bytes,
+    user_text_id, input_metadata,
+    ai_model, ai_provider
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+)
+RETURNING *;
+
+-- name: UpdateAIProcessingLogSuccess :exec
+UPDATE ai_processing_logs
+SET 
+    job_status = 'completed',
+    output_metadata = $1,
+    result_id = $2,
+    prompt_tokens = $3,
+    completion_tokens = $4,
+    total_tokens = $5,
+    processing_time_ms = $6,
+    completed_at = NOW()
+WHERE job_id = $7;
+
+-- name: UpdateAIProcessingLogError :exec
+UPDATE ai_processing_logs
+SET 
+    job_status = 'failed',
+    error_message = $1,
+    error_category = $2,
+    retry_count = retry_count + 1,
+    completed_at = NOW()
+WHERE job_id = $3;
+
+-- name: GetAIProcessingLog :one
+SELECT * FROM ai_processing_logs
+WHERE job_id = $1;
+
+-- name: ListAIProcessingLogsByUser :many
+SELECT * FROM ai_processing_logs
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: GetAIProcessingStats :one
+SELECT 
+    job_type,
+    COUNT(*) as total_jobs,
+    COUNT(CASE WHEN job_status = 'completed' THEN 1 END) as success_count,
+    COUNT(CASE WHEN job_status = 'failed' THEN 1 END) as failed_count,
+    AVG(CASE WHEN job_status = 'completed' THEN processing_time_ms END) as avg_processing_time_ms,
+    AVG(CASE WHEN job_status = 'completed' THEN total_tokens END) as avg_tokens
+FROM ai_processing_logs
+WHERE created_at >= $1 AND created_at < $2
+GROUP BY job_type;
+
+-- name: GetErrorStatsByCategory :many
+SELECT 
+    error_category,
+    COUNT(*) as error_count,
+    COUNT(DISTINCT user_id) as affected_users
+FROM ai_processing_logs
+WHERE error_category IS NOT NULL
+  AND created_at >= $1 AND created_at < $2
+GROUP BY error_category
+ORDER BY error_count DESC;
+
+-- name: ListFailedJobsForRetry :many
+SELECT * FROM ai_processing_logs
+WHERE job_status = 'failed'
+  AND retry_count < $1
+  AND created_at >= NOW() - INTERVAL '24 hours'
+ORDER BY created_at
+LIMIT $2;
+```
+
+**Goコード例:**
+
+```go
+// internal/service/ai_logger.go
+func (s *AILoggerService) LogJobStart(ctx context.Context, req LogJobStartRequest) (*AIProcessingLog, error) {
+    // 入力メタデータ構築
+    inputMetadata := map[string]interface{}{
+        "files":            req.Files,
+        "user_text_id":     req.UserTextID,
+        "user_text_length": req.UserTextLength,
+        "has_chapter_info": req.HasChapterInfo,
+        "user_language":    req.UserLanguage,
+    }
+    
+    inputJSON, err := json.Marshal(inputMetadata)
+    if err != nil {
+        return nil, err
+    }
+    
+    // ログレコード作成
+    log, err := s.queries.CreateAIProcessingLog(ctx, dbgen.CreateAIProcessingLogParams{
+        JobType:            req.JobType,
+        JobStatus:          dbgen.JobStatusEnumPending,
+        UserID:             req.UserID,
+        FileIDs:            req.FileIDs,
+        FileCount:          int32(len(req.FileIDs)),
+        TotalFileSizeBytes: req.TotalFileSizeBytes,
+        UserTextID:         req.UserTextID,
+        InputMetadata:      inputJSON,
+        AiModel:            req.AIModel,
+        AiProvider:         req.AIProvider,
+    })
+    return log, err
+}
+
+// ジョブ成功時
+func (s *AILoggerService) LogJobSuccess(ctx context.Context, jobID uuid.UUID, result LogJobSuccessRequest) error {
+    outputJSON, err := json.Marshal(result.OutputMetadata)
+    if err != nil {
+        return err
+    }
+    
+    return s.queries.UpdateAIProcessingLogSuccess(ctx, dbgen.UpdateAIProcessingLogSuccessParams{
+        OutputMetadata:    outputJSON,
+        ResultID:          result.ResultID,
+        PromptTokens:      sql.NullInt32{Int32: result.PromptTokens, Valid: true},
+        CompletionTokens:  sql.NullInt32{Int32: result.CompletionTokens, Valid: true},
+        TotalTokens:       sql.NullInt32{Int32: result.TotalTokens, Valid: true},
+        ProcessingTimeMs:  sql.NullInt32{Int32: result.ProcessingTimeMs, Valid: true},
+        JobID:             jobID,
+    })
+}
+
+// ジョブ失敗時
+func (s *AILoggerService) LogJobError(ctx context.Context, jobID uuid.UUID, err error, category dbgen.AiErrorCategoryEnum) error {
+    return s.queries.UpdateAIProcessingLogError(ctx, dbgen.UpdateAIProcessingLogErrorParams{
+        ErrorMessage:  sql.NullString{String: err.Error(), Valid: true},
+        ErrorCategory: dbgen.NullAiErrorCategoryEnum{AiErrorCategoryEnum: category, Valid: true},
+        JobID:         jobID,
+    })
+}
+```
+
+### ログ管理（ELK + PostgreSQL）
+
+#### **ELK Stack（短期ログ）**
 
 - **Elasticsearch**: ログ保存・検索
 - **Logstash**: ログパイプライン
@@ -4577,14 +5124,14 @@ EduanimaAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
 
 ```json
 {
-  "timestamp": "2025-01-15T10:30:00Z",
+  "timestamp": "2026-02-11T10:30:00Z",
   "level": "info",
   "service": "EduanimaAiWorker",
   "job_id": "550e8400-e29b-41d4-a716-446655440000",
-  "job_type": "ocr_processing",
+  "job_type": "ocr",
   "file_id": "abc12345",
   "processing_time_ms": 2500,
-  "model": "gemini-vision-1.5",
+  "model": "gemini-2.0-flash-exp",
   "status": "completed",
   "metadata": {
     "pages_processed": 10,
@@ -4593,10 +5140,18 @@ EduanimaAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
 }
 ```
 
+#### **PostgreSQL（長期ログ）**
+
+- ai_processing_logs テーブルに構造化データ保存
+- 統計分析、監査証跡、パフォーマンスモニタリング
+- 2年保持（パーティション自動削除）
+
 **設計注記:**
-- DBなしでシステム全体のI/O負荷を削減
-- AI処理の状態はKafkaイベントで追跡
-- 長期ログ分析はElasticsearchで実施
+- ELKとPostgreSQLの役割分担が明確
+- リアルタイム監視はELK、長期分析はPostgreSQL
+- ログDBなしでシステム全体のI/O負荷を削減（本体DBへの影響を最小化）
+- AI処理の状態はKafkaイベント + PostgreSQLログで追跡
+- 長期ログ分析はPostgreSQLで実施
 
 ---
 
@@ -6432,6 +6987,36 @@ SELECT * FROM exams WHERE status = 'active' ORDER BY created_at DESC LIMIT 20;
 
 本セクションでは、Eduanimaプロジェクト全体で共通適用すべきデータベース設計の原則と標準を定義します。これらは全マイクロサービス・全環境（開発/ステージング/本番）で必須の設計思想であり、個別サービスのスキーマ設計時には必ずこれらの指針に従う必要があります。
 
+#### **16.14.0 Phase 1（MVP）データベース構成（v8.6.0更新）**
+
+**データベース数: 15個**
+
+Phase 1で導入されるPostgreSQLデータベースの完全なリストです：
+
+**本体データベース（7個）:**
+1. `Eduanima_users_main` - ユーザー・認証管理
+2. `Eduanima_gateways_main` - ジョブオーケストレーション
+3. `Eduanima_files_main` - ファイルストレージ管理
+4. `Eduanima_contents_main` - 試験・問題・統計管理
+5. `Eduanima_contents_search` - 検索用語管理
+6. `Eduanima_contents_master` - OCRテキスト・ユーザーテキスト（暗号化対象）
+7. `Eduanima_moderation_main` - 通報管理
+
+**ログデータベース（8個）:**
+8. `Eduanima_users_logs` - 認証・ユーザープロフィールログ
+9. `Eduanima_gateways_logs` - ジョブログ
+10. `Eduanima_files_logs` - ファイルログ
+11. `Eduanima_contents_logs` - コンテンツログ
+12. `Eduanima_search_logs` - 検索ログ
+13. `Eduanima_moderation_logs` - 通報ログ
+14. `Eduanima_ai_worker_logs` - AI処理ログ（v8.6.0新設）★
+
+**注記:**
+- Phase 2（製品版）: + EduanimaMonetizeWallet, EduanimaRevenue, EduanimaSocial
+- Phase 3（拡張版）: + 多言語・推薦等
+- EduanimaSearch: 物理DB廃止、Elasticsearchのみ使用
+- EduanimaAiWorker: v8.6.0でログDB追加（ai_processing_logs永続化）
+
 #### **16.14.1 PostgreSQL 18.1標準化**
 
 **採用バージョン**: PostgreSQL 18.1（2025年10月リリース）
@@ -7878,7 +8463,214 @@ func (s *ExamService) UpdateExamStatus(ctx context.Context, examID string, newSt
 }
 ```
 
-### 18.3.1 国際化対応テーブル定義（v7.4.0追加）
+### 18.3.1 Eduanima_contents_master スキーマ定義（v8.6.0新設）
+
+#### **enums.hcl - AI処理関連ENUM定義**
+
+```hcl
+# internal/db/schema/eduanima_contents_master/enums.hcl
+
+schema "public" {}
+
+# ファイル形式（Gemini API対応）
+enum "file_type_enum" {
+  schema = schema.public
+  values = [
+    # 画像フォーマット
+    "png", "jpeg", "jpg", "webp", "heic", "heif",
+    # ドキュメントフォーマット
+    "pdf",
+    # テキスト・コードフォーマット
+    "txt", "html", "css", "csv", "xml", "rtf", "json", "md", "markdown",
+    # ソースコードフォーマット
+    "py", "js", "ts", "java", "cpp", "c", "go", "rb", "php",
+    "other"
+  ]
+}
+
+# AIエラーカテゴリ（OCR・AI処理共通）
+enum "ai_error_category_enum" {
+  schema = schema.public
+  values = [
+    "file_corrupt",
+    "unsupported_format",
+    "low_quality_image",
+    "text_too_blurry",
+    "no_text_detected",
+    "api_rate_limit",
+    "api_timeout",
+    "api_error",
+    "insufficient_context",
+    "processing_error",
+    "unknown"
+  ]
+}
+```
+
+#### **master_submitted_texts.hcl - ユーザー送信テキストテーブル**
+
+```hcl
+# internal/db/schema/eduanima_contents_master/master_submitted_texts.hcl
+
+schema "public" {}
+
+table "master_submitted_texts" {
+  schema = schema.public
+  
+  column "text_id" {
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  
+  column "user_id" {
+    type = uuid
+    null = false
+  }
+  
+  # コンテンツ（暗号化対象）
+  column "text_content" {
+    type = text
+    null = false
+  }
+  
+  column "content_hash" {
+    type = varchar(64)
+    null = false
+    comment = "SHA-256ハッシュ（重複検出用）"
+  }
+  
+  # 構造情報（オプション）
+  column "chapter_info" {
+    type = jsonb
+    comment = "ユーザー指定の章立て情報"
+  }
+  
+  # GCS Vault情報
+  column "bucket_name" {
+    type = varchar(200)
+  }
+  
+  column "object_path" {
+    type = text
+  }
+  
+  column "kms_key_name" {
+    type = varchar(500)
+  }
+  
+  column "uploaded_at" {
+    type = timestamptz
+  }
+  
+  # フォールバック情報
+  column "is_used_as_fallback" {
+    type    = boolean
+    default = false
+  }
+  
+  column "fallback_job_id" {
+    type = uuid
+    comment = "ai_processing_logs.job_idを参照（論理的）"
+  }
+  
+  column "fallback_reason" {
+    type = enum.ai_error_category_enum
+  }
+  
+  # タイムスタンプ（イミュータブル）
+  column "created_at" {
+    type    = timestamptz
+    default = sql("NOW()")
+    null    = false
+  }
+  
+  primary_key {
+    columns = [column.text_id]
+  }
+  
+  index "idx_master_submitted_texts_user_id" {
+    columns = [column.user_id, column.created_at]
+    on {
+      expr = "created_at DESC"
+    }
+  }
+  
+  index "idx_master_submitted_texts_hash" {
+    columns = [column.content_hash]
+  }
+  
+  index "idx_master_submitted_texts_fallback" {
+    columns = [column.is_used_as_fallback, column.fallback_reason]
+    where   = "is_used_as_fallback = TRUE"
+  }
+  
+  index "idx_master_submitted_texts_vault_migration" {
+    columns = [column.created_at]
+    where   = "bucket_name IS NULL"
+  }
+}
+```
+
+#### **sqlcクエリ例（master_submitted_texts）**
+
+```sql
+-- internal/db/queries/eduanima_contents_master/master_submitted_texts.sql
+
+-- name: CreateMasterSubmittedText :one
+INSERT INTO master_submitted_texts (
+    user_id, text_content, content_hash, chapter_info
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING *;
+
+-- name: GetMasterSubmittedText :one
+SELECT * FROM master_submitted_texts
+WHERE text_id = $1;
+
+-- name: GetMasterSubmittedTextByHash :one
+SELECT * FROM master_submitted_texts
+WHERE content_hash = $1
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: UpdateTextFallbackStatus :exec
+UPDATE master_submitted_texts
+SET 
+    is_used_as_fallback = $1,
+    fallback_job_id = $2,
+    fallback_reason = $3
+WHERE text_id = $4;
+
+-- name: UpdateTextVaultInfo :exec
+UPDATE master_submitted_texts
+SET 
+    bucket_name = $1,
+    object_path = $2,
+    kms_key_name = $3,
+    uploaded_at = NOW()
+WHERE text_id = $4;
+
+-- name: ListTextsForVaultMigration :many
+SELECT text_id, user_id, text_content, created_at
+FROM master_submitted_texts
+WHERE bucket_name IS NULL
+  AND created_at < NOW() - INTERVAL '7 days'
+ORDER BY created_at
+LIMIT $1;
+
+-- name: GetFallbackStatsByReason :many
+SELECT 
+    fallback_reason,
+    COUNT(*) as count,
+    COUNT(DISTINCT user_id) as unique_users
+FROM master_submitted_texts
+WHERE is_used_as_fallback = TRUE
+GROUP BY fallback_reason
+ORDER BY count DESC;
+```
+
+### 18.3.2 国際化対応テーブル定義（v7.4.0追加）
 
 #### **institutions.hcl - 国際化対応機関テーブル**
 
@@ -8075,7 +8867,7 @@ INSERT INTO institutions (
 RETURNING *;
 ```
 
-### 18.3.2 全エンティティ国際化対応方針（v7.5.1新設）
+### 18.3.3 全エンティティ国際化対応方針（v7.5.1新設）
 
 #### 対応必須エンティティ
 - ✅ institutions (v7.4.0対応済み)
