@@ -5,7 +5,7 @@ CI には最小限、Prod 用の機密は Secret Manager で管理。`VITE_API_B
 ## 1. アプリ動作・API
 | 変数名 | Local (.env) | CI | Prod | Secret | 説明 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `VITE_API_BASE_URL` | `http://localhost:9000` | 必須 | `https://gateway.edumint.app` | No | API Gateway ベースURL |
+| `VITE_API_BASE_URL` | `http://localhost:9000` | 必須 | `https://gateway.eduanima.app` | No | API Gateway ベースURL |
 | `VITE_APP_ENV` | `local` | `ci` | `production` | No | 環境識別 |
 | `VITE_SENTRY_DSN` | (任意) | (任意) | sm://`sentry-dsn` | Yes | エラー送信用 |
 | `VITE_ENABLE_MSW` | `true/false` | `false` | `false` | No | MSW を起動する（DEV のみ有効化。PROD では絶対に起動しない） |
@@ -13,7 +13,7 @@ CI には最小限、Prod 用の機密は Secret Manager で管理。`VITE_API_B
 | `VITE_ENABLE_WALLET` | `false` | `false` | `true/false` | No | Wallet 機能フラグ |
 | `VITE_ENABLE_SOCIAL` | `false` | `false` | `true/false` | No | Social 機能フラグ |
 | `VITE_ENABLE_ADS` | `false` | `false` | `true/false` | No | 広告/収益機能フラグ |
-| `VITE_STATUS_PAGE_URL` | (任意) | (任意) | `https://status.edumint...` | No | ヘルス障害時の遷移先（任意） |
+| `VITE_STATUS_PAGE_URL` | (任意) | (任意) | `https://status.eduanima...` | No | ヘルス障害時の遷移先（任意） |
 
 ## 2. ヘルス/ポーリング
 | 変数名 | Local | CI | Prod | 説明 |

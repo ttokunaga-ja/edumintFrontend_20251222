@@ -299,7 +299,7 @@ sx={{
 ## 📞 サポート＆連絡先
 
 ### 質問・相談
-- **Slack**: #edumint-frontend チャネル
+- **Slack**: #eduanima-frontend チャネル
 - **GitHub Issues**: `[QUESTION] ProblemViewEditPage: ...` ラベル
 - **対面**: 週 1 回設計レビュー会議
 

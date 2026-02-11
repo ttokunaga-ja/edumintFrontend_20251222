@@ -320,5 +320,5 @@ src/features/content/
 ---
 
 **実装完了日**: 2026年1月1日  
-**開発チーム**: EduMint Frontend Team  
+**開発チーム**: Eduanima Frontend Team  
 **プロジェクト**: Problem Editor UI Refactoring

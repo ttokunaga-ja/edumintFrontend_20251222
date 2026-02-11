@@ -277,7 +277,7 @@ export function TopMenuBar() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                Edumint
+                Eduanima
               </Typography>
             </Box>
           </Box>

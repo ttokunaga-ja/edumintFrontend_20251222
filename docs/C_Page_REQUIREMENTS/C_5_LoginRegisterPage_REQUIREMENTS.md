@@ -31,7 +31,7 @@
 ├──────────────────────────────────────────────────────────────┤
 │ Centered Auth Card                                            │
 │  ┌─────────────────────────────────────────────────────────┐ │
-│  │ Logo / EduMint                                           │ │
+│  │ Logo / Eduanima                                           │ │
 │  │ ContextHealthAlert (auth outage/maintenance)              │ │
 │  │                                                         │ │
 │  │ [Googleでログイン]                                        │ │
@@ -54,4 +54,4 @@
 
 ## Sources
 - `../overview/requirements.md`, `../overview/use-cases.md`
-- `../architecture/edumint_architecture.md`（OIDC/PKCE 前提）
+- `../architecture/eduanima_architecture.md`（OIDC/PKCE 前提）

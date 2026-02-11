@@ -90,5 +90,5 @@ Mobile:
 
 ## Sources
 - `../overview/use-cases.md`（UC-09, UC-12, UC-13）
-- `../architecture/edumint_architecture.md`
+- `../architecture/eduanima_architecture.md`
 - `../architecture/database.md`（通報システムの概念/テーブル）

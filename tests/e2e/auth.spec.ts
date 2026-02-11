@@ -37,7 +37,7 @@ test.describe('認証フロー', () => {
     await expect(page.getByRole('button', { name: 'ログアウト' })).toBeVisible({ timeout: 10000 });
     
     // ユーザー情報（メールアドレス）はモックの状態に依存するため、MyPage固有の見出しで表示を確認する
-    await expect(page.getByRole('heading', { name: 'Edumintアカウント設定' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Eduanimaアカウント設定' })).toBeVisible({ timeout: 10000 });
 
     // ログアウトボタンをクリック（role ベースのセレクタ、遷移を同時に待つ）
     const logoutButton = page.getByRole('button', { name: 'ログアウト' });

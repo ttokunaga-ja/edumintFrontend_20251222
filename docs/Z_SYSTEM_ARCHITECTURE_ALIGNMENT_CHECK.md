@@ -11,60 +11,60 @@
 ### 図から読み取れるサービス間関係性
 
 ```
-┌─ edumintFrontend (React/TS)
+┌─ eduanimaFrontend (React/TS)
 │
-├─→ c20-edit profile: edumintUserProfile ←→ edumintGateway
+├─→ c20-edit profile: eduanimaUserProfile ←→ eduanimaGateway
 │
-├─→ c21-SSO, c22-Publish cookie: edumintGateway ←→ edumintAuth
+├─→ c21-SSO, c22-Publish cookie: eduanimaGateway ←→ eduanimaAuth
 │
-├─ edumintGateway
-│   ├─→ c1-jobID: → edumintContents
-│   ├─→ c2-jobID: → edumintFile
-│   ├─→ c3-jobID: → edumintContents (別フロー)
-│   └─→ c1-file.jobID: → edumintFile
+├─ eduanimaGateway
+│   ├─→ c1-jobID: → eduanimaContents
+│   ├─→ c2-jobID: → eduanimaFile
+│   ├─→ c3-jobID: → eduanimaContents (別フロー)
+│   └─→ c1-file.jobID: → eduanimaFile
 │
-├─ edumintFile
-│   ├─→ c1-markdown, jText: → edumintAiWorker
+├─ eduanimaFile
+│   ├─→ c1-markdown, jText: → eduanimaAiWorker
 │   └─→ c1-file to Markdown request, jobID
 │
-├─ edumintAiWorker
-│   ├─ c2-Markdown analyzed.JSON: ← edumintFile input
-│   ├─ c1-markdown, jText: (receive from edumintFile)
-│   └─→ c3-analyzed JSON to full exam JSON: → edumintContents
+├─ eduanimaAiWorker
+│   ├─ c2-Markdown analyzed.JSON: ← eduanimaFile input
+│   ├─ c1-markdown, jText: (receive from eduanimaFile)
+│   └─→ c3-analyzed JSON to full exam JSON: → eduanimaContents
 │
-├─ edumintContents
-│   ├─← c2-Markdown analyzed.JSON: (from edumintAiWorker)
+├─ eduanimaContents
+│   ├─← c2-Markdown analyzed.JSON: (from eduanimaAiWorker)
 │   ├─← c3-analyzed JSON to full exam JSON
-│   └─↔ c4-embedding search query: ←→ edumintSearch
+│   └─↔ c4-embedding search query: ←→ eduanimaSearch
 │
-├─ edumintSearch
+├─ eduanimaSearch
 │   └─ c4-embedding: (search query embedding)
 │
-└─ edumintUserProfile
-   ├─ c20-edit profile: (to/from edumintGateway)
-   └─ c4-search: (to edumintSearch with embedding search query)
+└─ eduanimaUserProfile
+   ├─ c20-edit profile: (to/from eduanimaGateway)
+   └─ c4-search: (to eduanimaSearch with embedding search query)
 ```
 
 ### Q_DATAMODEL_INTEGRATED.md での対応関係
 
 | 図の関係性 | ドキュメント記載 | 整合性 | 詳細 |
 | :--- | :--- | :--- | :--- |
-| **c20-edit profile** | Section 4.3 (edumintUserProfile 管理) | ✅ 完全一致 | edumintGateway → edumintUserProfile への API ルーティング。ユーザープロフィール更新フロー を明記 |
-| **c21-SSO, c22-Publish cookie** | Section 4.1-2 (edumintAuth 管理) | ✅ 完全一致 | OAuth2/OIDC フロー、JWT トークン発行を `oauth_tokens` で管理。Kafka `auth.events` で認証事件を通知 |
-| **c1-jobID (Gateway→Contents)** | Section 5.1 (`jobs` テーブル)、Section 11.1 (試験作成フロー) | ✅ 完全一致 | edumintGateway が `jobs` テーブルで全ジョブ管理。`gateway.jobs` Kafka トピックで `job.created` イベント発行 |
-| **c2-jobID (Gateway→File)** | Section 5.2 (`file_inputs`, `file_upload_jobs`) | ✅ 完全一致 | edumintFile が `gateway.jobs` 購読→ファイル処理開始。`content.jobs` で `FileUploaded` イベント発行 |
-| **c1-file.jobID (File→AiWorker)** | Section 5.2 (`file_inputs`)、Section 11.1 フロー step 19-21 | ✅ 完全一致 | edumintFile が`content.jobs` → `FileUploaded` 発行 → edumintAiWorker が購読して OCR/AI 処理開始。ファイルパス、ジョブID を含む |
-| **c1-markdown, jText (File→AiWorker)** | Section 11.1 フロー、Section 5.2 | ✅ 完全一致 | Markdown テキスト、JSON を edumintFile から edumintAiWorker へ転送（ペイロード内） |
-| **c2-Markdown analyzed.JSON (AiWorker→Contents)** | Section 11.1 フロー step 20-22 | ✅ 完全一致 | edumintAiWorker が Gemini API で抽出した問題構造（JSON）を `ai.results` → `AIProcessingCompleted` イベントで発行 |
-| **c3-analyzed JSON to full exam JSON (AiWorker→Contents)** | Section 11.1 フロー step 22-25 | ✅ 完全一致 | edumintContent が `ai.results` 購読→ questions, sub_questions を DB 挿入→ `content.lifecycle` → `ExamCompleted` 発行 |
-| **c4-embedding search query (Contents←→Search)** | Section 7 (検索・キーワード・オートコンプリート)、Section 11.1 イベント駆動フロー | ✅ 完全一致 | edumintSearch が `content.lifecycle` 購読→ Elasticsearch/Qdrant インデックス更新。`content.feedback` で embedded search 対応 |
-| **c4-search (UserProfile→Search)** | Section 4.3 (edumintUserProfile)→ Section 7 (edumintSearch) | ✅ 完全一致 | ユーザーの検索リクエストは edumintGateway 経由で edumintSearch へ。`*_terms` テーブル使用 |
+| **c20-edit profile** | Section 4.3 (eduanimaUserProfile 管理) | ✅ 完全一致 | eduanimaGateway → eduanimaUserProfile への API ルーティング。ユーザープロフィール更新フロー を明記 |
+| **c21-SSO, c22-Publish cookie** | Section 4.1-2 (eduanimaAuth 管理) | ✅ 完全一致 | OAuth2/OIDC フロー、JWT トークン発行を `oauth_tokens` で管理。Kafka `auth.events` で認証事件を通知 |
+| **c1-jobID (Gateway→Contents)** | Section 5.1 (`jobs` テーブル)、Section 11.1 (試験作成フロー) | ✅ 完全一致 | eduanimaGateway が `jobs` テーブルで全ジョブ管理。`gateway.jobs` Kafka トピックで `job.created` イベント発行 |
+| **c2-jobID (Gateway→File)** | Section 5.2 (`file_inputs`, `file_upload_jobs`) | ✅ 完全一致 | eduanimaFile が `gateway.jobs` 購読→ファイル処理開始。`content.jobs` で `FileUploaded` イベント発行 |
+| **c1-file.jobID (File→AiWorker)** | Section 5.2 (`file_inputs`)、Section 11.1 フロー step 19-21 | ✅ 完全一致 | eduanimaFile が`content.jobs` → `FileUploaded` 発行 → eduanimaAiWorker が購読して OCR/AI 処理開始。ファイルパス、ジョブID を含む |
+| **c1-markdown, jText (File→AiWorker)** | Section 11.1 フロー、Section 5.2 | ✅ 完全一致 | Markdown テキスト、JSON を eduanimaFile から eduanimaAiWorker へ転送（ペイロード内） |
+| **c2-Markdown analyzed.JSON (AiWorker→Contents)** | Section 11.1 フロー step 20-22 | ✅ 完全一致 | eduanimaAiWorker が Gemini API で抽出した問題構造（JSON）を `ai.results` → `AIProcessingCompleted` イベントで発行 |
+| **c3-analyzed JSON to full exam JSON (AiWorker→Contents)** | Section 11.1 フロー step 22-25 | ✅ 完全一致 | eduanimaContent が `ai.results` 購読→ questions, sub_questions を DB 挿入→ `content.lifecycle` → `ExamCompleted` 発行 |
+| **c4-embedding search query (Contents←→Search)** | Section 7 (検索・キーワード・オートコンプリート)、Section 11.1 イベント駆動フロー | ✅ 完全一致 | eduanimaSearch が `content.lifecycle` 購読→ Elasticsearch/Qdrant インデックス更新。`content.feedback` で embedded search 対応 |
+| **c4-search (UserProfile→Search)** | Section 4.3 (eduanimaUserProfile)→ Section 7 (eduanimaSearch) | ✅ 完全一致 | ユーザーの検索リクエストは eduanimaGateway 経由で eduanimaSearch へ。`*_terms` テーブル使用 |
 
 ---
 
 ## ✅ 完全一致確認項目
 
-### 1. **ジョブオーケストレーション（edumintGateway）**
+### 1. **ジョブオーケストレーション（eduanimaGateway）**
 
 **図の要素**: `gateway → Contents (c1-jobID)`, `gateway → File (c2-jobID)`
 
@@ -72,9 +72,9 @@
 
 **詳細**:
 ```
-図: edumintGateway が jobID で edumintContents と edumintFile へ指示
+図: eduanimaGateway が jobID で eduanimaContents と eduanimaFile へ指示
 ドキュメント:
-  - Section 2: edumintGateway が `jobs` テーブル所有、`gateway.jobs` トピック発行
+  - Section 2: eduanimaGateway が `jobs` テーブル所有、`gateway.jobs` トピック発行
   - Section 5.1: jobs テーブルの詳細スキーマ（clientRequestId, status, resourceId等）
   - Section 11.1: ジョブ作成フロー - POST /v1/exams → jobs INSERT → gateway.jobs Publish
 ```
@@ -90,8 +90,8 @@
 図: ファイル → AI処理 → コンテンツデータに変換
 ドキュメント:
   - Section 5.2: file_inputs テーブル（analysis_status: pending→processing→completed）
-  - Section 11.1 step 19-21: edumintFile から edumintAiWorker へ、content.jobs 経由
-  - Section 11.1 step 22-25: edumintAiWorker の結果を edumintContent が受信、DB 挿入
+  - Section 11.1 step 19-21: eduanimaFile から eduanimaAiWorker へ、content.jobs 経由
+  - Section 11.1 step 22-25: eduanimaAiWorker の結果を eduanimaContent が受信、DB 挿入
   - Kafka トピック: `content.jobs` (FileUploaded) → ai.results (AIProcessingCompleted)
 ```
 
@@ -103,12 +103,12 @@
 
 **詳細**:
 ```
-図: edumintGateway が edumintAuth と SSO/Cookie ハンドシェイク
+図: eduanimaGateway が eduanimaAuth と SSO/Cookie ハンドシェイク
 ドキュメント:
-  - Section 4.1: edumintAuth が oauth_clients, oauth_tokens, idp_links テーブル管理
+  - Section 4.1: eduanimaAuth が oauth_clients, oauth_tokens, idp_links テーブル管理
   - Section 4.2: oauth_tokens で JWT トークン管理
   - Kafka トピック: auth.events (UserSignedUpViaSSO, UserLoggedIn)
-  - edumintUserProfile が auth.events 購読して users テーブルに自動作成
+  - eduanimaUserProfile が auth.events 購読して users テーブルに自動作成
 ```
 
 ### 4. **検索・インデックス（Search）**
@@ -119,7 +119,7 @@
 
 **詳細**:
 ```
-図: edumintContents と edumintSearch が双方向で embedding 検索クエリ
+図: eduanimaContents と eduanimaSearch が双方向で embedding 検索クエリ
 ドキュメント:
   - Section 7: Elasticsearch + Qdrant ベクトル検索の設計
   - Section 7.1: university_terms, faculty_terms, subject_terms, teacher_terms テーブル
@@ -136,12 +136,12 @@
 
 **詳細**:
 ```
-図: edumintUserProfile が edumintGateway を経由してプロフィール編集、検索へアクセス
+図: eduanimaUserProfile が eduanimaGateway を経由してプロフィール編集、検索へアクセス
 ドキュメント:
   - Section 4.3: users, user_profiles, user_follows, user_blocks, notifications テーブル
   - Section 4.3.1: users テーブル（display_name, bio, university_id等）
   - Kafka トピック: user.events で UserCreated, UserUpdated イベント
-  - edumintSearch が content.feedback 購読で検索インデックス更新
+  - eduanimaSearch が content.feedback 購読で検索インデックス更新
 ```
 
 ---
@@ -152,9 +152,9 @@
 
 | 項目 | ドキュメント | 理由 |
 | :--- | :--- | :--- |
-| **edumintSocial** | Section 8 | Phase 1 MVP では未実装（図では省略）。Phase 2 で exam_likes, exam_comments, exam_views 追加 |
-| **edumintMonetizeWallet** | Section 9.2 | Phase 2 以降で実装。MintCoin取引の強整合性を保証 |
-| **edumintModeration** | Section 10 | Phase 2 以降。コンテンツ・ユーザー通報管理 |
+| **eduanimaSocial** | Section 8 | Phase 1 MVP では未実装（図では省略）。Phase 2 で exam_likes, exam_comments, exam_views 追加 |
+| **eduanimaMonetizeWallet** | Section 9.2 | Phase 2 以降で実装。MintCoin取引の強整合性を保証 |
+| **eduanimaModeration** | Section 10 | Phase 2 以降。コンテンツ・ユーザー通報管理 |
 | **Kafka イベント仕様** | Section 11.2 | 図には全 Kafka トピックが表示されていない。ドキュメント表 11.2 で完全リスト |
 | **冪等性キー（clientRequestId）** | Section 5.1 | ジョブ重複作成の防止。図には明示されていないが、実装上の重要なポイント |
 
@@ -162,9 +162,9 @@
 
 | 通信パターン | 図での表現 | ドキュメント詳細 |
 | :--- | :--- | :--- |
-| **REST API** | 矢印ラベル（c1, c2等） | edumintGateway → 各サービスは gRPC-transcoding (REST と gRPC 間の変換) |
+| **REST API** | 矢印ラベル（c1, c2等） | eduanimaGateway → 各サービスは gRPC-transcoding (REST と gRPC 間の変換) |
 | **Kafka（非同期）** | 図では省略 | Section 11 でトピック＆イベント型を詳細化。図の矢印の「背景」には Kafka が稼働 |
-| **gRPC サービス間** | 図では省略 | edumintGateway 内部でサービスメッシュ（Istio）経由で mTLS 保護 |
+| **gRPC サービス間** | 図では省略 | eduanimaGateway 内部でサービスメッシュ（Istio）経由で mTLS 保護 |
 
 ---
 
@@ -202,11 +202,11 @@
 
 2. **図の凡例を ドキュメント内で定義**
    - c1, c2, c3, c4 の通信ラベルが何を示すかを明記
-   - 例: `c1-jobID` = edumintGateway → edumintContents へジョブ ID を指示（`gateway.jobs` トピック経由）
+   - 例: `c1-jobID` = eduanimaGateway → eduanimaContents へジョブ ID を指示（`gateway.jobs` トピック経由）
 
 3. **Phase 別図の提供**
    - Phase 1 MVP: 現在の図
-   - Phase 2: + edumintSocial, edumintMonetizeWallet, edumintModeration を追加
+   - Phase 2: + eduanimaSocial, eduanimaMonetizeWallet, eduanimaModeration を追加
 
 ### 図側
 
@@ -215,7 +215,7 @@
    - 同期呼び出し（REST/gRPC）と非同期（Kafka）を色分け
 
 2. **ジョブリソースの追加**
-   - edumintGateway の `jobs` テーブルボックスを視覚化
+   - eduanimaGateway の `jobs` テーブルボックスを視覚化
    - キャッシュ層（Redis）の位置付けを明記
 
 ---
@@ -224,10 +224,10 @@
 
 | 図の関係 | ドキュメントセクション |
 | :--- | :--- |
-| Gateway ↔ Auth (SSO) | [4.2 edumintAuth 管理テーブル](Q_DATAMODEL_INTEGRATED.md#42-edumintauth-管理テーブル) |
-| Gateway ↔ UserProfile | [4.3 edumintUserProfile 管理テーブル](Q_DATAMODEL_INTEGRATED.md#43-edumintUserProfile-管理テーブル) |
-| Gateway → Contents (jobID) | [5.1 edumintGateway: jobs テーブル](Q_DATAMODEL_INTEGRATED.md#51-edumintgateway-jobs-テーブル) |
-| Gateway → File (jobID) | [5.2 edumintFile: file_inputs テーブル](Q_DATAMODEL_INTEGRATED.md#52-edumintfile-file_inputs-テーブル) |
+| Gateway ↔ Auth (SSO) | [4.2 eduanimaAuth 管理テーブル](Q_DATAMODEL_INTEGRATED.md#42-eduanimaauth-管理テーブル) |
+| Gateway ↔ UserProfile | [4.3 eduanimaUserProfile 管理テーブル](Q_DATAMODEL_INTEGRATED.md#43-eduanimaUserProfile-管理テーブル) |
+| Gateway → Contents (jobID) | [5.1 eduanimaGateway: jobs テーブル](Q_DATAMODEL_INTEGRATED.md#51-eduanimagateway-jobs-テーブル) |
+| Gateway → File (jobID) | [5.2 eduanimaFile: file_inputs テーブル](Q_DATAMODEL_INTEGRATED.md#52-eduanimafile-file_inputs-テーブル) |
 | File → AiWorker → Contents | [11.1 試験作成フロー（詳細）](Q_DATAMODEL_INTEGRATED.md#111-試験作成フロー詳細) |
 | Contents ↔ Search (embedding) | [7 検索・キーワード・オートコンプリート](Q_DATAMODEL_INTEGRATED.md#7-検索キーワードオートコンプリート) |
 | Kafka イベント仕様 | [11.2 Kafka トピック一覧（最終版）](Q_DATAMODEL_INTEGRATED.md#112-kafka-トピック一覧最終版) |

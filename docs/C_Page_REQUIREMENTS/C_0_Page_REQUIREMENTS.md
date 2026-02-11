@@ -216,5 +216,5 @@ NFR-OPS-001:
 ## Sources
 - `../overview/requirements.md`, `../overview/ideal-requirements.md`, `../overview/current_implementation.md`
 - `../overview/use-cases.md`, `../overview/refactor-priorities.md`
-- `../architecture/edumint_architecture.md`
+- `../architecture/eduanima_architecture.md`
 - `../implementation/pages/home-page.md`, `../implementation/features/file-upload.md`, `../implementation/service-health/README.md`

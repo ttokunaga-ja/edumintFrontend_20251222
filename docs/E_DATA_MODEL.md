@@ -7,14 +7,14 @@
 本ドキュメントで定義される型は、以下のマイクロサービスアーキテクチャを前提としています：
 
 ### サービス責務分離
-- **edumintGateway**: 全てのジョブのライフサイクル管理（ジョブオーケストレーション）
-- **edumintContent**: 試験データのドメインロジック（Source of Truth）
-- **edumintSearch**: 検索インデックス（Elasticsearch + Qdrant）
-- **edumintAiWorker**: AI処理（Gemini API、ステートレス）
+- **eduanimaGateway**: 全てのジョブのライフサイクル管理（ジョブオーケストレーション）
+- **eduanimaContent**: 試験データのドメインロジック（Source of Truth）
+- **eduanimaSearch**: 検索インデックス（Elasticsearch + Qdrant）
+- **eduanimaAiWorker**: AI処理（Gemini API、ステートレス）
 
 ### ジョブ管理の責務
-- **edumintGateway**: `jobs` テーブルを所有し、全てのジョブタイプ（`exam_creation`, `file_processing`, `index_rebuild`等）を統一管理
-- **edumintContent**: ジョブ管理テーブルは保持せず、Kafka イベントを購読してドメインロジックを実行
+- **eduanimaGateway**: `jobs` テーブルを所有し、全てのジョブタイプ（`exam_creation`, `file_processing`, `index_rebuild`等）を統一管理
+- **eduanimaContent**: ジョブ管理テーブルは保持せず、Kafka イベントを購読してドメインロジックを実行
 - **イベント駆動**: ジョブの状態遷移は Kafka トピック（`gateway.jobs`, `content.lifecycle`, `ai.results`, `gateway.job_status`）を介して連携
 
 詳細は [Q_DATAMODEL_REFACTOR.md](Q_DATAMODEL_REFACTOR.md) および [F_ARCHITECTURE_OVERALL.md](F_ARCHITECTURE_OVERALL.md) を参照してください。
@@ -49,7 +49,7 @@ type Problem = {
 };
 
 // Generation job status
-// NOTE: ジョブ管理は edumintGateway が担当し、このデータは /v1/jobs/:id から取得されます
+// NOTE: ジョブ管理は eduanimaGateway が担当し、このデータは /v1/jobs/:id から取得されます
 type GenerationJob = {
   jobId: string;
   clientRequestId?: string;  // 冪等性キー（フロントエンド側で生成してリクエスト時に送信）
@@ -187,9 +187,9 @@ type Notification = {
     |   payload: { examName: "...", universityId: 101, ... }
     | }
     v
-[edumintGateway]
+[eduanimaGateway]
     |
-    | 1. JWT検証（edumintAuth）
+    | 1. JWT検証（eduanimaAuth）
     | 2. 冪等性チェック（clientRequestId で DUPLICATE KEY 検証）
     | 3. jobs テーブルに INSERT（status='pending'）
     | 4. Kafka Publish: job.created
@@ -199,7 +199,7 @@ type Notification = {
 [Kafka: gateway.jobs]
     |
     v
-[edumintContent]
+[eduanimaContent]
     |
     | 6. job.created イベントを購読
     | 7. exams, exam_stats テーブルに INSERT
@@ -209,25 +209,25 @@ type Notification = {
 [Kafka: content.lifecycle]
     |
     v
-[edumintGateway]
+[eduanimaGateway]
     |
     | 9. content.exam_created イベントを購読
     | 10. jobs テーブルを UPDATE（status='processing', resourceId=examId）
     v
-[edumintAiWorker]
+[eduanimaAiWorker]
     |
     | 11. job.processing イベントを購読
     | 12. AI処理（Gemini API で問題抽出）
     | 13. Kafka Publish: ai.processing_completed
     |     Topic: ai.results
     v
-[edumintContent]
+[eduanimaContent]
     |
     | 14. ai.processing_completed を購読
     | 15. questions, sub_questions テーブルに INSERT
     | 16. Kafka Publish: content.exam_completed
     v
-[edumintGateway]
+[eduanimaGateway]
     |
     | 17. content.exam_completed を購読
     | 18. jobs テーブルを UPDATE（status='completed', completedAt=NOW()）
@@ -241,7 +241,7 @@ type Notification = {
     | GET /v1/jobs/:jobId
     | （ポーリングまたはWebSocket経由で定期的に取得）
     v
-[edumintGateway]
+[eduanimaGateway]
     |
     | 1. Redis キャッシュをチェック
     | 2. キャッシュミス → jobs テーブルから SELECT
@@ -261,10 +261,10 @@ type Notification = {
 
 | トピック | Producer | Consumer | イベント |
 |---------|----------|----------|---------|
-| `gateway.jobs` | edumintGateway | edumintContent, edumintFile, edumintSearch | `job.created` |
-| `content.lifecycle` | edumintContent | edumintGateway, edumintSearch, edumintAiWorker | `exam_created`, `exam_updated`, `exam_deleted`, `exam_completed` |
-| `ai.results` | edumintAiWorker | edumintContent | `processing_completed`, `processing_failed` |
-| `gateway.job_status` | 各ドメインサービス | edumintGateway | `job_completed`, `job_failed` |
+| `gateway.jobs` | eduanimaGateway | eduanimaContent, eduanimaFile, eduanimaSearch | `job.created` |
+| `content.lifecycle` | eduanimaContent | eduanimaGateway, eduanimaSearch, eduanimaAiWorker | `exam_created`, `exam_updated`, `exam_deleted`, `exam_completed` |
+| `ai.results` | eduanimaAiWorker | eduanimaContent | `processing_completed`, `processing_failed` |
+| `gateway.job_status` | 各ドメインサービス | eduanimaGateway | `job_completed`, `job_failed` |
 
 ### フロントエンドの実装ガイドライン
 

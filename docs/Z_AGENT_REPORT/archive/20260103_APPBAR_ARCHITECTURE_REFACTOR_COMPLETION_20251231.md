@@ -1,7 +1,7 @@
 # アーキテクチャ修正完了レポート：AppBar制御の主導権移譲
 
 **実施日**: 2025年12月31日 (修正版)  
-**対象**: Edumint Frontend - TopMenuBar 主導による SAVE/Preview/Edit 制御統一
+**対象**: Eduanima Frontend - TopMenuBar 主導による SAVE/Preview/Edit 制御統一
 
 ---
 

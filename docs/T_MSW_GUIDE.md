@@ -38,7 +38,7 @@ MSW = API を「実装ごと差し替える」のではなく、`fetch` 等の�
 ## 3. 推奨ディレクトリ構造（このリポジトリ）
 
 ```text
-Edumintfrontedfigma/
+Eduanimafrontedfigma/
  ├─ public/
  │   └─ mockServiceWorker.js          # `npx msw init public/ --save` で生成
  └─ src/
@@ -69,7 +69,7 @@ Edumintfrontedfigma/
 ### 4.1 インストール
 
 ```bash
-cd Edumintfrontedfigma
+cd Eduanimafrontedfigma
 npm install -D msw
 npx msw init public/ --save
 ```

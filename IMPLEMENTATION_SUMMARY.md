@@ -9,17 +9,17 @@ Successfully completed comprehensive restructuring of `docs/Q_DATABASE_REFACTPR.
 ### 1. ✅ Microservice-Based Chapter Structure
 Reorganized entire document from mixed content to independent chapters (3-13) per microservice:
 
-- **Chapter 3**: edumintAuth (認証サービス)
-- **Chapter 4**: edumintUserProfile (ユーザープロフィールサービス)
-- **Chapter 5**: edumintContent (コンテンツ管理サービス)
-- **Chapter 6**: edumintFile (ファイル管理サービス)
-- **Chapter 7**: edumintSearch (検索サービス)
-- **Chapter 8**: edumintAiWorker (AI処理サービス)
-- **Chapter 9**: edumintSocial (ソーシャルサービス)
-- **Chapter 10**: edumintMonetizeWallet (ウォレット管理サービス)
-- **Chapter 11**: edumintRevenue (収益分配サービス)
-- **Chapter 12**: edumintModeration (通報管理サービス)
-- **Chapter 13**: edumintGateway (ジョブゲートウェイ)
+- **Chapter 3**: eduanimaAuth (認証サービス)
+- **Chapter 4**: eduanimaUserProfile (ユーザープロフィールサービス)
+- **Chapter 5**: eduanimaContent (コンテンツ管理サービス)
+- **Chapter 6**: eduanimaFile (ファイル管理サービス)
+- **Chapter 7**: eduanimaSearch (検索サービス)
+- **Chapter 8**: eduanimaAiWorker (AI処理サービス)
+- **Chapter 9**: eduanimaSocial (ソーシャルサービス)
+- **Chapter 10**: eduanimaMonetizeWallet (ウォレット管理サービス)
+- **Chapter 11**: eduanimaRevenue (収益分配サービス)
+- **Chapter 12**: eduanimaModeration (通報管理サービス)
+- **Chapter 13**: eduanimaGateway (ジョブゲートウェイ)
 
 Each microservice chapter follows consistent structure:
 - **X.1**: 本体DBテーブル (DDL例)
@@ -58,15 +58,15 @@ Documented **9 physically separated log databases**:
 
 | Log Database | Service | Retention |
 |--------------|---------|-----------|
-| edumint_auth_logs | edumintAuth | 1 year |
-| edumint_userprofile_logs | edumintUserProfile | 1 year |
-| edumint_content_logs | edumintContent | 2 years |
-| edumint_file_logs | edumintFile | 1 year |
-| edumint_search_logs | edumintSearch | 1 year |
-| edumint_wallet_logs | edumintMonetizeWallet | **7 years** (legal requirement) |
-| edumint_revenue_logs | edumintRevenue | 7 years |
-| edumint_moderation_logs | edumintModeration | 2 years |
-| edumint_gateway_logs | edumintGateway | 90 days |
+| eduanima_auth_logs | eduanimaAuth | 1 year |
+| eduanima_userprofile_logs | eduanimaUserProfile | 1 year |
+| eduanima_content_logs | eduanimaContent | 2 years |
+| eduanima_file_logs | eduanimaFile | 1 year |
+| eduanima_search_logs | eduanimaSearch | 1 year |
+| eduanima_wallet_logs | eduanimaMonetizeWallet | **7 years** (legal requirement) |
+| eduanima_revenue_logs | eduanimaRevenue | 7 years |
+| eduanima_moderation_logs | eduanimaModeration | 2 years |
+| eduanima_gateway_logs | eduanimaGateway | 90 days |
 
 All log tables use partitioning for efficient management:
 ```sql
@@ -154,16 +154,16 @@ Every microservice chapter includes:
 
 ### 10. ✅ Special Service Designs
 
-**edumintAiWorker (DB-less):**
+**eduanimaAiWorker (DB-less):**
 - Physical PostgreSQL DB completely removed
 - Stateless design for horizontal scaling
 - Logs managed exclusively via ELK Stack (Elasticsearch, Logstash, Kibana)
 
-**edumintSocial (No separate logs):**
+**eduanimaSocial (No separate logs):**
 - No dedicated log tables
 - Main tables (likes, comments, views) serve as activity logs
 
-**edumintMonetizeWallet (7-year retention):**
+**eduanimaMonetizeWallet (7-year retention):**
 - Legal requirement for financial transaction logs
 - `retention_until DATE` column for automated cleanup
 - Enhanced audit trail with signature hashes

@@ -107,7 +107,7 @@ export const AccountSettingsAccordion: FC<AccountSettingsAccordionProps> = ({
   return (
     <Box sx={{ mt: 4 }}>
       <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-        Edumintアカウント設定
+        Eduanimaアカウント設定
       </Typography>
 
       {/* ステータスアコーディオン */}

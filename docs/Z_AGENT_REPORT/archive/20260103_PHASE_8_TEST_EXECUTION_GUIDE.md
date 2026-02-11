@@ -96,7 +96,7 @@
 ```
 1. Edit モードで何か変更を加えた状態
 2. SAVE ボタン：enabled 状態を確認
-3. TopMenuBar のロゴ（「EDUMINT」）をクリック → ホームに遷移
+3. TopMenuBar のロゴ（「EDUANIMA」）をクリック → ホームに遷移
 4. コンソールで以下を確認：
    └─ "[TopMenuBar] handleNavigation: { path: '/', hasUnsavedChanges: true, isEditMode: true }"
 5. 画面中央上部にトースト警告が表示されることを確認：

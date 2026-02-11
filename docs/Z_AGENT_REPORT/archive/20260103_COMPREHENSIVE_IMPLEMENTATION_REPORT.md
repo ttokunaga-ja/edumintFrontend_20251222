@@ -1,8 +1,8 @@
-# EduMint Frontend - 総合実装レポート (Phase 1-3)
+# Eduanima Frontend - 総合実装レポート (Phase 1-3)
 
 **作成日**: 2025-12-30  
 **実施者**: GitHub Copilot  
-**対象プロジェクト**: edumintFrontend_20251222  
+**対象プロジェクト**: eduanimaFrontend_20251222  
 **実施期間**: Phase 0 (UI修正) → Phase 1 (Critical) → Phase 2 (Moderate) → Phase 3 (Minor)
 
 ---

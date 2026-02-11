@@ -1,7 +1,7 @@
 # ProblemEditor データ管理不具合 - 完全修正ガイド
 
 **制作日**: 2026年1月2日  
-**対象バージョン**: edumintFrontend v1.0  
+**対象バージョン**: eduanimaFrontend v1.0  
 **修正状態**: ✅ すべての不具合を完全修正
 
 ---

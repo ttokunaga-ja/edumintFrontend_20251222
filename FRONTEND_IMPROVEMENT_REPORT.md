@@ -1,11 +1,11 @@
 # Frontend Implementation Review & Improvement Report
 
 **Date:** 2026-01-13
-**Target:** `edumintFrontend_20251222`
+**Target:** `eduanimaFrontend_20251222`
 **Reviewer:** GitHub Copilot (Gemini 3 Pro)
 
 ## 1. 概要
-本ドキュメントは、edumintFrontend の現状の実装コードをレビューし、バックエンド (edumintGateway / edumintContent) との不整合を修正した内容、および今後の開発における推奨ベストプラクティスをまとめたものです。
+本ドキュメントは、eduanimaFrontend の現状の実装コードをレビューし、バックエンド (eduanimaGateway / eduanimaContent) との不整合を修正した内容、および今後の開発における推奨ベストプラクティスをまとめたものです。
 
 ---
 
@@ -132,7 +132,7 @@ export const getExam = async (id: string): Promise<Exam> => {
 3. `package.json` にスクリプトを追加:
    ```json
    "scripts": {
-     "gen:api": "openapi-generator-cli generate -i ../edumintGateway_docs/openapi.yaml -g typescript-axios -o src/services/api/generated"
+     "gen:api": "openapi-generator-cli generate -i ../eduanimaGateway_docs/openapi.yaml -g typescript-axios -o src/services/api/generated"
    }
    ```
 

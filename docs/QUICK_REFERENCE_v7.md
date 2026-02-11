@@ -13,17 +13,17 @@ Each follows this structure:
 
 | Chapter | Service | Main Features |
 |---------|---------|---------------|
-| 3 | edumintAuth | OAuth, tokens, IDP links |
-| 4 | edumintUserProfile | Users, profiles, follows, notifications |
-| 5 | edumintContent | Institutions, exams, questions (composite PKs) |
-| 6 | edumintFile | File uploads, OCR jobs |
-| 7 | edumintSearch | Search terms, Elasticsearch design |
-| 8 | edumintAiWorker | **DB-less** (ELK only) |
-| 9 | edumintSocial | Likes, comments, views (**no log tables**) |
-| 10 | edumintMonetizeWallet | Wallets, transactions (**7-year logs**) |
-| 11 | edumintRevenue | Revenue reports, ad aggregations |
-| 12 | edumintModeration | Content/user reports |
-| 13 | edumintGateway | Job orchestration |
+| 3 | eduanimaAuth | OAuth, tokens, IDP links |
+| 4 | eduanimaUserProfile | Users, profiles, follows, notifications |
+| 5 | eduanimaContent | Institutions, exams, questions (composite PKs) |
+| 6 | eduanimaFile | File uploads, OCR jobs |
+| 7 | eduanimaSearch | Search terms, Elasticsearch design |
+| 8 | eduanimaAiWorker | **DB-less** (ELK only) |
+| 9 | eduanimaSocial | Likes, comments, views (**no log tables**) |
+| 10 | eduanimaMonetizeWallet | Wallets, transactions (**7-year logs**) |
+| 11 | eduanimaRevenue | Revenue reports, ad aggregations |
+| 12 | eduanimaModeration | Content/user reports |
+| 13 | eduanimaGateway | Job orchestration |
 
 ### Reference Chapters (14-15)
 - **Chapter 14**: Event-driven flows (Kafka topics)
@@ -70,15 +70,15 @@ CREATE TABLE service_logs (
 ```
 
 **Physical DBs:**
-- `edumint_auth_logs`
-- `edumint_userprofile_logs`
-- `edumint_content_logs`
-- `edumint_file_logs`
-- `edumint_search_logs`
-- `edumint_wallet_logs` (7-year retention)
-- `edumint_revenue_logs`
-- `edumint_moderation_logs`
-- `edumint_gateway_logs`
+- `eduanima_auth_logs`
+- `eduanima_userprofile_logs`
+- `eduanima_content_logs`
+- `eduanima_file_logs`
+- `eduanima_search_logs`
+- `eduanima_wallet_logs` (7-year retention)
+- `eduanima_revenue_logs`
+- `eduanima_moderation_logs`
+- `eduanima_gateway_logs`
 
 ## ENUMs Reference
 
@@ -124,16 +124,16 @@ user_id UUID NOT NULL  -- users.idを参照（論理的）
 
 ## Special Configurations
 
-### edumintAiWorker
+### eduanimaAiWorker
 - **No PostgreSQL DB**
 - Stateless design
 - Logs via ELK Stack only
 
-### edumintSocial
+### eduanimaSocial
 - **No separate log tables**
 - Main tables serve as activity logs
 
-### edumintMonetizeWallet
+### eduanimaMonetizeWallet
 - **7-year log retention**
 - Legal requirement for financial records
 - `retention_until DATE` column

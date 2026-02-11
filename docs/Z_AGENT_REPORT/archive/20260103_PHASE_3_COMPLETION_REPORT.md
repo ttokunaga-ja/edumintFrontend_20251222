@@ -2,7 +2,7 @@
 
 **完了日**: 2025-12-30  
 **実施者**: GitHub Copilot  
-**対象**: edumintFrontend  
+**対象**: eduanimaFrontend  
 **目的**: グローバルCSS統合とUtility関数の整理
 
 ---

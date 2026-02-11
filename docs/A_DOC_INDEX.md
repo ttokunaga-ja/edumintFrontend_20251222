@@ -2,7 +2,7 @@
 
 個別に分割したテンプレート/方針ドキュメントへのリンク集。各ファイルは接頭辞で作成順を示す。A_ は索引（本ファイル）。
 
-## A-Z (edumintFrontendDocs) 一覧
+## A-Z (eduanimaFrontendDocs) 一覧
 - A: 索引 `A_DOC_INDEX.md`（本ファイル）
 - B: サービス憲章 `B_SERVICE_CHARTER.md`（責務/非責務とSLO）
 - C: 要件定義（FR/NFR）`C_REQUIREMENTS.md`
@@ -38,14 +38,14 @@
 - Y: Refactor v2（ディレクトリ再編・旧UI→新UI移行）`Y_REFACTOR2_REQUIREMENTS.md`
 - Z: MVPリリース向け最小改修 `Z_REFACTOR_REQUIREMENTS.md`
 
-## 集約元（edumintFrontendDocs 外の情報源）
+## 集約元（eduanimaFrontendDocs 外の情報源）
 このフォルダ以外に散在していた情報を、上記 A-Z のフォーマットへ整理して参照しやすくするためのソース一覧（元ファイル自体は保持）。
 
 - Overview（要件/現状/優先度/ユースケース）
   - `../overview/requirements.md`, `../overview/ideal-requirements.md`, `../overview/current_implementation.md`
   - `../overview/use-cases.md`, `../overview/refactor-priorities.md`
 - Architecture（全体アーキ/DB）
-  - `../architecture/edumint_architecture.md`, `../architecture/database.md`
+  - `../architecture/eduanima_architecture.md`, `../architecture/database.md`
 - Implementation（画面/機能/ヘルス/デザイン）
   - `../implementation/pages/home-page.md`, `../implementation/pages/topbar.md`
   - `../implementation/features/file-upload.md`, `../implementation/features/hamburger-menu.md`
@@ -58,7 +58,7 @@
   - `../services/search-service/*`（Frontend は Gateway 経由で利用。詳細理解の参照）
 
 ### 集約先マップ（トレーサビリティ）
-| ソース | 集約先（edumintFrontendDocs） |
+| ソース | 集約先（eduanimaFrontendDocs） |
 | --- | --- |
 | `../README.md` | `A_DOC_INDEX.md`（ソース一覧として保持） |
 | `../overview/requirements.md` | `C_REQUIREMENTS.md`, `C_1_...`, `C_2_...`, `C_3_...`, `C_4_...`, `C_5_...`, `D_INTERFACE_SPEC.md`, `E_DATA_MODEL.md` |
@@ -66,7 +66,7 @@
 | `../overview/current_implementation.md` | `F_ARCHITECTURE.md`, `D_INTERFACE_SPEC.md`, `Z_REFACTOR_REQUIREMENTS.md` |
 | `../overview/use-cases.md` | `R_USE_CASES.md`, `C_2_...`, `C_3_...`, `C_6_...`, `C_7_...` |
 | `../overview/refactor-priorities.md` | `Z_REFACTOR_REQUIREMENTS.md`, `O_TASK_PHASES.md` |
-| `../architecture/edumint_architecture.md` | `B_SERVICE_CHARTER.md`, `F_ARCHITECTURE.md`, `D_INTERFACE_SPEC.md` |
+| `../architecture/eduanima_architecture.md` | `B_SERVICE_CHARTER.md`, `F_ARCHITECTURE.md`, `D_INTERFACE_SPEC.md` |
 | `../architecture/database.md` | `E_DATA_MODEL.md`（画面データのトレーサビリティ） |
 | `../implementation/pages/home-page.md` | `C_1_...`, `D_1_...`, `S_UI_DESIGN_GUIDE.md` |
 | `../implementation/pages/topbar.md` | `D_0_...`, `S_UI_DESIGN_GUIDE.md` |
