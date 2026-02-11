@@ -5673,6 +5673,16 @@ CREATE TABLE social_logs_2026_03 PARTITION OF social_logs
 'match_requested'       -- マッチングリクエスト
 'match_accepted'        -- マッチング承認
 'match_rejected'        -- マッチング拒否
+
+-- ストーリー関連（Phase 3）
+'story_posted'          -- ストーリー投稿
+'story_viewed'          -- ストーリー閲覧
+'story_replied'         -- ストーリー返信
+'story_highlighted'     -- ストーリーハイライト追加
+
+-- モード切替関連（Phase 3）
+'mode_switched'         -- モード切替（learning ⇔ social）
+'subdomain_accessed'    -- サブドメインアクセス
 ```
 
 **保持期間:** 3ヶ月（分析用）
@@ -6900,7 +6910,8 @@ Eduanimaでは以下のKafkaトピックを通じてマイクロサービス間�
 | `search.indexed` | EduanimaSearch | - | `ContentIndexed` | 検索インデックス完了通知 |
 | `search.term_generation` | EduanimaSearch | EduanimaAiWorker | `TermGenerationRequested` | 用語生成要求 |
 | **`content.interaction`** | **EduanimaContents** | **EduanimaSearch, EduanimaSocial, EduanimaRevenue** | **`ExamViewed`, `ExamLiked`, `ExamUnliked`, `ExamBad`, `ExamShared`** | **ユーザーインタラクション統計イベント** |
-| `social.activity` | EduanimaSocial | EduanimaUsers, EduanimaContents | `ExamCommented`, `PostCreated`, `DMSent` | ソーシャル活動通知 |
+| `social.activity` | EduanimaSocial | EduanimaUsers, EduanimaContents | `ExamCommented`, `PostCreated`, `DMSent`, `StoryPosted` | ソーシャル活動通知 |
+| `social.mode_switch` | EduanimaSocial | EduanimaUsers, 分析システム | `ModeSwitched`, `SubdomainAccessed` | モード切替分析イベント（Phase 3） |
 | `content.feedback` | EduanimaSocial | EduanimaContents | `ExamLiked`, `ExamCommented`, `ExamViewed` | ソーシャルフィードバック |
 | `monetization.transactions` | EduanimaMonetizeWallet | EduanimaRevenue | `CoinEarned`, `CoinSpent` | ウォレットトランザクション |
 | `revenue.reports` | EduanimaRevenue | - | `RevenueCalculated`, `PaymentProcessed` | 収益レポート |
@@ -7518,8 +7529,8 @@ Phase 1で導入されるPostgreSQLデータベースの完全なリストです
 14. `Eduanima_ai_worker_logs` - AI処理ログ（v8.6.0新設）★
 
 **注記:**
-- Phase 2（製品版）: + EduanimaMonetizeWallet, EduanimaRevenue, EduanimaSocial
-- Phase 3（拡張版）: + 多言語・推薦等
+- Phase 2（製品版）: + EduanimaMonetizeWallet, EduanimaRevenue, EduanimaModeration
+- Phase 3（SNS拡張版）: + EduanimaSocial（サブドメイン分離、ハイブリッド型設計）、多言語・推薦機能拡張
 - EduanimaSearch: 物理DB廃止、Elasticsearchのみ使用
 - EduanimaAiWorker: v8.6.0でログDB追加（ai_processing_logs永続化）
 
