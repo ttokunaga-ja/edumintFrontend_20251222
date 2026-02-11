@@ -18,8 +18,9 @@
 - **Phase構成見直し**: EduanimaSocialをPhase 2 → Phase 3へ移行、段階的SNS拡張戦略の明確化
 - **EduanimaSocial Phase 3拡張設計**: サブドメイン分離 (`social.eduanima.com`)、ハイブリッド型設計（学習モード+SNSモード）
 - **SNS機能段階的展開**:
-  - Phase 2: 試験コメント、基本DM（学習補助機能）
-  - Phase 3: ストーリー、マッチング、拡張DM、投稿機能（フルSNS化）
+  - Phase 1 (MVP): 試験閲覧・検索・アップロード機能に専念、いいね/ブックマーク（非同期的機能）のみ
+  - Phase 2 (SNS拡張): 試験コメント、DM、通知、投稿機能を統合展開（学習補助+基本SNS）
+  - Phase 3 (フルSNS): ストーリー、マッチング、拡張DM（フルSNS化）
 - **SNS設計比較分析追加**: Instagram型/YouTube型/ハイブリッド型の比較検証とEduanima最適解の選定
 - **ハイブリッド型設計詳細**: モード切替UI/UX、セッション管理、API設計、フロントエンド実装方針
 - **Phase 3実装ロードマップ追加**: サブドメイン構築、認証統合、段階的機能リリース計画
@@ -254,14 +255,21 @@
 
 ### デプロイ段階
 
-*   **Phase 1 (MVP)**: EduanimaGateways, EduanimaUsers, EduanimaContents, EduanimaFiles, EduanimaAiWorker, EduanimaSearch
-*   **Phase 2 (製品版)**: + EduanimaMonetizeWallet, EduanimaRevenue, EduanimaModeration
-*   **Phase 3 (SNS拡張版)**: + EduanimaSocial（サブドメイン分離、ハイブリッド型設計）、多言語・推薦機能拡張
+*   **Phase 1 (MVP)**: EduanimaGateways, EduanimaUsers, EduanimaContents, EduanimaFiles, EduanimaAiWorker, EduanimaSearch, EduanimaModeration
+*   **Phase 2 (SNS拡張・マネタイズ基盤)**: + EduanimaSocial（コメント・DM・投稿機能）、EduanimaAds（広告配信）、EduanimaAnalytics（分析基盤）
+*   **Phase 3 (フルSNS拡張)**: EduanimaSocial拡張（ストーリー・マッチング）、サブドメイン分離、ハイブリッド型設計
+*   **Phase 3/4 (収益化・AI拡張)**: + EduanimaMonetizeWallet, EduanimaRevenue, EduanimaTutor（順序は柔軟に変更可能）
+
+**Phase 2 SNS拡張の主要特徴:**
+*   **ソーシャル機能の統合展開**: 試験コメント・DM・通知・投稿を同時リリース
+*   **戦略的意図**: Phase 1でMVP機能に専念し、Phase 2でソーシャル機能を一括展開
+*   **モデレーション体制**: 通報・ブロック機能とともにリリース
+*   **マイクロサービス境界**: EduanimaSocialサービスの管轄として統合管理
 
 **Phase 3 SNS拡張の主要特徴:**
 *   **サブドメイン分離**: `social.eduanima.com` で独立したSNS空間を提供
 *   **ハイブリッド型設計**: 学習モード（試験・問題閲覧）とSNSモード（投稿・DM・マッチング）のシームレスな切替
-*   **段階的拡張**: Phase 2でコメント・基本DM → Phase 3でストーリー・マッチング・拡張DM
+*   **段階的拡張**: Phase 2でコメント・基本DM・投稿 → Phase 3でストーリー・マッチング・拡張DM
 *   **認証統合**: メインドメインと共通セッション、サブドメイン間でのシームレスなSSO
 
 ### UUID + NanoID 設計原則
@@ -1096,18 +1104,25 @@ EduanimaGateways:
 ✅ 試験PDF/画像アップロード
 ✅ OCR処理・自動分類
 ✅ 試験検索・閲覧(全コンテンツ無料開放)
-✅ 基本的なコメント機能
+✅ いいね/ブックマーク機能（非同期的な相互作用のみ）
+✅ ユーザープロフィール基本機能
 ✅ 通報・著作権侵害対応
+❌ コメント機能（Phase 2へ延期）
 ❌ 広告表示
 ❌ ポイントシステム
 ❌ 収益化
-❌ SNS機能(フォロー以外)
+❌ SNS機能(DM・投稿・ストーリー等)
 ```
 
 ### **2.5.3 Phase 2 (SNS拡張・マネタイズ基盤) - 2026 Q4-2027 Q1**
 
 #### **目標**
-コミュニティ活性化と広告収益モデルの確立
+ソーシャル機能の本格展開とコミュニティ活性化、広告収益モデルの確立
+
+**戦略的意図:**
+- 試験コメント機能をPhase 1から延期し、DM・通知と同時展開
+- ソーシャル機能は一括展開により運用体制を整備
+- モデレーション体制整備後のリリースで健全なコミュニティを構築
 
 #### **追加サービス(4個)**
 ```
@@ -1119,6 +1134,29 @@ EduanimaGateways:
 
 #### **新規使用テーブル**
 ```yaml
+【ソーシャル機能の本格展開】
+EduanimaSocial:
+  # 試験コメント機能（Phase 1から延期）
+  ✅ exam_comments           - コメント投稿・編集・削除
+  ✅ comment_likes           - コメントへのいいね
+  
+  # DM（ダイレクトメッセージ）機能
+  ✅ direct_messages         - 1対1メッセージング
+  ✅ dm_participants         - DM参加者管理
+  ✅ dm_read_status          - メッセージ既読管理
+  
+  # ユーザー投稿機能
+  ✅ user_posts              - ユーザー投稿
+  ✅ post_likes              - 投稿へのいいね
+  ✅ post_comments           - 投稿へのコメント
+  
+  # Phase 3へ延期
+  ❌ user_matches (Phase 3)
+  ❌ match_preferences (Phase 3)
+  ❌ stories (Phase 3)
+  ❌ story_views (Phase 3)
+
+【マネタイズ基盤】
 EduanimaContents (広告関連):
   ✅ ad_display_events
   ✅ ad_viewing_progress
@@ -1126,32 +1164,49 @@ EduanimaContents (広告関連):
   ✅ user_ad_exemptions
   ✅ content_unlock_tokens
 
-EduanimaSocial:
-  ✅ exam_comments
-  ✅ comment_likes
-  ✅ user_posts
-  ✅ post_likes
-  ✅ post_comments
-  ✅ direct_messages
-  ✅ dm_participants
-  ✅ dm_read_status
-  ❌ user_matches (Phase 3)
-  ❌ match_preferences (Phase 3)
-  ❌ stories (Phase 3)
-  ❌ story_views (Phase 3)
+【通知システム拡張】
+EduanimaUsers:
+  ✅ notifications           - コメント通知・DM通知の統合管理
 ```
 
 #### **機能追加**
 ```
+【ソーシャル機能】
+✅ 試験コメント機能（Phase 1から延期）
+  - コメント投稿・編集・削除
+  - コメントへのいいね
+  - コメント通知
+  - スレッド型コメント（親子関係）
+✅ DM（ダイレクトメッセージ）機能
+  - 1対1メッセージング
+  - メッセージ既読管理
+  - DM通知
+✅ ユーザー投稿・タイムライン機能
+✅ 通知システム拡張（コメント・DM統合）
+
+【モデレーション機能】
+✅ レピュテーションスコア
+✅ コミュニティガイドライン違反検知
+✅ 通報機能拡張
+✅ ブロック機能
+
+【マネタイズ基盤】
 ✅ 広告表示(Google AdSense + 直接契約)
 ✅ ポイント付与システム
 ✅ 広告視聴でポイント獲得
 ✅ ポイント→広告スキップ交換
-✅ SNS機能(投稿・タイムライン・DM)
-✅ レピュテーションスコア
-✅ コミュニティガイドライン違反検知
+
+【Phase 3へ延期】
 ❌ ポイント→現金化(Phase 3)
+❌ ストーリー機能(Phase 3)
+❌ マッチング機能(Phase 3)
 ```
+
+**Phase 2でコメント機能を展開する理由:**
+1. **ソーシャル機能の統合展開**: コメント・DM・通知を同時リリースすることで、ユーザー体験の一貫性を確保
+2. **運用体制の整備**: モデレーション機能を整えた上でのリリースにより、健全なコミュニティを構築
+3. **MVPの明確化**: Phase 1では試験閲覧・検索・アップロード機能に専念し、ユーザーフィードバックを収集
+4. **マイクロサービス境界の明確化**: EduanimaSocialサービスの管轄として統合管理
 
 ### **2.5.4 Phase 3 または Phase 4 (収益化) - 2027 Q2-Q3**
 
@@ -6121,6 +6176,13 @@ export const ModeSwitch: React.FC = () => {
 
 **Phase: 2 (SNS拡張・マネタイズ基盤)**
 
+**実装フェーズ:** Phase 2（SNS拡張）
+
+**Phase 1では未使用の理由:**
+- MVPでは試験閲覧・検索・アップロード機能に専念するため
+- ソーシャル機能はDM・通知と統合展開する戦略のため
+- モデレーション体制整備後のリリースのため
+
 Phase 1では未使用。Phase 2でSNS機能開始時に有効化。
 
 試験へのコメントを管理します。YouTubeスタイルのスレッド型コメント機能。
@@ -6153,6 +6215,12 @@ CREATE INDEX idx_exam_comments_pinned ON exam_comments(exam_id, is_pinned, creat
 #### **comment_likes (コメントいいね)**
 
 **Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+**実装フェーズ:** Phase 2（SNS拡張）
+
+**Phase 1では未使用の理由:**
+- exam_commentsテーブルと同様、コメント機能はPhase 2へ延期
+- ソーシャル機能の統合展開戦略の一環
 
 Phase 1では未使用。Phase 2でSNS機能開始時に有効化。
 
