@@ -1,15 +1,15 @@
-# **EduMint 統合データモデル設計書 v7.5.1**
+# **Eduanima 統合データモデル設計書 v7.5.1**
 
-本ドキュメントは、EduMintのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
+本ドキュメントは、Eduanimaのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
 **最終更新日: 2026-02-07**
 
 **v7.5.1 主要更新:**
-- **edumintSearch完全定義**: search_queries, search_cache本体DBテーブル、search_logsパーティション設計、Elasticsearch同期戦略を追加
+- **EduanimaSearch完全定義**: search_queries, search_cache本体DBテーブル、search_logsパーティション設計、Elasticsearch同期戦略を追加
 - **OCRコンテンツタイプENUM簡略化**: 5タイプ → 2タイプ（exercises, materials）に集約、過度な分類を避けメタデータで詳細管理
-- **edumintFiles参照の明確化**: マイクロサービス境界の物理FK非設定原則、アプリケーション層バリデーション実装例を追加
+- **EduanimaFiles参照の明確化**: マイクロサービス境界の物理FK非設定原則、アプリケーション層バリデーション実装例を追加
 - **Kafkaトピック設計統合**: CDC/アプリケーションイベントの明確な分類と使い分けガイドを追加
-- **edumintSocialログテーブル追加**: social_logsテーブル（パーティション設計、event_type一覧、sqlcクエリ例）を新設
+- **EduanimaSocialログテーブル追加**: social_logsテーブル（パーティション設計、event_type一覧、sqlcクエリ例）を新設
 - **国際化対応完全実装指針**: 全エンティティ（faculties, departments, teachers, subjects）の国際化テーブルDDL、API設計、フロントエンド実装例を追加
 - **不正防止戦略実装詳細**: 異常アクセスパターン検出（Redisレート制限、Prometheusメトリクス、Grafanaダッシュボード、自動通報システム）の具体的実装を追加
 
@@ -72,31 +72,31 @@
   5. 著作権申立て対応簡素化（1テーブル検索）
 
 **v7.2.0 主要更新:**
-- **edumintContentsを4DB構成に拡張**: セキュリティ、性能、スケーラビリティ、コスト効率の最適化
-  - `edumint_contents` (メインDB): 試験・問題・統計・広告管理
-  - `edumint_contents_search` (検索用DB): 検索用語テーブル群の分離
-  - `edumint_contents_master` (マスターDB): OCRテキスト専用（暗号化対象）
-  - `edumint_contents_logs` (ログDB): ログデータの分離（既存）
+- **EduanimaContentsを4DB構成に拡張**: セキュリティ、性能、スケーラビリティ、コスト効率の最適化
+  - `Eduanima_contents` (メインDB): 試験・問題・統計・広告管理
+  - `Eduanima_contents_search` (検索用DB): 検索用語テーブル群の分離
+  - `Eduanima_contents_master` (マスターDB): OCRテキスト専用（暗号化対象）
+  - `Eduanima_contents_logs` (ログDB): ログデータの分離（既存）
 - **master_exams/materials分離強化**: 独立したDB・IAMロールでセキュリティ向上（v7.3.0で統合設計へ移行）
 - **検索用語テーブル分離**: I/O競合解消、Debezium CDC精密制御
-- **Debezium 2コネクタ構成**: edumint_contents と edumint_contents_search の個別同期
+- **Debezium 2コネクタ構成**: Eduanima_contents と Eduanima_contents_search の個別同期
 - **段階的スケーリング戦略**: DB単位での独立したスケールアウト対応
 - **総コスト約15%削減**: メインDB縮小可能、最適なインスタンス配分
 
 **v7.1.0 主要更新:**
-- **マイクロサービス統合**: edumintAuth + edumintUserProfile → **edumintUsers**に統合（トランザクション整合性・レイテンシ削減）
-- **ファイル管理とOCRテキスト管理の分離**: **edumintFiles**サービスは原本ファイル保存に専念、OCRテキストは**edumintContents**の`master_exams`, `master_materials`で管理（v7.3.0で`master_ocr_contents`に統合）
+- **マイクロサービス統合**: EduanimaAuth + EduanimaUserProfile → **EduanimaUsers**に統合（トランザクション整合性・レイテンシ削減）
+- **ファイル管理とOCRテキスト管理の分離**: **EduanimaFiles**サービスは原本ファイル保存に専念、OCRテキストは**EduanimaContents**の`master_exams`, `master_materials`で管理（v7.3.0で`master_ocr_contents`に統合）
 - **テーブル名変更**: `exam_raw` → **`master_exams`**, `source_raw` → **`master_materials`**（イミュータブル設計）（v7.3.0で`master_ocr_contents`に統合）
 - **自動暗号化機能**: ファイルアップロード7日後に自動暗号化実装
-- **edumintSearch無状態化**: 物理DB削除、Elasticsearch + ログDBのみに変更
+- **EduanimaSearch無状態化**: 物理DB削除、Elasticsearch + ログDBのみに変更
 - **Debezium CDC導入**: PostgreSQL論理レプリケーション、Kafka経由リアルタイム差分同期
-- **検索用語管理移管**: `*_terms`, `term_generation_*`テーブルをedumintContentsへ移動
+- **検索用語管理移管**: `*_terms`, `term_generation_*`テーブルをEduanimaContentsへ移動
 - **広告管理機能追加**: `ad_display_events`, `ad_viewing_history`テーブル新設（4段階表示戦略）
-- **サービス名統一**: 複数形に統一（edumintContents, edumintUsers, edumintGateways）
+- **サービス名統一**: 複数形に統一（EduanimaContents, EduanimaUsers, EduanimaGateways）
 
 **v7.0.3 主要更新:**
-- **edumintSocialの責務再定義**: 統計情報管理をedumintContentsへ移管、ソーシャル機能に特化
-- **edumintContentsに統計管理機能追加**: `exam_statistics`, `exam_interaction_events`テーブル新設
+- **EduanimaSocialの責務再定義**: 統計情報管理をEduanimaContentsへ移管、ソーシャル機能に特化
+- **EduanimaContentsに統計管理機能追加**: `exam_statistics`, `exam_interaction_events`テーブル新設
 - **SNS機能拡張**: ユーザー投稿、DM、マッチング機能用テーブル追加
 - **イベント駆動フロー強化**: `content.interaction`トピック新設、統計更新の非同期化
 - **検索・推薦システムの改善**: 統計情報への直接アクセスによる性能向上
@@ -141,16 +141,16 @@
 
 **サービス別設計編**
 
-4. [edumintUsers (統合ユーザー管理サービス)](#4-edumintusers-統合ユーザー管理サービス)
-5. [edumintContents (コンテンツ・OCRテキスト管理サービス)](#5-edumintcontents-コンテンツocrテキスト管理サービス)
-6. [edumintFiles (ファイルストレージ管理サービス)](#6-edumintfiles-ファイルストレージ管理サービス)
-7. [edumintSearch (検索サービス)](#7-edumintsearch-検索サービス)
-8. [edumintAiWorker (AI処理サービス)](#8-edumintaiworker-ai処理サービス)
-9. [edumintSocial (ソーシャルサービス)](#9-edumintsocial-ソーシャルサービス)
-10. [edumintMonetizeWallet (ウォレット管理サービス)](#10-edumintmonetizewallet-ウォレット管理サービス)
-11. [edumintRevenue (収益分配サービス)](#11-edumintrevenue-収益分配サービス)
-12. [edumintModeration (通報管理サービス)](#12-edumintmoderation-通報管理サービス)
-13. [edumintGateways (ジョブゲートウェイ)](#13-edumintgateways-ジョブゲートウェイ)
+4. [EduanimaUsers (統合ユーザー管理サービス)](#4-Eduanimausers-統合ユーザー管理サービス)
+5. [EduanimaContents (コンテンツ・OCRテキスト管理サービス)](#5-Eduanimacontents-コンテンツocrテキスト管理サービス)
+6. [EduanimaFiles (ファイルストレージ管理サービス)](#6-Eduanimafiles-ファイルストレージ管理サービス)
+7. [EduanimaSearch (検索サービス)](#7-Eduanimasearch-検索サービス)
+8. [EduanimaAiWorker (AI処理サービス)](#8-Eduanimaaiworker-ai処理サービス)
+9. [EduanimaSocial (ソーシャルサービス)](#9-Eduanimasocial-ソーシャルサービス)
+10. [EduanimaMonetizeWallet (ウォレット管理サービス)](#10-Eduanimamonetizewallet-ウォレット管理サービス)
+11. [EduanimaRevenue (収益分配サービス)](#11-Eduanimarevenue-収益分配サービス)
+12. [EduanimaModeration (通報管理サービス)](#12-Eduanimamoderation-通報管理サービス)
+13. [EduanimaGateways (ジョブゲートウェイ)](#13-Eduanimagateways-ジョブゲートウェイ)
 
 **統合設計編**
 
@@ -176,8 +176,8 @@
 *   **最終整合性**: ドメインサービス間のデータ同期は結果整合性（Eventual Consistency）を基本とする。ただし金銭取引（ウォレット）は強整合性を維持。
 *   **単一オーナーシップ**: 各テーブルの書き込み権限は、当該サービスのみ。他サービスは API または Kafka イベント経由で参照・反映。
 *   **責務分離の徹底**: 
-  *   **edumintFiles**: 原本ファイルの物理ストレージ管理に専念（PDF、画像等のバイナリデータ）
-  *   **edumintContents**: OCRテキストデータとコンテンツメタデータの管理に専念
+  *   **EduanimaFiles**: 原本ファイルの物理ストレージ管理に専念（PDF、画像等のバイナリデータ）
+  *   **EduanimaContents**: OCRテキストデータとコンテンツメタデータの管理に専念
   *   両サービスはAPI/イベント駆動で連携し、各々の責務範囲を明確に分離
 *   **外部API非依存**: 全てのマスタデータは自前のDBで管理し、外部APIへの依存を排除（コスト・レイテンシ削減）。
 *   **ENUM型の積極採用**: 固定値の管理はPostgreSQL ENUM型を使用し、型安全性・パフォーマンス・可読性を向上させる。
@@ -212,8 +212,8 @@
 
 ### デプロイ段階
 
-*   **Phase 1 (MVP)**: edumintGateways, edumintUsers, edumintContents, edumintFiles, edumintAiWorker, edumintSearch
-*   **Phase 2 (製品版)**: + edumintMonetizeWallet, edumintRevenue, edumintSocial, edumintModeration
+*   **Phase 1 (MVP)**: EduanimaGateways, EduanimaUsers, EduanimaContents, EduanimaFiles, EduanimaAiWorker, EduanimaSearch
+*   **Phase 2 (製品版)**: + EduanimaMonetizeWallet, EduanimaRevenue, EduanimaSocial, EduanimaModeration
 *   **Phase 3 (拡張版)**: + 多言語・推薦等
 
 ### UUID + NanoID 設計原則
@@ -277,7 +277,7 @@ CREATE TABLE special_table (
 
 ### ENUM型定義
 
-EduMintでは固定値の管理にPostgreSQL ENUM型を採用します。これにより型安全性が向上し、フロントエンドとの連携が明確になります。
+Eduanimaでは固定値の管理にPostgreSQL ENUM型を採用します。これにより型安全性が向上し、フロントエンドとの連携が明確になります。
 
 #### **1.1. 問題・試験関連ENUM**
 
@@ -723,7 +723,7 @@ CREATE TYPE interaction_event_type_enum AS ENUM (
 
 ## **2. 禁止ツール・ライブラリ一覧**
 
-EduMintプロジェクトでは、以下のツール・ライブラリの使用を**全面禁止**とします。これらは技術的負債、セキュリティリスク、保守性低下を引き起こすため、代替ツールを使用してください。
+Eduanimaプロジェクトでは、以下のツール・ライブラリの使用を**全面禁止**とします。これらは技術的負債、セキュリティリスク、保守性低下を引き起こすため、代替ツールを使用してください。
 
 ### **2.0 型安全性の徹底（v7.4.1強調）**
 
@@ -757,7 +757,7 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 | :--- | :--- | :--- |
 | **Echo v4** | v5への移行が不安定、メンテナンス停滞 | **Echo v5.0.1** (推奨) |
 | **Gin** | グローバル状態依存、テスト困難、エラーハンドリング不統一 | **Echo v5.0.1** |
-| **Chi** | EduMintプロジェクトではEcho v5に統一 | **Echo v5.0.1** |
+| **Chi** | EduanimaプロジェクトではEcho v5に統一 | **Echo v5.0.1** |
 | **Beego** | レガシー、過剰な抽象化 | **Echo v5.0.1** |
 | **Revel** | 開発停滞、Go標準から乖離 | **Echo v5.0.1** |
 
@@ -797,7 +797,7 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 | 禁止ツール | 理由 | 代替ツール |
 | :--- | :--- | :--- |
 | **viper** | 過剰な機能、暗黙的挙動、テスト困難 | **.env (Dev)**, **Secret Manager (Production)** |
-| **Doppler** | EduMintプロジェクトでは.env + Secret Managerに統一 | **.env + Secret Manager** |
+| **Doppler** | Eduanimaプロジェクトでは.env + Secret Managerに統一 | **.env + Secret Manager** |
 | **環境変数ハードコード** | 保守性低、変更追跡不可 | **.env + Secret Manager** |
 
 ### 2.8 テスト
@@ -839,10 +839,10 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 #### **Echo v4/Gin/Chi廃止理由**
 - **Echo v4**: v5への移行パスが不明確、セキュリティパッチ遅延 → **Echo v5.0.1に統一**
 - **Gin**: グローバル状態（gin.Default()）でテスト並列実行不可、エラーハンドリング不統一
-- **Chi**: 軽量だがEduMintではEcho v5に統一することで一貫性を確保
+- **Chi**: 軽量だがEduanimaではEcho v5に統一することで一貫性を確保
 
 #### **Doppler廃止理由**
-- EduMintプロジェクトでは設定管理を統一
+- Eduanimaプロジェクトでは設定管理を統一
 - Dev環境: `.env`ファイル（シンプル、軽量）
 - Production環境: Google Cloud Secret Manager（セキュア、監査可能）
 - Dopplerは追加の外部依存となり、コスト・複雑性が増加
@@ -874,47 +874,47 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 
 | サービス | 役割 | 所有テーブル | イベント発行 | Kafka購読 |
 | :--- | :--- | :--- | :--- | :--- |
-| **edumintGateways** | ジョブオーケストレーション | `jobs`, `job_events`, `job_logs` (分離DB) | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
-| **edumintUsers** | SSO・認証・ユーザー管理・フォロー・通知（統合） | `oauth_clients`, `oauth_tokens`, `idp_links`, `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `auth_logs` (分離DB), `user_profile_logs` (分離DB) | `auth.events`, `user.events` | `content.feedback`, `monetization.transactions`, **`content.interaction`** |
-| **edumintContents** | 試験・問題・統計・OCRテキスト管理（4DB構成） | **[メインDB: `edumint_contents`]** `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, `ad_display_events`, `ad_viewing_progress` / **[検索DB: `edumint_contents_search`]** `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates` / **[マスターDB: `edumint_contents_master`]** `master_ocr_contents` (OCRテキスト統合管理、暗号化対象) / **[ログDB: `edumint_contents_logs`]** `content_logs` | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
-| **edumintFiles** | ファイルストレージ管理 | `file_metadata`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `file.uploaded`, `file.encrypted` | `content.ocr`, `moderation.evidence` |
-| **edumintSearch** | 検索・インデックス（無状態化） | **Elasticsearch索引のみ（物理DB廃止）**, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle`, `content.interaction` via **Debezium CDC** |
-| **edumintAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `file.uploaded`, `content.ocr`, `search.term_generation` |
-| **edumintSocial** | SNS機能（投稿・コメント・DM・マッチング） | `user_posts`, `post_likes`, `post_comments`, `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages`, `dm_read_receipts`, `user_match_preferences`, `user_matches` | `social.activity` | `content.interaction` |
-| **edumintMonetizeWallet** | MintCoin管理 | `wallets`, `wallet_transactions`, `wallet_logs` (分離DB, 7年保持) | `monetization.transactions` | - |
-| **edumintRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions`, `content.interaction` |
-| **edumintModeration** | 通報管理 | `content_reports`, `user_reports`, `moderation_logs` (分離DB) | `moderation.events` | - |
-| **edumintAdmin** | 管理UI統合 | （他サービスのAPIを集約） | - | - |
+| **EduanimaGateways** | ジョブオーケストレーション | `jobs`, `job_events`, `job_logs` (分離DB) | `gateway.jobs` | `content.lifecycle`, `ai.results`, `gateway.job_status` |
+| **EduanimaUsers** | SSO・認証・ユーザー管理・フォロー・通知（統合） | `oauth_clients`, `oauth_tokens`, `idp_links`, `users`, `user_profiles`, `user_follows`, `user_blocks`, `notifications`, `auth_logs` (分離DB), `user_profile_logs` (分離DB) | `auth.events`, `user.events` | `content.feedback`, `monetization.transactions`, **`content.interaction`** |
+| **EduanimaContents** | 試験・問題・統計・OCRテキスト管理（4DB構成） | **[メインDB: `Eduanima_contents`]** `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `exams`, `questions`, `sub_questions`, `keywords`, `exam_keywords`, `exam_statistics`, `exam_interaction_events`, `ad_display_events`, `ad_viewing_progress` / **[検索DB: `Eduanima_contents_search`]** `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`, `term_generation_jobs`, `term_generation_candidates` / **[マスターDB: `Eduanima_contents_master`]** `master_ocr_contents` (OCRテキスト統合管理、暗号化対象) / **[ログDB: `Eduanima_contents_logs`]** `content_logs` | `content.lifecycle`, `content.interaction`, `content.ocr` | `gateway.jobs`, `ai.results`, `search.term_generation` |
+| **EduanimaFiles** | ファイルストレージ管理 | `file_metadata`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `file.uploaded`, `file.encrypted` | `content.ocr`, `moderation.evidence` |
+| **EduanimaSearch** | 検索・インデックス（無状態化） | **Elasticsearch索引のみ（物理DB廃止）**, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle`, `content.interaction` via **Debezium CDC** |
+| **EduanimaAiWorker** | AI処理（ステートレス） | （物理DB削除）*ELKログのみ | `ai.results` | `gateway.jobs`, `file.uploaded`, `content.ocr`, `search.term_generation` |
+| **EduanimaSocial** | SNS機能（投稿・コメント・DM・マッチング） | `user_posts`, `post_likes`, `post_comments`, `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages`, `dm_read_receipts`, `user_match_preferences`, `user_matches` | `social.activity` | `content.interaction` |
+| **EduanimaMonetizeWallet** | MintCoin管理 | `wallets`, `wallet_transactions`, `wallet_logs` (分離DB, 7年保持) | `monetization.transactions` | - |
+| **EduanimaRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions`, `content.interaction` |
+| **EduanimaModeration** | 通報管理 | `content_reports`, `user_reports`, `moderation_logs` (分離DB) | `moderation.events` | - |
+| **EduanimaAdmin** | 管理UI統合 | （他サービスのAPIを集約） | - | - |
 
 **主要変更点（v7.2.0）:**
-- **edumintContents 4DB構成**: セキュリティ・性能・スケーラビリティの最適化
-  - `edumint_contents` (メインDB): 試験・問題・統計・広告管理
-  - `edumint_contents_search` (検索用DB): 検索用語テーブル群（`*_terms`, `term_generation_*`）
-  - `edumint_contents_master` (マスターDB): OCRテキスト専用（`master_ocr_contents`）
-  - `edumint_contents_logs` (ログDB): ログデータ分離
+- **EduanimaContents 4DB構成**: セキュリティ・性能・スケーラビリティの最適化
+  - `Eduanima_contents` (メインDB): 試験・問題・統計・広告管理
+  - `Eduanima_contents_search` (検索用DB): 検索用語テーブル群（`*_terms`, `term_generation_*`）
+  - `Eduanima_contents_master` (マスターDB): OCRテキスト専用（`master_ocr_contents`）
+  - `Eduanima_contents_logs` (ログDB): ログデータ分離
 - **I/O競合解消**: 読み取り集中（検索）と書き込み集中（コンテンツ）を物理分離
-- **Debezium 2コネクタ構成**: edumint_contents と edumint_contents_search の個別同期
+- **Debezium 2コネクタ構成**: Eduanima_contents と Eduanima_contents_search の個別同期
 
 **主要変更点（v7.1.0）:**
-- **edumintUsers**: edumintAuth + edumintUserProfileを統合。物理DB: `edumint_users`
-- **edumintContents**: OCRテキスト管理に特化。`exam_raw` → `master_exams`, `source_raw` → `master_materials`にリネーム（OCRテキストのみ保存）→ **v7.3.0でmaster_ocr_contentsに統合**
-- **edumintFiles**: 原本ファイルと通報証拠ファイルの保存を継続。物理DB: `edumint_files`
-- **edumintContents**: 検索用語管理テーブル（`*_terms`, `term_generation_*`）を追加
-- **edumintContents**: 広告管理テーブル（`ad_display_events`, `ad_viewing_progress`）を新設（v7.4.0でad_viewing_historyから移行）
-- **edumintSearch**: 物理DB削除、Elasticsearch + ログDBのみに変更。全データはDebezium CDCで同期
-- **edumintGateways**: edumintGateways → edumintGateways（複数形統一）
-- **Debezium CDC**: edumintUsers, edumintContents → edumintSearchへリアルタイム差分同期
+- **EduanimaUsers**: EduanimaAuth + EduanimaUserProfileを統合。物理DB: `Eduanima_users`
+- **EduanimaContents**: OCRテキスト管理に特化。`exam_raw` → `master_exams`, `source_raw` → `master_materials`にリネーム（OCRテキストのみ保存）→ **v7.3.0でmaster_ocr_contentsに統合**
+- **EduanimaFiles**: 原本ファイルと通報証拠ファイルの保存を継続。物理DB: `Eduanima_files`
+- **EduanimaContents**: 検索用語管理テーブル（`*_terms`, `term_generation_*`）を追加
+- **EduanimaContents**: 広告管理テーブル（`ad_display_events`, `ad_viewing_progress`）を新設（v7.4.0でad_viewing_historyから移行）
+- **EduanimaSearch**: 物理DB削除、Elasticsearch + ログDBのみに変更。全データはDebezium CDCで同期
+- **EduanimaGateways**: EduanimaGateways → EduanimaGateways（複数形統一）
+- **Debezium CDC**: EduanimaUsers, EduanimaContents → EduanimaSearchへリアルタイム差分同期
 
 ---
 
-## **4. edumintUsers (統合ユーザー管理サービス)**
+## **4. EduanimaUsers (統合ユーザー管理サービス)**
 
 ### 設計変更点（v7.1.0）
 
 **マイクロサービス統合:**
-- edumintAuth + edumintUserProfile → **edumintUsers**に統合
-- 物理DB名: `edumint_users`
-- ログDB名: `edumint_users_logs`
+- EduanimaAuth + EduanimaUserProfile → **EduanimaUsers**に統合
+- 物理DB名: `Eduanima_users`
+- ログDB名: `Eduanima_users_logs`
 
 **統合の利点:**
 - **トランザクション整合性**: 認証とユーザープロフィールの同一トランザクション管理
@@ -958,7 +958,7 @@ EduMintプロジェクトでは、以下のツール・ライブラリの使用�
 
 ### 4.1 本体DBテーブル (DDL例)
 
-**物理DB:** `edumint_users`
+**物理DB:** `Eduanima_users`
 
 #### **oauth_clients**
 
@@ -1172,7 +1172,7 @@ CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read, created
 
 ### 4.2 ログテーブル (DB分離設計)
 
-**物理DB:** `edumint_users_logs`
+**物理DB:** `Eduanima_users_logs`
 
 #### **auth_logs**
 
@@ -1234,16 +1234,16 @@ CREATE INDEX idx_user_profile_logs_action ON user_profile_logs(action, created_a
 
 ---
 
-## **5. edumintContents (コンテンツ・OCRテキスト管理サービス)**
+## **5. EduanimaContents (コンテンツ・OCRテキスト管理サービス)**
 
 ### 設計変更点（v7.2.0）
 
 **4DB構成への拡張:**
 - **物理DB分離**: 2DB構成から4DB構成へ拡張
-  - `edumint_contents` (メインDB): 試験・問題・統計・広告管理テーブル
-  - `edumint_contents_search` (検索用DB): 検索用語テーブル群の独立管理
-  - `edumint_contents_master` (マスターDB): OCRテキスト専用、暗号化対象
-  - `edumint_contents_logs` (ログDB): ログデータの分離
+  - `Eduanima_contents` (メインDB): 試験・問題・統計・広告管理テーブル
+  - `Eduanima_contents_search` (検索用DB): 検索用語テーブル群の独立管理
+  - `Eduanima_contents_master` (マスターDB): OCRテキスト専用、暗号化対象
+  - `Eduanima_contents_logs` (ログDB): ログデータの分離
 
 **4DB構成の設計意図:**
 
@@ -1274,26 +1274,26 @@ CREATE INDEX idx_user_profile_logs_action ON user_profile_logs(action, created_a
 **物理DB配置図:**
 
 ```
-edumintContents (4DB構成)
-├── edumint_contents (メインDB)
+EduanimaContents (4DB構成)
+├── Eduanima_contents (メインDB)
 │   ├── institutions, faculties, departments
 │   ├── teachers, subjects
 │   ├── exams, questions, sub_questions, keywords, exam_keywords
 │   ├── exam_statistics
 │   └── exam_interaction_events, ad_display_events, ad_viewing_progress
 │
-├── edumint_contents_search (検索用DB - 新設)
+├── Eduanima_contents_search (検索用DB - 新設)
 │   ├── subject_terms, institution_terms
 │   ├── faculty_terms, teacher_terms
 │   ├── term_generation_jobs
 │   └── term_generation_candidates
 │
-├── edumint_contents_master (マスターDB - 新設)
+├── Eduanima_contents_master (マスターDB - 新設)
 │   └── master_ocr_contents (OCRテキスト統合管理、暗号化対象)
 │       ├── content_type = 'exercises' (演習問題)
 │       └── content_type = 'material' (授業資料)
 │
-└── edumint_contents_logs (ログDB)
+└── Eduanima_contents_logs (ログDB)
     └── content_logs (パーティション、90日保持)
 ```
 
@@ -1301,7 +1301,7 @@ edumintContents (4DB構成)
 
 ```
 ┌─────────────────────────┐
-│ edumint_contents        │ PostgreSQL (メインDB)
+│ Eduanima_contents        │ PostgreSQL (メインDB)
 │ (Source of Truth)       │
 └──────────┬──────────────┘
            │ Logical Replication
@@ -1310,10 +1310,10 @@ edumintContents (4DB構成)
       │ Debezium CDC   │ Connector 1
       │ Connector      │
       └────────┬───────┘
-               │ Kafka Topic: dbz.edumint_contents.*
+               │ Kafka Topic: dbz.Eduanima_contents.*
                ↓
 ┌─────────────────────────┐
-│ edumint_contents_search │ PostgreSQL (検索用DB)
+│ Eduanima_contents_search │ PostgreSQL (検索用DB)
 │ (Source of Truth)       │
 └──────────┬──────────────┘
            │ Logical Replication
@@ -1322,7 +1322,7 @@ edumintContents (4DB構成)
       │ Debezium CDC   │ Connector 2
       │ Connector      │
       └────────┬───────┘
-               │ Kafka Topic: dbz.edumint_contents_search.*
+               │ Kafka Topic: dbz.Eduanima_contents_search.*
                ↓
           ┌──────────┐
           │  Kafka   │ Event Streaming Platform
@@ -1330,7 +1330,7 @@ edumintContents (4DB構成)
                │
                ↓
      ┌──────────────────┐
-     │ edumintSearch    │ Consumer Service
+     │ EduanimaSearch    │ Consumer Service
      │ (Stateless)      │
      └────────┬─────────┘
               │
@@ -1345,30 +1345,30 @@ edumintContents (4DB構成)
 
 | DB | サービスアカウント | 権限 | アクセス範囲 |
 |:---|:---|:---|:---|
-| edumint_contents | edumint-contents-app-sa | SELECT, INSERT, UPDATE | 全テーブル（通常操作） |
-| edumint_contents_search | edumint-contents-app-sa | SELECT, INSERT, UPDATE | 全テーブル（検索用語管理） |
-| edumint_contents_master | edumint-contents-master-sa | SELECT, INSERT | master_ocr_contents（書き込み専用） |
-| edumint_contents_master | edumint-admin-sa | SELECT | master_ocr_contents（管理者のみ読み取り） |
-| edumint_contents_logs | edumint-contents-app-sa | INSERT | content_logs（ログ書き込み専用） |
+| Eduanima_contents | Eduanima-contents-app-sa | SELECT, INSERT, UPDATE | 全テーブル（通常操作） |
+| Eduanima_contents_search | Eduanima-contents-app-sa | SELECT, INSERT, UPDATE | 全テーブル（検索用語管理） |
+| Eduanima_contents_master | Eduanima-contents-master-sa | SELECT, INSERT | master_ocr_contents（書き込み専用） |
+| Eduanima_contents_master | Eduanima-admin-sa | SELECT | master_ocr_contents（管理者のみ読み取り） |
+| Eduanima_contents_logs | Eduanima-contents-app-sa | INSERT | content_logs（ログ書き込み専用） |
 
 ### 設計変更点（v7.1.0）
 
 **サービス名変更:**
-- edumintContent → **edumintContents** （複数形に統一）
+- EduanimaContent → **EduanimaContents** （複数形に統一）
 
 **OCRテキスト管理機能:**
-- **edumintFiles**サービスとの責務分離を明確化
+- **EduanimaFiles**サービスとの責務分離を明確化
 - `exam_raw` → **`master_exams`**, `source_raw` → **`master_materials`** にリネーム（v7.1.0）→ **v7.3.0で`master_ocr_contents`に統合**
-- **原本ファイルはedumintFilesが保存**、OCRテキストのみedumintContentsで管理
+- **原本ファイルはEduanimaFilesが保存**、OCRテキストのみEduanimaContentsで管理
 - **自動暗号化対象**: OCRテキストデータ（7日後に暗号化）
 - **イミュータブル設計**: master_ocr_contents は編集・削除不可（append-only）
 - **統合設計（v7.3.0）**: ocr_content_type_enum ('exercises', 'material') によるタイプ分類
 
 **検索用語管理統合:**
-- edumintSearchから検索用語テーブルを移管
+- EduanimaSearchから検索用語テーブルを移管
 - `subject_terms`, `institution_terms`, `faculty_terms`, `teacher_terms`
 - `term_generation_jobs`, `term_generation_candidates`
-- Debezium CDCでedumintSearchへリアルタイム同期
+- Debezium CDCでEduanimaSearchへリアルタイム同期
 
 **広告管理機能追加:**
 - **`ad_display_events`**: 広告表示イベント記録
@@ -1377,7 +1377,7 @@ edumintContents (4DB構成)
 - **スキップロジック**: 同一試験2回目以降の閲覧では広告非表示
 
 **分離設計の利点:**
-- **責務の明確化**: ファイル保存（edumintFiles）とOCRテキスト管理（edumintContents）を分離
+- **責務の明確化**: ファイル保存（EduanimaFiles）とOCRテキスト管理（EduanimaContents）を分離
 - **トランザクション整合性**: 試験メタデータとOCRテキストの一貫性保証
 - **セキュリティ向上**: 原本ファイルとOCRテキストで異なるアクセス制御を実施
 - **検索最適化**: CDC による自動同期で検索インデックス更新
@@ -1394,9 +1394,9 @@ edumintContents (4DB構成)
 
 ### 5.1 本体DBテーブル
 
-#### 5.1.1 edumint_contents (メインDB)
+#### 5.1.1 Eduanima_contents (メインDB)
 
-**物理DB:** `edumint_contents`
+**物理DB:** `Eduanima_contents`
 
 **役割:**
 - 試験・問題・科目・教員などのコアメタデータ管理
@@ -1639,11 +1639,11 @@ CREATE INDEX idx_exams_embedding_hnsw ON exams USING hnsw(embedding vector_cosin
 - 複合主キー (id, public_id) 採用
 - **v7.4.1修正**: master_ocr_content_id 追加（1対1関係）、file_input_id 削除
 - **外部キー制約**: master_ocr_content_id は論理参照のみ（物理外部キーなし）
-  - 理由: master_ocr_contents は別物理DB (edumint_contents_master) に配置
+  - 理由: master_ocr_contents は別物理DB (Eduanima_contents_master) に配置
   - データ整合性はアプリケーション層とトランザクション管理で保証
 - **ファイル追跡**: master_ocr_contents.source_file_ids 配列経由で元ファイルを追跡
 - ベクトル埋め込みでセマンティック検索対応
-- view_count等のカウンターはedumintSocialから非同期更新
+- view_count等のカウンターはEduanimaSocialから非同期更新
 
 #### **questions (大問)**
 
@@ -1950,7 +1950,7 @@ LIMIT $1 OFFSET $2;
 
 #### **subject_terms (科目検索用語)**
 
-科目の検索用語を管理します（edumintSearchから移管、v7.1.0）。
+科目の検索用語を管理します（EduanimaSearchから移管、v7.1.0）。
 
 ```sql
 CREATE TABLE subject_terms (
@@ -1975,7 +1975,7 @@ CREATE INDEX idx_subject_terms_deleted_at ON subject_terms(deleted_at) WHERE del
 
 #### **institution_terms (機関検索用語)**
 
-機関の検索用語を管理します（edumintSearchから移管、v7.1.0）。
+機関の検索用語を管理します（EduanimaSearchから移管、v7.1.0）。
 
 ```sql
 CREATE TABLE institution_terms (
@@ -2000,7 +2000,7 @@ CREATE INDEX idx_institution_terms_deleted_at ON institution_terms(deleted_at) W
 
 #### **faculty_terms (学部検索用語)**
 
-学部の検索用語を管理します（edumintSearchから移管、v7.1.0）。
+学部の検索用語を管理します（EduanimaSearchから移管、v7.1.0）。
 
 ```sql
 CREATE TABLE faculty_terms (
@@ -2025,7 +2025,7 @@ CREATE INDEX idx_faculty_terms_deleted_at ON faculty_terms(deleted_at) WHERE del
 
 #### **teacher_terms (教員検索用語)**
 
-教員の検索用語を管理します（edumintSearchから移管、v7.1.0）。
+教員の検索用語を管理します（EduanimaSearchから移管、v7.1.0）。
 
 ```sql
 CREATE TABLE teacher_terms (
@@ -2050,7 +2050,7 @@ CREATE INDEX idx_teacher_terms_deleted_at ON teacher_terms(deleted_at) WHERE del
 
 #### **term_generation_jobs (用語生成ジョブ)**
 
-検索用語の自動生成ジョブを管理します（edumintSearchから移管、v7.1.0）。
+検索用語の自動生成ジョブを管理します（EduanimaSearchから移管、v7.1.0）。
 
 ```sql
 CREATE TABLE term_generation_jobs (
@@ -2078,7 +2078,7 @@ CREATE INDEX idx_term_generation_jobs_created_at ON term_generation_jobs(created
 
 #### **term_generation_candidates (用語生成候補)**
 
-AI生成された検索用語候補を管理します（edumintSearchから移管、v7.1.0）。
+AI生成された検索用語候補を管理します（EduanimaSearchから移管、v7.1.0）。
 
 ```sql
 CREATE TABLE term_generation_candidates (
@@ -2100,8 +2100,8 @@ CREATE INDEX idx_term_generation_candidates_confidence ON term_generation_candid
 ```
 
 **設計注記（検索用語テーブル群）:**
-- edumintSearchから移管（v7.1.0）
-- **物理DB分離**（v7.2.0）: `edumint_contents` → `edumint_contents_search`
+- EduanimaSearchから移管（v7.1.0）
+- **物理DB分離**（v7.2.0）: `Eduanima_contents` → `Eduanima_contents_search`
 - I/O競合解消（読み取り集中ワークロードの分離）
 - Debezium CDC専用コネクタでElasticsearchへ自動同期
 - AI生成候補の承認フロー実装
@@ -2452,9 +2452,9 @@ WHERE user_id = $1 AND exam_id = $2
   AND issued_at > CURRENT_TIMESTAMP - INTERVAL '1 hour';
 ```
 
-#### 5.1.2 edumint_contents_search (検索用DB)
+#### 5.1.2 Eduanima_contents_search (検索用DB)
 
-**物理DB:** `edumint_contents_search`
+**物理DB:** `Eduanima_contents_search`
 
 **役割:**
 - 検索用語テーブル群の管理（`*_terms`テーブル）
@@ -2481,9 +2481,9 @@ WHERE user_id = $1 AND exam_id = $2
 - `term_generation_jobs` (用語生成ジョブ)
 - `term_generation_candidates` (用語生成候補)
 
-### 5.3 edumint_contents_master (マスターDB)
+### 5.3 Eduanima_contents_master (マスターDB)
 
-**物理DB:** `edumint_contents_master`
+**物理DB:** `Eduanima_contents_master`
 
 **役割:**
 - OCRテキスト専用データベース
@@ -2497,8 +2497,8 @@ WHERE user_id = $1 AND exam_id = $2
 - **アクセス制限**: 管理者とシステムのみアクセス可能
 
 **IAMアクセス制御:**
-- `edumint-contents-master-sa`: 書き込み専用（INSERT権限のみ）
-- `edumint-admin-sa`: 読み取り専用（SELECT権限のみ、管理者用）
+- `Eduanima-contents-master-sa`: 書き込み専用（INSERT権限のみ）
+- `Eduanima-admin-sa`: 読み取り専用（SELECT権限のみ、管理者用）
 - 一般ユーザー・アプリケーション: アクセス不可
 
 **v7.3.0統合設計:**
@@ -2520,8 +2520,8 @@ CREATE OR REPLACE FUNCTION get_ocr_bucket_name(content_type ocr_content_type_enu
 RETURNS VARCHAR(255) AS $$
 BEGIN
   CASE content_type
-    WHEN 'exercises' THEN RETURN 'edumint-master-exercises';
-    WHEN 'material' THEN RETURN 'edumint-master-materials';
+    WHEN 'exercises' THEN RETURN 'Eduanima-master-exercises';
+    WHEN 'material' THEN RETURN 'Eduanima-master-materials';
   END CASE;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
@@ -2534,7 +2534,7 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 
 #### **master_ocr_contents (統合OCRテキスト - イミュータブル)**
 
-OCR処理された演習問題・教材のテキストデータを統合管理します。**原本ファイルはedumintFilesで保存**されます。
+OCR処理された演習問題・教材のテキストデータを統合管理します。**原本ファイルはEduanimaFilesで保存**されます。
 
 **v7.4.1設計修正:**
 - **試験生成フロー明確化**: 複数ファイル → 1 master_ocr_contents → 1 exam の関係
@@ -2544,7 +2544,7 @@ OCR処理された演習問題・教材のテキストデータを統合管理�
 - **排他制約削除**: exam_id のみの簡潔な設計に変更
 
 **設計原則:**
-- **OCRテキスト専用**: 原本ファイルはedumintFilesで管理、本テーブルはOCRテキストのみ
+- **OCRテキスト専用**: 原本ファイルはEduanimaFilesで管理、本テーブルはOCRテキストのみ
 - **イミュータブル設計**: 編集・削除不可（append-only）
 - **自動暗号化**: OCRテキストは7日経過で自動暗号化
 - **アクセス制御**: 管理者と自動化システムのみアクセス可
@@ -2607,8 +2607,8 @@ CREATE INDEX idx_master_ocr_created_at ON master_ocr_contents(created_at DESC);
 - **ENUM型分類**: 'exercises'（演習問題）を使用
 - **'exercises'命名理由**: 公開用のExam（試験データ）との誤解防止。OCRテキスト元データは「演習問題」として明確化
 - **bucket_name自動生成**: GENERATED ALWAYS AS により、content_typeから自動決定
-  - 'exercises' → 'edumint-master-exercises'
-  - 'material' → 'edumint-master-materials'（将来拡張用）
+  - 'exercises' → 'Eduanima-master-exercises'
+  - 'material' → 'Eduanima-master-materials'（将来拡張用）
 - **source_file_ids配列**: 複数ファイルから1つのOCRコンテンツを生成する場合に対応
   - **参照整合性**: UUID配列は外部キー制約不可、アプリケーション層で検証が必要
   - file_metadata.id の存在確認は挿入時にアプリケーションで実施
@@ -2621,7 +2621,7 @@ CREATE INDEX idx_master_ocr_created_at ON master_ocr_contents(created_at DESC);
   - 推奨: CHECK 制約追加（アプリケーション層でも検証）
 - **GINインデックス**: source_file_ids配列の高速検索（ファイルIDからOCRコンテンツを検索）
 - **物理DB分離**（v7.2.0継続）: セキュリティ強化、IAMロール分離
-- **原本ファイル保存はedumintFilesが担当**: source_file_ids経由で file_metadata を参照
+- **原本ファイル保存はEduanimaFilesが担当**: source_file_ids経由で file_metadata を参照
 - **OCRテキストの保存**: ocr_text フィールドに結合されたOCR処理結果を格納
 - LLM学習データとして活用
 - 通報時の検証用ソースとして参照
@@ -2629,7 +2629,7 @@ CREATE INDEX idx_master_ocr_created_at ON master_ocr_contents(created_at DESC);
 
 **試験生成フロー（v7.4.1）:**
 1. ユーザーが複数のPDF/画像ファイルをアップロード（+ オプションでテキスト入力）
-2. edumintFiles が file_metadata レコードを作成（各ファイルごと）
+2. EduanimaFiles が file_metadata レコードを作成（各ファイルごと）
 3. OCR処理サービスが各ファイルをOCR処理
 4. **OCR結果結合サービス**が複数のOCR結果を1つのテキストに結合
 5. master_ocr_contents レコード作成（source_file_ids配列に全ファイルIDを記録）
@@ -2828,7 +2828,7 @@ export async function uploadOCRContent(req: UploadOCRRequest): Promise<OCRConten
 ```yaml
 # GCSバケット名
 buckets:
-  - name: edumint-master-exercises  # 旧: edumint-master-exams
+  - name: Eduanima-master-exercises  # 旧: Eduanima-master-exams
     description: 演習問題OCRテキスト保存用（機密情報）
     storage_class: STANDARD
     lifecycle:
@@ -2836,7 +2836,7 @@ buckets:
         storageClass: NEARLINE
         age: 7
   
-  - name: edumint-master-materials
+  - name: Eduanima-master-materials
     description: 授業資料OCRテキスト保存用（機密情報）
     storage_class: STANDARD
     lifecycle:
@@ -2964,7 +2964,7 @@ metrics:
 
 ### 5.5 ログテーブル (DB分離設計)
 
-**物理DB:** `edumint_contents_logs`
+**物理DB:** `Eduanima_contents_logs`
 
 #### **content_logs**
 
@@ -3132,7 +3132,7 @@ import (
     "time"
     
     "github.com/go-redis/redis/v8"
-    "github.com/edumint/edumint-content/internal/domain"
+    "github.com/Eduanima/Eduanima-content/internal/domain"
 )
 
 type AdCacheRepository struct {
@@ -3317,7 +3317,7 @@ func (s *TokenService) CheckTokenIssueRateLimit(ctx context.Context, userID, exa
 
 ---
 
-## **6. edumintFiles (ファイルストレージ管理サービス)**
+## **6. EduanimaFiles (ファイルストレージ管理サービス)**
 
 ### 6.1 設計方針（v7.3.0）
 
@@ -3335,13 +3335,13 @@ func (s *TokenService) CheckTokenIssueRateLimit(ctx context.Context, userID, exa
 - **自動移行**: N日経過後にバッチ処理でVaultへ移行
 - **整合性検証**: CRC32C + SHA-256ハッシュで移行時の完全性を保証
 
-**edumintContentsとの連携:**
-- **責務分離**: edumintFilesは原本ファイル保存、edumintContentsはOCRテキスト管理
+**EduanimaContentsとの連携:**
+- **責務分離**: EduanimaFilesは原本ファイル保存、EduanimaContentsはOCRテキスト管理
 - **API/イベント駆動連携**:
   - ファイルアップロード完了時: `file.uploaded` イベント発行
-  - OCR要求: edumintContentsから `content.ocr` イベント購読
-  - OCR結果保存: edumintContentsの master_ocr_contents に保存
-- **暗号化対象**: 原本ファイル（GCS保存）とOCRテキスト（edumintContentsのDB）の両方
+  - OCR要求: EduanimaContentsから `content.ocr` イベント購読
+  - OCR結果保存: EduanimaContentsの master_ocr_contents に保存
+- **暗号化対象**: 原本ファイル（GCS保存）とOCRテキスト（EduanimaContentsのDB）の両方
 
 **設計原則:**
 - **完全ENUM化**: 全ステータス・カテゴリをENUM型で型安全に管理
@@ -3441,7 +3441,7 @@ CREATE TYPE mime_category_enum AS ENUM (
 
 ### 6.3 file_metadataテーブル（完全版）
 
-**物理DB:** `edumint_files`
+**物理DB:** `Eduanima_files`
 
 アップロードされた全ファイルのメタデータと2バケット構成を一元管理します。
 
@@ -3528,13 +3528,13 @@ COMMENT ON COLUMN file_metadata.is_llm_training_data IS 'LLM学習データ対�
 ```
 
 **マイクロサービス参照の設計原則（v7.5.1追加）:**
-- `uploader_id` は `edumintUsers.users.id` を参照
+- `uploader_id` は `EduanimaUsers.users.id` を参照
 - マイクロサービス境界のため**物理FOREIGN KEYは設定しない**
 - アプリケーション層でバリデーション必須
   ```go
   // ファイルアップロード前のユーザー存在確認
   func (s *FileService) UploadFile(ctx context.Context, uploaderID uuid.UUID, file io.Reader) error {
-      // edumintUsersサービスにgRPC/HTTPで問い合わせ
+      // EduanimaUsersサービスにgRPC/HTTPで問い合わせ
       userExists, err := s.userClient.CheckUserExists(ctx, uploaderID)
       if err != nil || !userExists {
           return errors.New("invalid uploader_id: user not found")
@@ -3546,7 +3546,7 @@ COMMENT ON COLUMN file_metadata.is_llm_training_data IS 'LLM学習データ対�
   ```
 
 **整合性保証戦略:**
-1. ファイルアップロード時: edumintUsersのユーザー存在確認
+1. ファイルアップロード時: EduanimaUsersのユーザー存在確認
 2. ユーザー削除時: Kafkaイベント `user.deleted` を受信して論理削除フラグ設定
 3. 定期バッチ: 孤立ファイルの検出と警告ログ出力
 
@@ -3662,7 +3662,7 @@ COMMENT ON TABLE copyright_claims IS '著作権侵害申し立て管理テーブ
 
 全ファイル操作の監査ログをログDBに記録します。
 
-**物理DB:** `edumint_files_logs`
+**物理DB:** `Eduanima_files_logs`
 
 ```sql
 CREATE TABLE file_audit_logs (
@@ -3707,7 +3707,7 @@ COMMENT ON TABLE file_audit_logs IS 'ファイル監査ログテーブル（全�
 
 ストレージクラスの遷移履歴をログDBに記録します。
 
-**物理DB:** `edumint_files_logs`
+**物理DB:** `Eduanima_files_logs`
 
 ```sql
 CREATE TABLE storage_class_transitions (
@@ -3871,7 +3871,7 @@ BEGIN
   END IF;
 
   -- 監査ログに記録
-  INSERT INTO edumint_files_logs.file_audit_logs (
+  INSERT INTO Eduanima_files_logs.file_audit_logs (
     file_id,
     file_category,
     action,
@@ -3913,14 +3913,14 @@ ALTER TABLE copyright_claims ENABLE ROW LEVEL SECURITY;
 -- 管理者: 全ファイルアクセス可能
 CREATE POLICY policy_file_metadata_admin ON file_metadata
 FOR ALL
-TO edumint_admin_role
+TO Eduanima_admin_role
 USING (TRUE)
 WITH CHECK (TRUE);
 
 -- ユーザー: 自分のアップロードファイル + user_accessibleファイル
 CREATE POLICY policy_file_metadata_user_select ON file_metadata
 FOR SELECT
-TO edumint_user_role
+TO Eduanima_user_role
 USING (
   uploader_id = current_setting('app.current_user_id')::UUID
   OR access_level = 'user_accessible'
@@ -3929,27 +3929,27 @@ USING (
 -- ユーザー: 自分のファイルのみ更新可能
 CREATE POLICY policy_file_metadata_user_update ON file_metadata
 FOR UPDATE
-TO edumint_user_role
+TO Eduanima_user_role
 USING (uploader_id = current_setting('app.current_user_id')::UUID)
 WITH CHECK (uploader_id = current_setting('app.current_user_id')::UUID);
 
 -- システム: システム管理ファイルのみアクセス
 CREATE POLICY policy_file_metadata_system ON file_metadata
 FOR ALL
-TO edumint_system_role
+TO Eduanima_system_role
 USING (is_system_managed = TRUE)
 WITH CHECK (is_system_managed = TRUE);
 
 -- LLM学習システム: 学習データ対象ファイルのみ読み取り
 CREATE POLICY policy_file_metadata_llm_training ON file_metadata
 FOR SELECT
-TO edumint_llm_training_role
+TO Eduanima_llm_training_role
 USING (is_llm_training_data = TRUE AND migration_status = 'staging');
 
 -- Vaultバケット専用ポリシー: 移行完了ファイルは管理者のみアクセス
 CREATE POLICY policy_file_metadata_vaulted ON file_metadata
 FOR SELECT
-TO edumint_user_role
+TO Eduanima_user_role
 USING (migration_status != 'vaulted' OR access_level = 'user_accessible');
 
 -- === file_migration_logsテーブルのRLSポリシー ===
@@ -3957,13 +3957,13 @@ USING (migration_status != 'vaulted' OR access_level = 'user_accessible');
 -- 管理者: 全移行ログ閲覧可能
 CREATE POLICY policy_migration_logs_admin ON file_migration_logs
 FOR SELECT
-TO edumint_admin_role
+TO Eduanima_admin_role
 USING (TRUE);
 
 -- システム: 移行ログ作成可能
 CREATE POLICY policy_migration_logs_system ON file_migration_logs
 FOR INSERT
-TO edumint_system_role
+TO Eduanima_system_role
 WITH CHECK (TRUE);
 
 -- === copyright_claimsテーブルのRLSポリシー ===
@@ -3971,14 +3971,14 @@ WITH CHECK (TRUE);
 -- 管理者: 全著作権申し立て管理可能
 CREATE POLICY policy_copyright_claims_admin ON copyright_claims
 FOR ALL
-TO edumint_admin_role
+TO Eduanima_admin_role
 USING (TRUE)
 WITH CHECK (TRUE);
 
 -- 申し立て者: 自分の申し立てのみ閲覧可能
 CREATE POLICY policy_copyright_claims_claimant ON copyright_claims
 FOR SELECT
-TO edumint_user_role
+TO Eduanima_user_role
 USING (claimant_email = current_setting('app.current_user_email')::TEXT);
 ```
 
@@ -3986,7 +3986,7 @@ USING (claimant_email = current_setting('app.current_user_email')::TEXT);
 
 #### 6.8.1 Stagingバケット
 
-**バケット名:** `edumint-files-staging-{env}`
+**バケット名:** `Eduanima-files-staging-{env}`
 
 **ライフサイクルポリシー:**
 ```json
@@ -4017,7 +4017,7 @@ USING (claimant_email = current_setting('app.current_user_email')::TEXT);
 
 #### 6.8.2 Vaultバケット
 
-**バケット名:** `edumint-files-vault-{env}`
+**バケット名:** `Eduanima-files-vault-{env}`
 
 **ライフサイクルポリシー:**
 ```json
@@ -4070,38 +4070,38 @@ USING (claimant_email = current_setting('app.current_user_email')::TEXT);
 
 ```yaml
 # アプリケーション用SA
-edumint-files-app@{project-id}.iam.gserviceaccount.com:
+Eduanima-files-app@{project-id}.iam.gserviceaccount.com:
   roles:
     - roles/storage.objectViewer  # Stagingバケット読み取り
     - roles/storage.objectCreator  # Stagingバケット書き込み
   bucket_permissions:
-    - edumint-files-staging-{env}
+    - Eduanima-files-staging-{env}
 
 # バッチ処理用SA
-edumint-files-batch@{project-id}.iam.gserviceaccount.com:
+Eduanima-files-batch@{project-id}.iam.gserviceaccount.com:
   roles:
     - roles/storage.objectAdmin  # 両バケット管理
     - roles/cloudkms.cryptoKeyEncrypterDecrypter  # CMEK暗号化
   bucket_permissions:
-    - edumint-files-staging-{env}
-    - edumint-files-vault-{env}
+    - Eduanima-files-staging-{env}
+    - Eduanima-files-vault-{env}
 
 # 管理者用SA
-edumint-files-admin@{project-id}.iam.gserviceaccount.com:
+Eduanima-files-admin@{project-id}.iam.gserviceaccount.com:
   roles:
     - roles/storage.admin  # 全バケット管理
     - roles/cloudkms.admin  # KMS管理
   bucket_permissions:
-    - edumint-files-staging-{env}
-    - edumint-files-vault-{env}
+    - Eduanima-files-staging-{env}
+    - Eduanima-files-vault-{env}
 
 # 監査ログ用SA
-edumint-files-audit@{project-id}.iam.gserviceaccount.com:
+Eduanima-files-audit@{project-id}.iam.gserviceaccount.com:
   roles:
     - roles/storage.objectViewer  # 読み取り専用
   bucket_permissions:
-    - edumint-files-staging-{env}
-    - edumint-files-vault-{env}
+    - Eduanima-files-staging-{env}
+    - Eduanima-files-vault-{env}
 ```
 
 ### 6.10 バッチ処理設計
@@ -4291,27 +4291,27 @@ WHERE file_category = 'report_evidence'
 **発行するイベント:**
 - **`file.uploaded`**: ファイルアップロード完了
   - Payload: `{file_id, file_category, uploader_id, staging_path}`
-  - 購読者: edumintContents, edumintAiWorker
+  - 購読者: EduanimaContents, EduanimaAiWorker
 
 - **`file.migrated`**: ファイル移行完了
   - Payload: `{file_id, migration_status, vault_path}`
-  - 購読者: edumintContents, edumintMonitoring
+  - 購読者: EduanimaContents, EduanimaMonitoring
 
 - **`file.encrypted`**: ファイル暗号化完了
   - Payload: `{file_id, encrypted_at, encryption_key_version}`
-  - 購読者: edumintContents, edumintSecurity
+  - 購読者: EduanimaContents, EduanimaSecurity
 
 **購読するイベント:**
 - **`content.ocr`**: OCR処理要求
-  - 送信元: edumintContents
-  - 処理: ファイル取得APIを提供、edumintAiWorkerへファイルパス送信
+  - 送信元: EduanimaContents
+  - 処理: ファイル取得APIを提供、EduanimaAiWorkerへファイルパス送信
 
 - **`moderation.evidence`**: 通報証拠ファイル要求
-  - 送信元: edumintModeration
+  - 送信元: EduanimaModeration
   - 処理: report_evidenceファイルへのアクセス許可
 
 - **`user.deleted`**: ユーザー削除
-  - 送信元: edumintUsers
+  - 送信元: EduanimaUsers
   - 処理: ユーザーのファイルを論理削除
 
 ### 6.14 サービス間API
@@ -4328,36 +4328,36 @@ WHERE file_category = 'report_evidence'
 
 ---
 
-## **7. edumintSearch (検索サービス)**
+## **7. EduanimaSearch (検索サービス)**
 
 ### 設計変更点（v7.1.0）
 
 **無状態化（Stateless）:**
 - **物理DB削除**: PostgreSQL本体DBを完全廃止
 - **Elasticsearchのみ**: 全インデックスデータはElasticsearchで管理
-- **Debezium CDC**: edumintUsers, edumintContentsからリアルタイム差分同期
-- **検索用語テーブル移管**: *_terms, term_generation_*テーブルをedumintContentsへ移管
-- **ログDBは維持**: `edumint_search_logs` (分離DB) は検索クエリ履歴として保持
+- **Debezium CDC**: EduanimaUsers, EduanimaContentsからリアルタイム差分同期
+- **検索用語テーブル移管**: *_terms, term_generation_*テーブルをEduanimaContentsへ移管
+- **ログDBは維持**: `Eduanima_search_logs` (分離DB) は検索クエリ履歴として保持
 
 **アーキテクチャ:**
 ```
-edumintContents (PostgreSQL)
+EduanimaContents (PostgreSQL)
         ↓ Debezium CDC (論理レプリケーション)
         ↓ Kafka経由
-edumintSearch (Elasticsearch + ログDB)
+EduanimaSearch (Elasticsearch + ログDB)
 ```
 
 **利点:**
 - **運用コスト削減**: PostgreSQL管理・同期処理の削除
 - **リアルタイム同期**: Debezium CDCによる自動差分反映
 - **スケーラビリティ**: Elasticsearch水平スケールに最適化
-- **整合性保証**: Source of Truth (edumintContents) からの一方向同期
+- **整合性保証**: Source of Truth (EduanimaContents) からの一方向同期
 
 ### 設計変更点（v7.0.0からの継続）
 
 ### 7.1 本体DBテーブル (DDL例)
 
-**物理DB:** `edumint_search`
+**物理DB:** `Eduanima_search`
 
 #### **search_queries (検索クエリ履歴)**
 ```sql
@@ -4389,7 +4389,7 @@ CREATE INDEX idx_search_cache_expires ON search_cache(expires_at);
 
 ### 7.2 ログテーブル (DB分離設計)
 
-**物理DB:** `edumint_search_logs`
+**物理DB:** `Eduanima_search_logs`
 
 #### **search_logs**
 ```sql
@@ -4423,7 +4423,7 @@ CREATE TABLE search_logs_2026_03 PARTITION OF search_logs
 ### 7.3 Elasticsearch同期戦略
 
 #### Debezium CDC連携
-- `dbz.edumint.contents_search.public.exams_search` トピックをsubscribe
+- `dbz.Eduanima.contents_search.public.exams_search` トピックをsubscribe
 - 変更イベント受信時にElasticsearchインデックス更新
 - 失敗時はKafka DLQに送信し、手動リトライ
 
@@ -4540,7 +4540,7 @@ curl -X POST "localhost:9200/_bulk" -H 'Content-Type: application/json' --data-b
 
 ---
 
-## **8. edumintAiWorker (AI処理サービス)**
+## **8. EduanimaAiWorker (AI処理サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -4550,7 +4550,7 @@ curl -X POST "localhost:9200/_bulk" -H 'Content-Type: application/json' --data-b
 
 ### 設計方針
 
-edumintAiWorkerは以下の理由により、PostgreSQL物理DBを持ちません：
+EduanimaAiWorkerは以下の理由により、PostgreSQL物理DBを持ちません：
 
 1. **ステートレス設計**: AI処理は入力→処理→出力の単方向フロー
 2. **スケーラビリティ**: DBレスでコンテナ水平スケーリングが容易
@@ -4562,9 +4562,9 @@ edumintAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
 ```
 [Kafka] gateway.jobs
    ↓
-[edumintAiWorker] AI処理（ステートレス）
+[EduanimaAiWorker] AI処理（ステートレス）
    ↓
-[Kafka] ai.results → [edumintContents] 結果反映
+[Kafka] ai.results → [EduanimaContents] 結果反映
    ↓
 [ELK Stack] ログ収集・分析
 ```
@@ -4579,7 +4579,7 @@ edumintAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
 {
   "timestamp": "2025-01-15T10:30:00Z",
   "level": "info",
-  "service": "edumintAiWorker",
+  "service": "EduanimaAiWorker",
   "job_id": "550e8400-e29b-41d4-a716-446655440000",
   "job_type": "ocr_processing",
   "file_id": "abc12345",
@@ -4600,18 +4600,18 @@ edumintAiWorkerは以下の理由により、PostgreSQL物理DBを持ちませ�
 
 ---
 
-## **9. edumintSocial (ソーシャルサービス)**
+## **9. EduanimaSocial (ソーシャルサービス)**
 
 ### 設計変更点（v7.0.3）
 
-- **責務の明確化**: 統計情報管理をedumintContentsへ移管、純粋なソーシャル機能に特化
-- **削除テーブル**: `exam_likes`, `exam_bads`, `exam_views`（→ edumintContents.exam_interaction_eventsへ統合）
+- **責務の明確化**: 統計情報管理をEduanimaContentsへ移管、純粋なソーシャル機能に特化
+- **削除テーブル**: `exam_likes`, `exam_bads`, `exam_views`（→ EduanimaContents.exam_interaction_eventsへ統合）
 - **新規テーブル**: SNS投稿、DM、マッチング機能用テーブルを追加
 - **コメント機能強化**: YouTubeスタイルのスレッド型コメント
 
 ### 10.1 サービス責務
 
-edumintSocialは以下のソーシャル機能を提供します：
+EduanimaSocialは以下のソーシャル機能を提供します：
 
 1. **試験コメント機能**: 試験に対するユーザーコメント、返信、いいね
 2. **SNS投稿機能**: ユーザーのタイムライン、投稿、シェア
@@ -4794,7 +4794,7 @@ CREATE UNIQUE INDEX idx_user_matches_unique_pair ON user_matches(user_id_1, user
 
 ### 10.3 イベント駆動フロー
 
-edumintSocialは`content.interaction`イベントを購読し、通知生成のみ実行します。統計情報の更新責務はedumintContentsが持ちます。
+EduanimaSocialは`content.interaction`イベントを購読し、通知生成のみ実行します。統計情報の更新責務はEduanimaContentsが持ちます。
 
 ```yaml
 # 購読イベント
@@ -4807,13 +4807,13 @@ subscriptions:
 ```
 
 **設計注記:**
-- edumintSocialは統計情報の更新責務を持たない
+- EduanimaSocialは統計情報の更新責務を持たない
 - Kafkaイベントを購読して通知生成のみ実行
-- edumintContentsが統計情報のSource of Truthとなる
+- EduanimaContentsが統計情報のSource of Truthとなる
 
 ### 10.4 ログテーブル (DB分離設計)
 
-**物理DB:** `edumint_social_logs`
+**物理DB:** `Eduanima_social_logs`
 
 #### **social_logs**
 ```sql
@@ -4899,7 +4899,7 @@ ORDER BY event_count DESC;
 
 ---
 
-## **10. edumintMonetizeWallet (ウォレット管理サービス)**
+## **10. EduanimaMonetizeWallet (ウォレット管理サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -4956,7 +4956,7 @@ CREATE INDEX idx_wallet_transactions_related_entity ON wallet_transactions(relat
 
 ### 10.2 ログテーブル (DB分離設計、法的要件7年保持)
 
-**物理DB:** `edumint_wallet_logs` (特別保持ポリシー)
+**物理DB:** `Eduanima_wallet_logs` (特別保持ポリシー)
 
 #### **wallet_logs**
 
@@ -4993,7 +4993,7 @@ CREATE INDEX idx_wallet_logs_retention_until ON wallet_logs(retention_until);
 
 ---
 
-## **11. edumintRevenue (収益分配サービス)**
+## **11. EduanimaRevenue (収益分配サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -5055,7 +5055,7 @@ CREATE INDEX idx_ad_impressions_agg_date ON ad_impressions_agg(aggregation_date)
 
 ### 11.2 ログテーブル (DB分離設計)
 
-**物理DB:** `edumint_revenue_logs`
+**物理DB:** `Eduanima_revenue_logs`
 
 #### **revenue_logs**
 
@@ -5087,7 +5087,7 @@ CREATE INDEX idx_revenue_logs_action ON revenue_logs(action, created_at);
 
 ---
 
-## **12. edumintModeration (通報管理サービス)**
+## **12. EduanimaModeration (通報管理サービス)**
 
 ### 設計変更点（v7.0.0）
 
@@ -5179,7 +5179,7 @@ CREATE INDEX idx_report_files_report ON report_files(report_type, report_id);
 
 ### 11.2 ログテーブル (DB分離設計)
 
-**物理DB:** `edumint_moderation_logs`
+**物理DB:** `Eduanima_moderation_logs`
 
 #### **moderation_logs**
 
@@ -5212,7 +5212,7 @@ CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
 
 ---
 
-## **13. edumintGateways (ジョブゲートウェイ)**
+## **13. EduanimaGateways (ジョブゲートウェイ)**
 
 ### 設計変更点
 
@@ -5416,7 +5416,7 @@ func (uc *JobUseCase) CreateJob(ctx context.Context, req CreateJobRequest) (*Job
 
 ### 13.2 ログテーブル (DB分離設計)
 
-**物理DB:** `edumint_gateway_logs`
+**物理DB:** `Eduanima_gateway_logs`
 
 #### **job_logs**
 
@@ -5448,10 +5448,10 @@ CREATE INDEX idx_job_logs_status ON job_logs(status, created_at);
 
 ### 概要
 
-v7.2.0では、Debezium CDCを2コネクタ構成に拡張し、edumintContentsの4DB構成に対応します。PostgreSQLからElasticsearchへのリアルタイムデータ同期を実現し、edumintSearchサービスの無状態化と、データ整合性の自動保証が可能になります。
+v7.2.0では、Debezium CDCを2コネクタ構成に拡張し、EduanimaContentsの4DB構成に対応します。PostgreSQLからElasticsearchへのリアルタイムデータ同期を実現し、EduanimaSearchサービスの無状態化と、データ整合性の自動保証が可能になります。
 
 **v7.2.0の主要変更:**
-- **2コネクタ構成**: edumint_contents と edumint_contents_search の個別同期
+- **2コネクタ構成**: Eduanima_contents と Eduanima_contents_search の個別同期
 - **精密なレプリケーション制御**: テーブル単位での同期設定最適化
 - **I/O負荷の分離**: 検索用DBの変更を独立して捕捉
 - **master DBは非レプリケーション**: OCRテキスト（機密情報）はElasticsearchに同期しない
@@ -5460,7 +5460,7 @@ v7.2.0では、Debezium CDCを2コネクタ構成に拡張し、edumintContents�
 
 ```
 ┌─────────────────────┐
-│ edumintUsers        │ PostgreSQL (edumint_users)
+│ EduanimaUsers        │ PostgreSQL (Eduanima_users)
 │ (Source of Truth)   │
 └──────────┬──────────┘
            │ Logical Replication
@@ -5469,10 +5469,10 @@ v7.2.0では、Debezium CDCを2コネクタ構成に拡張し、edumintContents�
       │ Debezium CDC   │ Change Data Capture
       │ Connector      │
       └────────┬───────┘
-               │ Kafka Topic: dbz.edumint_users.*
+               │ Kafka Topic: dbz.Eduanima_users.*
                ↓
 ┌─────────────────────┐
-│ edumintContents     │ PostgreSQL (edumint_contents)
+│ EduanimaContents     │ PostgreSQL (Eduanima_contents)
 │ (Source of Truth)   │
 └──────────┬──────────┘
            │ Logical Replication
@@ -5481,7 +5481,7 @@ v7.2.0では、Debezium CDCを2コネクタ構成に拡張し、edumintContents�
       │ Debezium CDC   │ Change Data Capture
       │ Connector      │
       └────────┬───────┘
-               │ Kafka Topic: dbz.edumint_contents.*
+               │ Kafka Topic: dbz.Eduanima_contents.*
                ↓
          ┌──────────┐
          │  Kafka   │ Event Streaming Platform
@@ -5489,7 +5489,7 @@ v7.2.0では、Debezium CDCを2コネクタ構成に拡張し、edumintContents�
               │
               ↓
     ┌──────────────────┐
-    │ edumintSearch    │ Consumer Service
+    │ EduanimaSearch    │ Consumer Service
     │ (Stateless)      │
     └────────┬─────────┘
              │
@@ -5511,47 +5511,47 @@ max_replication_slots = 12  -- v7.2.0: 3コネクタ構成により増加
 max_wal_senders = 12
 
 -- レプリケーションスロット作成（v7.2.0 - 3スロット構成）
-SELECT pg_create_logical_replication_slot('debezium_edumint_users', 'pgoutput');
-SELECT pg_create_logical_replication_slot('debezium_edumint_contents', 'pgoutput');
-SELECT pg_create_logical_replication_slot('debezium_edumint_contents_search', 'pgoutput');  -- NEW
+SELECT pg_create_logical_replication_slot('debezium_Eduanima_users', 'pgoutput');
+SELECT pg_create_logical_replication_slot('debezium_Eduanima_contents', 'pgoutput');
+SELECT pg_create_logical_replication_slot('debezium_Eduanima_contents_search', 'pgoutput');  -- NEW
 
--- パブリケーション作成（edumint_users）
+-- パブリケーション作成（Eduanima_users）
 CREATE PUBLICATION dbz_publication_users FOR TABLE 
   users, user_profiles, oauth_tokens, idp_links;
 
--- パブリケーション作成（edumint_contents メインDB）
+-- パブリケーション作成（Eduanima_contents メインDB）
 CREATE PUBLICATION dbz_publication_contents FOR TABLE
   institutions, faculties, departments, teachers, subjects,
   exams, questions, sub_questions, keywords, exam_keywords,
   exam_statistics, exam_interaction_events,
   ad_display_events, ad_viewing_progress;  -- v7.2.0: 広告テーブル追加、v7.4.0: ad_viewing_progress統合
 
--- パブリケーション作成（edumint_contents_search 検索用DB） *NEW*
+-- パブリケーション作成（Eduanima_contents_search 検索用DB） *NEW*
 CREATE PUBLICATION dbz_publication_contents_search FOR TABLE
   subject_terms, institution_terms, faculty_terms, teacher_terms,
   term_generation_jobs, term_generation_candidates;
 ```
 
-#### Debezium Connector 設定（edumintUsers）
+#### Debezium Connector 設定（EduanimaUsers）
 
 ```json
 {
-  "name": "debezium-connector-edumint-users",
+  "name": "debezium-connector-Eduanima-users",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-    "database.hostname": "edumint-users-db.internal",
+    "database.hostname": "Eduanima-users-db.internal",
     "database.port": "5432",
     "database.user": "debezium",
     "database.password": "${secret:debezium-password}",
-    "database.dbname": "edumint_users",
-    "database.server.name": "edumint_users",
+    "database.dbname": "Eduanima_users",
+    "database.server.name": "Eduanima_users",
     "table.include.list": "public.users,public.user_profiles,public.oauth_tokens,public.idp_links",
     "plugin.name": "pgoutput",
     "publication.name": "dbz_publication_users",
-    "slot.name": "debezium_edumint_users",
+    "slot.name": "debezium_Eduanima_users",
     "heartbeat.interval.ms": 5000,
     "snapshot.mode": "initial",
-    "topic.prefix": "dbz.edumint_users",
+    "topic.prefix": "dbz.Eduanima_users",
     "transforms": "unwrap",
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstones": "false",
@@ -5560,27 +5560,27 @@ CREATE PUBLICATION dbz_publication_contents_search FOR TABLE
 }
 ```
 
-#### Debezium Connector 設定（edumintContents メインDB）
+#### Debezium Connector 設定（EduanimaContents メインDB）
 
 ```json
 {
-  "name": "debezium-connector-edumint-contents",
+  "name": "debezium-connector-Eduanima-contents",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-    "database.hostname": "edumint-contents-db.internal",
+    "database.hostname": "Eduanima-contents-db.internal",
     "database.port": "5432",
     "database.user": "debezium",
     "database.password": "${secret:debezium-password}",
-    "database.dbname": "edumint_contents",
-    "database.server.name": "edumint_contents",
+    "database.dbname": "Eduanima_contents",
+    "database.server.name": "Eduanima_contents",
     "table.include.list": "public.institutions,public.faculties,public.departments,public.teachers,public.subjects,public.exams,public.questions,public.sub_questions,public.keywords,public.exam_keywords,public.exam_statistics,public.exam_interaction_events,public.ad_display_events,public.ad_viewing_progress",
     "column.exclude.list": "public.exams.file_metadata",
     "plugin.name": "pgoutput",
     "publication.name": "dbz_publication_contents",
-    "slot.name": "debezium_edumint_contents",
+    "slot.name": "debezium_Eduanima_contents",
     "heartbeat.interval.ms": 5000,
     "snapshot.mode": "initial",
-    "topic.prefix": "dbz.edumint_contents",
+    "topic.prefix": "dbz.Eduanima_contents",
     "transforms": "unwrap",
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstones": "false",
@@ -5608,26 +5608,26 @@ CREATE PUBLICATION dbz_publication_contents_search FOR TABLE
 - 実データはREST API経由で取得
 - Elasticsearchには概要情報のみを格納
 
-#### Debezium Connector 設定（edumint_contents_search 検索用DB） *NEW*
+#### Debezium Connector 設定（Eduanima_contents_search 検索用DB） *NEW*
 
 ```json
 {
-  "name": "debezium-connector-edumint-contents-search",
+  "name": "debezium-connector-Eduanima-contents-search",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-    "database.hostname": "edumint-contents-search-db.internal",
+    "database.hostname": "Eduanima-contents-search-db.internal",
     "database.port": "5432",
     "database.user": "debezium",
     "database.password": "${secret:debezium-password}",
-    "database.dbname": "edumint_contents_search",
-    "database.server.name": "edumint_contents_search",
+    "database.dbname": "Eduanima_contents_search",
+    "database.server.name": "Eduanima_contents_search",
     "table.include.list": "public.subject_terms,public.institution_terms,public.faculty_terms,public.teacher_terms,public.term_generation_jobs,public.term_generation_candidates",
     "plugin.name": "pgoutput",
     "publication.name": "dbz_publication_contents_search",
-    "slot.name": "debezium_edumint_contents_search",
+    "slot.name": "debezium_Eduanima_contents_search",
     "heartbeat.interval.ms": 5000,
     "snapshot.mode": "initial",
-    "topic.prefix": "dbz.edumint_contents_search",
+    "topic.prefix": "dbz.Eduanima_contents_search",
     "transforms": "unwrap",
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstones": "false",
@@ -5646,22 +5646,22 @@ CREATE PUBLICATION dbz_publication_contents_search FOR TABLE
 
 | トピック名 | 用途 | データ例 |
 |:---|:---|:---|
-| `dbz.edumint_users.public.users` | ユーザー変更 | INSERT/UPDATE/DELETE on users |
-| `dbz.edumint_users.public.user_profiles` | プロフィール変更 | INSERT/UPDATE/DELETE on user_profiles |
-| `dbz.edumint_contents.public.exams` | 試験変更 | INSERT/UPDATE/DELETE on exams |
-| `dbz.edumint_contents.public.questions` | 問題変更 | INSERT/UPDATE/DELETE on questions |
-| `dbz.edumint_contents.public.exam_statistics` | 統計変更 | INSERT/UPDATE on exam_statistics |
-| `dbz.edumint_contents.public.ad_display_events` | 広告表示イベント | INSERT on ad_display_events *NEW* |
-| `dbz.edumint_contents_search.public.subject_terms` | 科目検索用語変更 | INSERT/UPDATE/DELETE on subject_terms *NEW* |
-| `dbz.edumint_contents_search.public.institution_terms` | 機関検索用語変更 | INSERT/UPDATE/DELETE on institution_terms *NEW* |
-| `dbz.edumint_contents_search.public.term_generation_jobs` | 用語生成ジョブ | INSERT/UPDATE on term_generation_jobs *NEW* |
+| `dbz.Eduanima_users.public.users` | ユーザー変更 | INSERT/UPDATE/DELETE on users |
+| `dbz.Eduanima_users.public.user_profiles` | プロフィール変更 | INSERT/UPDATE/DELETE on user_profiles |
+| `dbz.Eduanima_contents.public.exams` | 試験変更 | INSERT/UPDATE/DELETE on exams |
+| `dbz.Eduanima_contents.public.questions` | 問題変更 | INSERT/UPDATE/DELETE on questions |
+| `dbz.Eduanima_contents.public.exam_statistics` | 統計変更 | INSERT/UPDATE on exam_statistics |
+| `dbz.Eduanima_contents.public.ad_display_events` | 広告表示イベント | INSERT on ad_display_events *NEW* |
+| `dbz.Eduanima_contents_search.public.subject_terms` | 科目検索用語変更 | INSERT/UPDATE/DELETE on subject_terms *NEW* |
+| `dbz.Eduanima_contents_search.public.institution_terms` | 機関検索用語変更 | INSERT/UPDATE/DELETE on institution_terms *NEW* |
+| `dbz.Eduanima_contents_search.public.term_generation_jobs` | 用語生成ジョブ | INSERT/UPDATE on term_generation_jobs *NEW* |
 
 **v7.2.0変更点:**
-- 検索用語テーブル変更を専用トピック（`dbz.edumint_contents_search.*`）で配信
-- メインDBトピック（`dbz.edumint_contents.*`）から検索用語テーブルを除外
+- 検索用語テーブル変更を専用トピック（`dbz.Eduanima_contents_search.*`）で配信
+- メインDBトピック（`dbz.Eduanima_contents.*`）から検索用語テーブルを除外
 - 広告管理テーブルをメインDBトピックに追加
 
-### edumintSearch Consumer実装
+### EduanimaSearch Consumer実装
 
 ```go
 package consumer
@@ -5752,10 +5752,10 @@ WHERE application_name LIKE 'debezium%';
 
 ```sql
 -- 問題のあるスロット削除
-SELECT pg_drop_replication_slot('debezium_edumint_users');
+SELECT pg_drop_replication_slot('debezium_Eduanima_users');
 
 -- 再作成
-SELECT pg_create_logical_replication_slot('debezium_edumint_users', 'pgoutput');
+SELECT pg_create_logical_replication_slot('debezium_Eduanima_users', 'pgoutput');
 ```
 
 #### Kafka遅延対策
@@ -5763,19 +5763,19 @@ SELECT pg_create_logical_replication_slot('debezium_edumint_users', 'pgoutput');
 ```bash
 # Consumer Lag確認
 kafka-consumer-groups --bootstrap-server kafka:9092 \
-  --group edumint-search-indexer \
+  --group Eduanima-search-indexer \
   --describe
 
 # パーティション数増加（スケールアウト）
 kafka-topics --bootstrap-server kafka:9092 \
-  --alter --topic dbz.edumint_contents.public.exams \
+  --alter --topic dbz.Eduanima_contents.public.exams \
   --partitions 10
 ```
 
 ### 設計注記
 
-- **無状態化**: edumintSearchはElasticsearch + ログDBのみ
-- **Source of Truth**: edumintUsers, edumintContentsが唯一の真実
+- **無状態化**: EduanimaSearchはElasticsearch + ログDBのみ
+- **Source of Truth**: EduanimaUsers, EduanimaContentsが唯一の真実
 - **リアルタイム性**: ミリ秒～秒オーダーでの同期
 - **運用コスト削減**: 手動同期処理・バッチジョブ不要
 - **整合性保証**: PostgreSQL ACID特性 + CDC自動反映
@@ -5793,70 +5793,70 @@ kafka-topics --bootstrap-server kafka:9092 \
 
 | トピック名 | 説明 | Publisher | Subscribers |
 |----------|------|-----------|-------------|
-| `dbz.edumint.users.public.users` | ユーザー情報の変更 | Debezium | edumintFiles, edumintSocial |
-| `dbz.edumint.users.public.user_profiles` | プロフィール変更 | Debezium | edumintSearch |
-| `dbz.edumint.contents.public.exams` | 試験情報の変更 | Debezium | edumintSearch, edumintRevenue |
-| `dbz.edumint.contents.public.questions` | 問題情報の変更 | Debezium | edumintSearch |
-| `dbz.edumint.contents_search.public.exams_search` | 検索用試験情報の変更 | Debezium | edumintSearch (Elasticsearch同期) |
-| `dbz.edumint.contents_search.public.questions_search` | 検索用問題情報の変更 | Debezium | edumintSearch (Elasticsearch同期) |
+| `dbz.Eduanima.users.public.users` | ユーザー情報の変更 | Debezium | EduanimaFiles, EduanimaSocial |
+| `dbz.Eduanima.users.public.user_profiles` | プロフィール変更 | Debezium | EduanimaSearch |
+| `dbz.Eduanima.contents.public.exams` | 試験情報の変更 | Debezium | EduanimaSearch, EduanimaRevenue |
+| `dbz.Eduanima.contents.public.questions` | 問題情報の変更 | Debezium | EduanimaSearch |
+| `dbz.Eduanima.contents_search.public.exams_search` | 検索用試験情報の変更 | Debezium | EduanimaSearch (Elasticsearch同期) |
+| `dbz.Eduanima.contents_search.public.questions_search` | 検索用問題情報の変更 | Debezium | EduanimaSearch (Elasticsearch同期) |
 
 #### アプリケーションイベントトピック
 ビジネスロジックによって明示的に発行されるイベント。
 
-**命名規則:** `edumint.{service}.events`
+**命名規則:** `Eduanima.{service}.events`
 
 | トピック名 | 説明 | Publisher | Subscribers |
 |----------|------|-----------|-------------|
-| `edumint.users.events` | ユーザー関連イベント | edumintUsers | 全サービス |
-| `edumint.contents.events` | コンテンツイベント | edumintContents | edumintSearch, edumintRevenue |
-| `edumint.files.events` | ファイルイベント | edumintFiles | edumintContents, edumintModeration |
-| `edumint.social.events` | ソーシャルイベント | edumintSocial | edumintUsers, edumintRevenue |
-| `edumint.moderation.events` | 通報・審査イベント | edumintModeration | edumintUsers, edumintContents |
-| `edumint.monetize.events` | 収益イベント | edumintMonetizeWallet | edumintRevenue, edumintUsers |
+| `Eduanima.users.events` | ユーザー関連イベント | EduanimaUsers | 全サービス |
+| `Eduanima.contents.events` | コンテンツイベント | EduanimaContents | EduanimaSearch, EduanimaRevenue |
+| `Eduanima.files.events` | ファイルイベント | EduanimaFiles | EduanimaContents, EduanimaModeration |
+| `Eduanima.social.events` | ソーシャルイベント | EduanimaSocial | EduanimaUsers, EduanimaRevenue |
+| `Eduanima.moderation.events` | 通報・審査イベント | EduanimaModeration | EduanimaUsers, EduanimaContents |
+| `Eduanima.monetize.events` | 収益イベント | EduanimaMonetizeWallet | EduanimaRevenue, EduanimaUsers |
 
 **CDC vs アプリケーションイベントの使い分け:**
 - **CDC**: データベースの変更を機械的に伝播（低レベル）
 - **アプリケーションイベント**: ビジネスロジックの意図を伝達（高レベル）
 - 例: 試験アップロード時
-  - CDC: `dbz.edumint.contents.public.exams` に INSERT イベント
-  - アプリケーション: `edumint.contents.events` に `exam.uploaded` イベント（メタデータ含む）
+  - CDC: `dbz.Eduanima.contents.public.exams` に INSERT イベント
+  - アプリケーション: `Eduanima.contents.events` に `exam.uploaded` イベント（メタデータ含む）
 
 #### 主要トピック一覧
 
-EduMintでは以下のKafkaトピックを通じてマイクロサービス間でイベント駆動連携を実現します。
+Eduanimaでは以下のKafkaトピックを通じてマイクロサービス間でイベント駆動連携を実現します。
 
 | トピック名 | Producer | Consumer | イベント例 | 用途 |
 |-----------|----------|----------|-----------|------|
-| `auth.events` | edumintUsers | 各サービス | `UserRegistered`, `UserLoggedIn`, `TokenRevoked` | 認証イベント通知 |
-| `user.events` | edumintUsers | 各サービス | `UserProfileUpdated`, `UserDeleted` | ユーザー情報変更通知 |
-| `content.lifecycle` | edumintContents | edumintSearch, edumintGateways | `ExamCreated`, `ExamPublished`, `ExamDeleted` | コンテンツライフサイクル |
-| `content.ocr` | edumintContents | edumintAiWorker | `OCRRequested` | OCR処理要求 |
-| `file.uploaded` | edumintFiles | edumintContents, edumintAiWorker | `FileUploaded` | ファイルアップロード完了 |
-| `file.encrypted` | edumintFiles | edumintContents | `FileEncrypted` | ファイル暗号化完了 |
-| `ai.results` | edumintAiWorker | edumintContents, edumintGateways | `OCRCompleted`, `AIGenerationComplete` | AI処理結果 |
-| `gateway.jobs` | edumintGateways | 各サービス | `JobAssigned`, `JobCompleted` | ジョブオーケストレーション |
-| `gateway.job_status` | 各サービス | edumintGateways | `JobProgressUpdate`, `JobFailed` | ジョブステータス更新 |
-| `search.indexed` | edumintSearch | - | `ContentIndexed` | 検索インデックス完了通知 |
-| `search.term_generation` | edumintSearch | edumintAiWorker | `TermGenerationRequested` | 用語生成要求 |
-| **`content.interaction`** | **edumintContents** | **edumintSearch, edumintSocial, edumintRevenue** | **`ExamViewed`, `ExamLiked`, `ExamUnliked`, `ExamBad`, `ExamShared`** | **ユーザーインタラクション統計イベント** |
-| `social.activity` | edumintSocial | edumintUsers, edumintContents | `ExamCommented`, `PostCreated`, `DMSent` | ソーシャル活動通知 |
-| `content.feedback` | edumintSocial | edumintContents | `ExamLiked`, `ExamCommented`, `ExamViewed` | ソーシャルフィードバック |
-| `monetization.transactions` | edumintMonetizeWallet | edumintRevenue | `CoinEarned`, `CoinSpent` | ウォレットトランザクション |
-| `revenue.reports` | edumintRevenue | - | `RevenueCalculated`, `PaymentProcessed` | 収益レポート |
-| `moderation.events` | edumintModeration | edumintContents, edumintUsers | `ContentReported`, `ContentTakenDown`, `UserBanned` | モデレーションイベント |
+| `auth.events` | EduanimaUsers | 各サービス | `UserRegistered`, `UserLoggedIn`, `TokenRevoked` | 認証イベント通知 |
+| `user.events` | EduanimaUsers | 各サービス | `UserProfileUpdated`, `UserDeleted` | ユーザー情報変更通知 |
+| `content.lifecycle` | EduanimaContents | EduanimaSearch, EduanimaGateways | `ExamCreated`, `ExamPublished`, `ExamDeleted` | コンテンツライフサイクル |
+| `content.ocr` | EduanimaContents | EduanimaAiWorker | `OCRRequested` | OCR処理要求 |
+| `file.uploaded` | EduanimaFiles | EduanimaContents, EduanimaAiWorker | `FileUploaded` | ファイルアップロード完了 |
+| `file.encrypted` | EduanimaFiles | EduanimaContents | `FileEncrypted` | ファイル暗号化完了 |
+| `ai.results` | EduanimaAiWorker | EduanimaContents, EduanimaGateways | `OCRCompleted`, `AIGenerationComplete` | AI処理結果 |
+| `gateway.jobs` | EduanimaGateways | 各サービス | `JobAssigned`, `JobCompleted` | ジョブオーケストレーション |
+| `gateway.job_status` | 各サービス | EduanimaGateways | `JobProgressUpdate`, `JobFailed` | ジョブステータス更新 |
+| `search.indexed` | EduanimaSearch | - | `ContentIndexed` | 検索インデックス完了通知 |
+| `search.term_generation` | EduanimaSearch | EduanimaAiWorker | `TermGenerationRequested` | 用語生成要求 |
+| **`content.interaction`** | **EduanimaContents** | **EduanimaSearch, EduanimaSocial, EduanimaRevenue** | **`ExamViewed`, `ExamLiked`, `ExamUnliked`, `ExamBad`, `ExamShared`** | **ユーザーインタラクション統計イベント** |
+| `social.activity` | EduanimaSocial | EduanimaUsers, EduanimaContents | `ExamCommented`, `PostCreated`, `DMSent` | ソーシャル活動通知 |
+| `content.feedback` | EduanimaSocial | EduanimaContents | `ExamLiked`, `ExamCommented`, `ExamViewed` | ソーシャルフィードバック |
+| `monetization.transactions` | EduanimaMonetizeWallet | EduanimaRevenue | `CoinEarned`, `CoinSpent` | ウォレットトランザクション |
+| `revenue.reports` | EduanimaRevenue | - | `RevenueCalculated`, `PaymentProcessed` | 収益レポート |
+| `moderation.events` | EduanimaModeration | EduanimaContents, EduanimaUsers | `ContentReported`, `ContentTakenDown`, `UserBanned` | モデレーションイベント |
 
 #### **ファイル管理イベント（v7.5.1追加）**
 
-**`edumint.files.file_migration_completed`**
-- **Producer**: edumintFiles
-- **Consumers**: edumintContents（OCRテキスト参照先更新）、edumintRevenue（ストレージコスト再計算）
+**`Eduanima.files.file_migration_completed`**
+- **Producer**: EduanimaFiles
+- **Consumers**: EduanimaContents（OCRテキスト参照先更新）、EduanimaRevenue（ストレージコスト再計算）
 - **Key**: `file_id (UUID)`
 - **Value Schema**:
   ```json
   {
     "file_id": "uuid",
-    "old_bucket": "edumint-staging-asia",
-    "new_bucket": "edumint-vault-asia",
+    "old_bucket": "Eduanima-staging-asia",
+    "new_bucket": "Eduanima-vault-asia",
     "old_storage_class": "STANDARD",
     "new_storage_class": "ARCHIVE",
     "migrated_at": "2026-02-07T12:34:56Z",
@@ -5866,9 +5866,9 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 
 #### **統計更新イベント（v7.5.1追加）**
 
-**`edumint.contents.exam_statistics_updated`**
-- **Producer**: edumintContents
-- **Consumers**: edumintSearch（Elasticsearchインデックス更新）、edumintRevenue（人気度ベース収益分配計算）
+**`Eduanima.contents.exam_statistics_updated`**
+- **Producer**: EduanimaContents
+- **Consumers**: EduanimaSearch（Elasticsearchインデックス更新）、EduanimaRevenue（人気度ベース収益分配計算）
 - **Key**: `exam_id (UUID)`
 - **Value Schema**:
   ```json
@@ -5889,34 +5889,34 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 ```
 [ユーザー] ファイルアップロード
    ↓
-[edumintFiles] file_metadata作成、GCSへ保存
+[EduanimaFiles] file_metadata作成、GCSへ保存
    ↓ (Kafka: file.uploaded)
-[edumintGateways] ジョブ作成 (job_type: 'file_upload')
+[EduanimaGateways] ジョブ作成 (job_type: 'file_upload')
    ↓ (Kafka: gateway.jobs)
-[edumintAiWorker] OCR処理実行（edumintFilesからファイル取得）
+[EduanimaAiWorker] OCR処理実行（EduanimaFilesからファイル取得）
    ↓ (Kafka: ai.results)
-[edumintContents] master_ocr_contentsにOCRテキスト保存、exams/questions作成
+[EduanimaContents] master_ocr_contentsにOCRテキスト保存、exams/questions作成
    ↓ (Kafka: content.lifecycle)
-[edumintSearch] Elasticsearchインデックス更新（Debezium CDC経由）
+[EduanimaSearch] Elasticsearchインデックス更新（Debezium CDC経由）
 ```
 
 **ポイント:**
-- **責務分離**: edumintFilesが原本ファイル保存、edumintContentsがOCRテキスト管理
+- **責務分離**: EduanimaFilesが原本ファイル保存、EduanimaContentsがOCRテキスト管理
 - **イベント駆動**: file.uploadedイベントでファイルアップロード完了を通知
-- **API連携**: edumintAiWorkerはedumintFiles APIでファイル取得
+- **API連携**: EduanimaAiWorkerはEduanimaFiles APIでファイル取得
 
 #### **2. ソーシャルフィードバックフロー（v7.0.2以前の旧パターン - 参考）**
 
 ```
 [ユーザー] 試験にいいね
    ↓
-[edumintSocial] exam_likes作成
+[EduanimaSocial] exam_likes作成
    ↓ (Kafka: content.feedback)
-[edumintContents] exams.like_count更新
+[EduanimaContents] exams.like_count更新
    ↓ (Kafka: content.lifecycle)
-[edumintSearch] Elasticsearchランキング更新
+[EduanimaSearch] Elasticsearchランキング更新
    ↓
-[edumintUsers] 通知作成 (ExamLiked)
+[EduanimaUsers] 通知作成 (ExamLiked)
 ```
 
 **注記:** v7.0.3では以下の新しいパターンに移行しました。
@@ -5926,11 +5926,11 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 ```
 [ユーザー] 試験にいいね
    ↓
-[edumintContents API] exam_interaction_eventsに記録（非同期）
+[EduanimaContents API] exam_interaction_eventsに記録（非同期）
    ↓ (Kafka: content.interaction)
-[edumintSearch] Elasticsearchランキング更新
-[edumintSocial] 通知作成「あなたの試験がいいねされました」
-[edumintRevenue] エンゲージメント収益計算
+[EduanimaSearch] Elasticsearchランキング更新
+[EduanimaSocial] 通知作成「あなたの試験がいいねされました」
+[EduanimaRevenue] エンゲージメント収益計算
    ↓
 [定期バッチ 1分ごと] exam_statistics更新
 ```
@@ -5945,30 +5945,30 @@ EduMintでは以下のKafkaトピックを通じてマイクロサービス間�
 ```
 [日次バッチ] 7日経過ファイル検出
    ↓
-[edumintFiles] file_metadata暗号化処理（GCS）
+[EduanimaFiles] file_metadata暗号化処理（GCS）
    ↓ (Kafka: file.encrypted)
-[edumintContents] master_ocr_contents暗号化フラグ更新
+[EduanimaContents] master_ocr_contents暗号化フラグ更新
    ↓
-[edumintContents] OCRテキスト暗号化（DB）
+[EduanimaContents] OCRテキスト暗号化（DB）
 ```
 
 **ポイント:**
-- **2段階暗号化**: 原本ファイル（edumintFiles）とOCRテキスト（edumintContents）を両方暗号化
+- **2段階暗号化**: 原本ファイル（EduanimaFiles）とOCRテキスト（EduanimaContents）を両方暗号化
 - **自動処理**: アップロード後7日経過で自動実行
-- **イベント連携**: file.encryptedイベントでedumintContentsに通知
+- **イベント連携**: file.encryptedイベントでEduanimaContentsに通知
 
 #### **4. 収益分配フロー**
 
 ```
 [日次バッチ] 広告インプレッション集計
    ↓
-[edumintRevenue] ad_impressions_agg作成
+[EduanimaRevenue] ad_impressions_agg作成
    ↓ 収益計算
-[edumintRevenue] revenue_reports作成
+[EduanimaRevenue] revenue_reports作成
    ↓ (Kafka: monetization.transactions)
-[edumintMonetizeWallet] wallet_transactions作成
+[EduanimaMonetizeWallet] wallet_transactions作成
    ↓
-[edumintUsers] 通知作成 (CoinEarned)
+[EduanimaUsers] 通知作成 (CoinEarned)
 ```
 
 ### Debezium CDC連携
@@ -5978,7 +5978,7 @@ PostgreSQLの変更をDebezium CDCで捕捉し、Kafkaを経由してElasticsear
 ```
 [PostgreSQL] examsテーブル更新
    ↓ (Debezium CDC)
-[Kafka] dbz.edumint_content.exams
+[Kafka] dbz.Eduanima_content.exams
    ↓ (Kafka Connect)
 [Elasticsearch] examsインデックス更新
 ```
@@ -6177,15 +6177,15 @@ CREATE TRIGGER update_table_updated_at
 全ログテーブルは本体DBとは別の物理データベースに配置：
 
 ```
-edumint_auth             → edumint_auth_logs
-edumint_userprofile      → edumint_userprofile_logs
-edumint_content          → edumint_content_logs
-edumint_file             → edumint_file_logs
-edumint_search           → edumint_search_logs
-edumint_wallet           → edumint_wallet_logs (7年保持)
-edumint_revenue          → edumint_revenue_logs
-edumint_moderation       → edumint_moderation_logs
-edumint_gateway          → edumint_gateway_logs
+Eduanima_auth             → Eduanima_auth_logs
+Eduanima_userprofile      → Eduanima_userprofile_logs
+Eduanima_content          → Eduanima_content_logs
+Eduanima_file             → Eduanima_file_logs
+Eduanima_search           → Eduanima_search_logs
+Eduanima_wallet           → Eduanima_wallet_logs (7年保持)
+Eduanima_revenue          → Eduanima_revenue_logs
+Eduanima_moderation       → Eduanima_moderation_logs
+Eduanima_gateway          → Eduanima_gateway_logs
 ```
 
 #### **分離の利点**
@@ -6257,7 +6257,7 @@ VALUES (
 
 #### **uuidv7()の採用**
 
-EduMintでは、PostgreSQL 18.1のネイティブ`uuidv7()`関数を標準として採用します。
+Eduanimaでは、PostgreSQL 18.1のネイティブ`uuidv7()`関数を標準として採用します。
 
 ```sql
 id UUID PRIMARY KEY DEFAULT uuidv7()
@@ -6275,7 +6275,7 @@ id UUID PRIMARY KEY DEFAULT uuidv7()
 | **主な用途** | 分散DBの主キー、ログ、時系列データ | 単発のトークン、秘匿性重視のID |
 | **PostgreSQL 18対応** | **完全新規のネイティブ関数** | v13から存在（v18で`uuidv4()`エイリアス追加） |
 
-#### **EduMintでの採用理由**
+#### **Eduanimaでの採用理由**
 
 1. **大量データテーブルでの効果**:
    - `exams`, `questions`, `wallet_transactions`など高頻度書き込みテーブルでインデックス断片化を大幅削減
@@ -6426,11 +6426,11 @@ SELECT * FROM exams WHERE status = 'active' ORDER BY created_at DESC LIMIT 20;
 #### **READ REPLICA**
 
 - 読み取り専用クエリはレプリカへルーティング
-- 特にedumintSearchは読み取り負荷が高い
+- 特にEduanimaSearchは読み取り負荷が高い
 
 ### 16.14 プロジェクト全体DB設計指針
 
-本セクションでは、EduMintプロジェクト全体で共通適用すべきデータベース設計の原則と標準を定義します。これらは全マイクロサービス・全環境（開発/ステージング/本番）で必須の設計思想であり、個別サービスのスキーマ設計時には必ずこれらの指針に従う必要があります。
+本セクションでは、Eduanimaプロジェクト全体で共通適用すべきデータベース設計の原則と標準を定義します。これらは全マイクロサービス・全環境（開発/ステージング/本番）で必須の設計思想であり、個別サービスのスキーマ設計時には必ずこれらの指針に従う必要があります。
 
 #### **16.14.1 PostgreSQL 18.1標準化**
 
@@ -6541,7 +6541,7 @@ SELECT * FROM exams WHERE status = 'active';
 
 #### **16.14.4 ストレージライフサイクル管理（GCS Archive戦略）**
 
-**EduMintファイルストレージ階層**:
+**Eduanimaファイルストレージ階層**:
 
 | 階層 | GCSストレージクラス | 保持期間 | 対象ファイル | 自動遷移 |
 |-----|-----------------|---------|------------|---------|
@@ -6550,10 +6550,10 @@ SELECT * FROM exams WHERE status = 'active';
 | **Cold** | Coldline | 91-365日 | 年次アクセスファイル | 90日経過で自動 |
 | **Archive** | Archive | 366日以上 | 長期保存ファイル（法令対応） | 365日経過で自動 |
 
-**edumintContents_files専用ライフサイクルポリシー**:
+**EduanimaContents_files専用ライフサイクルポリシー**:
 
 ```yaml
-# GCS Lifecycle Configuration for edumintContents_files bucket
+# GCS Lifecycle Configuration for EduanimaContents_files bucket
 lifecycle:
   rules:
     - action:
@@ -6613,20 +6613,20 @@ WHERE created_at < NOW() - INTERVAL '7 days'
 **パターン例**:
 
 ```sql
--- edumintContents.examsテーブル（Content管理サービス）
+-- EduanimaContents.examsテーブル（Content管理サービス）
 CREATE TABLE exams (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
   public_id VARCHAR(8) NOT NULL UNIQUE,
-  creator_user_id UUID NOT NULL,              -- edumintUsers.usersを論理参照
+  creator_user_id UUID NOT NULL,              -- EduanimaUsers.usersを論理参照
   -- creator_user_idにはFOREIGN KEY制約を設定しない（サービス境界を越えるため）
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- edumintContents.exam_interaction_eventsテーブル（v7.0.3: 統計情報管理）
+-- EduanimaContents.exam_interaction_eventsテーブル（v7.0.3: 統計情報管理）
 CREATE TABLE exam_interaction_events (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  exam_id UUID NOT NULL,                      -- edumintContents.examsを論理参照
-  user_id UUID,                               -- edumintUsers.usersを論理参照（NULL許可）
+  exam_id UUID NOT NULL,                      -- EduanimaContents.examsを論理参照
+  user_id UUID,                               -- EduanimaUsers.usersを論理参照（NULL許可）
   event_type VARCHAR(20) NOT NULL,            -- 'view', 'like', 'bad', etc.
   -- exam_id, user_idにはFOREIGN KEY制約を設定しない（論理参照のため）
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -6661,7 +6661,7 @@ CREATE TABLE questions (
 - PostgreSQL 18.1のRLS機能を活用し、アプリケーション層だけでなくDB層でもアクセス制御を実施
 - マイクロサービスごとに専用DBユーザーを作成し、サービスレベルのRLSポリシーを適用
 
-**RLS有効化例（edumintUserProfile）**:
+**RLS有効化例（EduanimaUserProfile）**:
 
 ```sql
 -- RLS有効化
@@ -6718,7 +6718,7 @@ func SetRLSContext(ctx context.Context, conn *pgx.Conn, userID uuid.UUID, role s
 ```yaml
 # Schema Registry設定例
 schema.registry:
-  url: https://schema-registry.edumint.internal:8081
+  url: https://schema-registry.Eduanima.internal:8081
   subjects:
     - name: auth.events-value
       format: Avro
@@ -6737,7 +6737,7 @@ schema.registry:
 
 ```json
 {
-  "namespace": "com.edumint.events.content",
+  "namespace": "com.Eduanima.events.content",
   "type": "record",
   "name": "ExamCreated",
   "fields": [
@@ -6824,7 +6824,7 @@ GROUP BY topic_name;
 3. 手動でメインキューに再投入
 4. 正常処理を確認
 
-#### **16.14.9 edumintContents_files データ永続化標準**
+#### **16.14.9 EduanimaContents_files データ永続化標準**
 
 **ファイルライフサイクル全体図**:
 
@@ -6901,7 +6901,7 @@ WHERE
 ```sql
 CREATE TABLE ai_generation_logs (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  job_id UUID NOT NULL,                       -- ジョブID（edumintGateways.jobs参照）
+  job_id UUID NOT NULL,                       -- ジョブID（EduanimaGateways.jobs参照）
   model_name VARCHAR(100) NOT NULL,           -- 使用モデル名（例: gemini-1.5-pro）
   prompt_text TEXT NOT NULL,                  -- 入力プロンプト
   response_text TEXT,                         -- 生成結果
@@ -6922,8 +6922,8 @@ CREATE TABLE ai_generation_logs_2026_02 PARTITION OF ai_generation_logs
 ```yaml
 # 日次バッチでBigQueryへエクスポート（90日後にPostgreSQLから削除）
 export_to_bigquery:
-  source: edumint_aiworker.ai_generation_logs
-  destination: edumint-bigquery.ai_logs.generation_logs
+  source: Eduanima_aiworker.ai_generation_logs
+  destination: Eduanima-bigquery.ai_logs.generation_logs
   schedule: "0 3 * * *"  # 毎日3時
   partition_column: created_at
   retention_postgresql: 90 days
@@ -7025,9 +7025,9 @@ WHERE id = $1;
 
 ```sql
 -- ❌ 禁止: サービス境界を越える物理FOREIGN KEY
--- edumintContents.exam_interaction_eventsテーブルで edumintUsers.usersを参照
+-- EduanimaContents.exam_interaction_eventsテーブルで EduanimaUsers.usersを参照
 CREATE TABLE exam_interaction_events (
-  user_id UUID REFERENCES edumint_auth.users(id),  -- 異なるDB、物理制約不可
+  user_id UUID REFERENCES Eduanima_auth.users(id),  -- 異なるDB、物理制約不可
 );
 
 -- ✅ 正しい: 論理参照のみ
@@ -7136,7 +7136,7 @@ CREATE TABLE idp_links (
 - [ ] pgvector HNSWパラメータを適切に設定している（m=16, ef_construction=64）
 
 **運用チェック**:
-- [ ] GCSライフサイクルポリシーを設定している（edumintContents_files）
+- [ ] GCSライフサイクルポリシーを設定している（EduanimaContents_files）
 - [ ] BigQueryエクスポート戦略を定義している（AI logs）
 - [ ] Kafka DLQトピックを設定している（イベント駆動）
 - [ ] Schema Registryにスキーマを登録している（イベント駆動）
@@ -7146,7 +7146,7 @@ CREATE TABLE idp_links (
 
 ### 17.1 ベクトル型カラム基本設計
 
-EduMintプロジェクトでは、問題文・解説・試験内容の意味的類似度検索を実現するため、PostgreSQL 18.1の**pgvector 0.8.1**拡張を活用します。gemini-embedding-001モデル（1536次元）を使用し、HNSWインデックスで高速検索を実現します。
+Eduanimaプロジェクトでは、問題文・解説・試験内容の意味的類似度検索を実現するため、PostgreSQL 18.1の**pgvector 0.8.1**拡張を活用します。gemini-embedding-001モデル（1536次元）を使用し、HNSWインデックスで高速検索を実現します。
 
 **pgvector 0.8.1の新機能:**
 - **反復インデックススキャン (Iterative Index Scans)**: フィルタリング時のクエリ精度と速度のバランスが改善
@@ -7211,7 +7211,7 @@ WITH (m = 24, ef_construction = 96);  -- より高精度設定
 | m | 8 | 16 | 32 | 構築速度が最大30%向上 |
 | ef_construction | 32 | 64 | 128 | メモリ効率が改善 |
 
-**EduMint推奨設定:**
+**Eduanima推奨設定:**
 - 一般的な問題検索: m=16, ef_construction=64
 - 高精度が必要な試験マッチング: m=24, ef_construction=96
 
@@ -7275,7 +7275,7 @@ import (
     "fmt"
     "log/slog"
     
-    "github.com/edumint/content/internal/db/dbgen"
+    "github.com/Eduanima/content/internal/db/dbgen"
 )
 
 type MaintenanceService struct {
@@ -7341,12 +7341,12 @@ spec:
   template:
     spec:
       containers:
-      - image: gcr.io/edumint-prod/maintenance-worker:latest
+      - image: gcr.io/Eduanima-prod/maintenance-worker:latest
         env:
         - name: JOB_TYPE
           value: "hnsw_reindex"
         - name: DATABASE_HOST
-          value: "/cloudsql/edumint-prod:asia-northeast1:edumint-content"
+          value: "/cloudsql/Eduanima-prod:asia-northeast1:Eduanima-content"
         resources:
           limits:
             memory: "2Gi"
@@ -7445,7 +7445,7 @@ import (
     "fmt"
     
     "github.com/pgvector/pgvector-go"
-    "github.com/edumint/content/internal/db/dbgen"
+    "github.com/Eduanima/content/internal/db/dbgen"
 )
 
 type QuestionManager struct {
@@ -7586,7 +7586,7 @@ table "questions" {
 ### 18.1 統合ディレクトリ構成
 
 ```
-edumintContents/
+EduanimaContents/
 ├── atlas.hcl                        # Atlas設定
 ├── sqlc.yaml                        # sqlc設定
 ├── go.mod
@@ -7635,9 +7635,9 @@ variable "db_url" {
 
 env "local" {
   src = "file://internal/db/schema"
-  url = "postgresql://edumint:localpass@localhost:5432/edumint_content_dev?sslmode=disable"
+  url = "postgresql://Eduanima:localpass@localhost:5432/Eduanima_content_dev?sslmode=disable"
   
-  dev = "docker://postgres/18.1/edumint_dev?search_path=public"
+  dev = "docker://postgres/18.1/Eduanima_dev?search_path=public"
   
   migration {
     dir = "file://internal/db/migrations"
@@ -7703,7 +7703,7 @@ env "staging" {
   # Atlas v1.0.0新機能: Schema Statistics
   statistics {
     enabled = true
-    export_to = "gcs://edumint-staging-metrics/schema-stats/"
+    export_to = "gcs://Eduanima-staging-metrics/schema-stats/"
   }
 }
 
@@ -7752,7 +7752,7 @@ env "production" {
   
   statistics {
     enabled = true
-    export_to = "gcs://edumint-prod-metrics/schema-stats/"
+    export_to = "gcs://Eduanima-prod-metrics/schema-stats/"
     retention_days = 365
   }
 }
@@ -8379,7 +8379,7 @@ atlas migrate diff add_vector_columns   --env local
 
 # 4. マイグレーション適用
 echo "[4/6] マイグレーション適用中..."
-atlas migrate apply   --env local   --url "postgresql://edumint:localpass@localhost:5432/edumint_content_dev"
+atlas migrate apply   --env local   --url "postgresql://Eduanima:localpass@localhost:5432/Eduanima_content_dev"
 
 # 5. sqlcでGo型生成
 echo "[5/6] sqlcコード生成中..."
@@ -8400,20 +8400,20 @@ echo "✓ ワークフロー完了"
 
 #### **4DB構成のインスタンス設定（v7.2.0）**
 
-edumintContentsサービスは4つの物理DBに分離されており、それぞれ異なる特性に応じた最適なインスタンス設定を行います。
+EduanimaContentsサービスは4つの物理DBに分離されており、それぞれ異なる特性に応じた最適なインスタンス設定を行います。
 
 **インスタンス構成概要:**
 
 | DB名 | インスタンス名 | スペック | 用途 | コスト（月額概算） |
 |:---|:---|:---|:---|:---|
-| edumint_contents | edumint-contents-prod | db-custom-6-24GB | メインDB（試験・問題） | $280 |
-| edumint_contents_search | edumint-contents-search-prod | db-custom-4-16GB | 検索用DB（用語管理） | $160 |
-| edumint_contents_master | edumint-contents-master-prod | db-custom-2-8GB | マスターDB（OCR） | $80 |
-| edumint_contents_logs | edumint-contents-logs-prod | db-custom-2-8GB | ログDB（90日保持） | $80 |
+| Eduanima_contents | Eduanima-contents-prod | db-custom-6-24GB | メインDB（試験・問題） | $280 |
+| Eduanima_contents_search | Eduanima-contents-search-prod | db-custom-4-16GB | 検索用DB（用語管理） | $160 |
+| Eduanima_contents_master | Eduanima-contents-master-prod | db-custom-2-8GB | マスターDB（OCR） | $80 |
+| Eduanima_contents_logs | Eduanima-contents-logs-prod | db-custom-2-8GB | ログDB（90日保持） | $80 |
 | **合計** | - | - | - | **$600** |
 
 **2DB構成との比較:**
-- 2DB構成（v7.1.0）: edumint_contents (db-custom-8-32GB $360) + logs (db-custom-2-8GB $80) = **$440**
+- 2DB構成（v7.1.0）: Eduanima_contents (db-custom-8-32GB $360) + logs (db-custom-2-8GB $80) = **$440**
 - 4DB構成（v7.2.0）: 上記4DB合計 = **$600**
 - **差分: +$160/月（+36%）**
 
@@ -8426,8 +8426,8 @@ edumintContentsサービスは4つの物理DBに分離されており、それ�
 #### **GCP Console設定例（4DB構成）**
 
 ```bash
-# 1. メインDB（edumint_contents）
-gcloud sql instances create edumint-contents-prod \
+# 1. メインDB（Eduanima_contents）
+gcloud sql instances create Eduanima-contents-prod \
   --database-version=POSTGRES_18 \
   --tier=db-custom-6-24576 \
   --region=asia-northeast1 \
@@ -8438,8 +8438,8 @@ gcloud sql instances create edumint-contents-prod \
   --transaction-log-retention-days=7 \
   --database-flags=max_connections=250,shared_buffers=6GB,effective_cache_size=18GB,maintenance_work_mem=1536MB,work_mem=128MB,wal_buffers=16MB,max_wal_size=4GB,min_wal_size=1GB,checkpoint_completion_target=0.9,random_page_cost=1.1,effective_io_concurrency=200,wal_level=logical,max_replication_slots=4,max_wal_senders=4
 
-# 2. 検索用DB（edumint_contents_search）
-gcloud sql instances create edumint-contents-search-prod \
+# 2. 検索用DB（Eduanima_contents_search）
+gcloud sql instances create Eduanima-contents-search-prod \
   --database-version=POSTGRES_18 \
   --tier=db-custom-4-16384 \
   --region=asia-northeast1 \
@@ -8450,8 +8450,8 @@ gcloud sql instances create edumint-contents-search-prod \
   --transaction-log-retention-days=7 \
   --database-flags=max_connections=200,shared_buffers=4GB,effective_cache_size=12GB,maintenance_work_mem=1GB,work_mem=64MB,wal_buffers=8MB,max_wal_size=2GB,min_wal_size=512MB,checkpoint_completion_target=0.9,random_page_cost=1.1,effective_io_concurrency=150,wal_level=logical,max_replication_slots=2,max_wal_senders=2
 
-# 3. マスターDB（edumint_contents_master）
-gcloud sql instances create edumint-contents-master-prod \
+# 3. マスターDB（Eduanima_contents_master）
+gcloud sql instances create Eduanima-contents-master-prod \
   --database-version=POSTGRES_18 \
   --tier=db-custom-2-8192 \
   --region=asia-northeast1 \
@@ -8462,8 +8462,8 @@ gcloud sql instances create edumint-contents-master-prod \
   --transaction-log-retention-days=30 \
   --database-flags=max_connections=50,shared_buffers=2GB,effective_cache_size=6GB,maintenance_work_mem=512MB,work_mem=32MB,wal_buffers=8MB,max_wal_size=1GB,min_wal_size=256MB,checkpoint_completion_target=0.9,random_page_cost=1.1,effective_io_concurrency=100
 
-# 4. ログDB（edumint_contents_logs）
-gcloud sql instances create edumint-contents-logs-prod \
+# 4. ログDB（Eduanima_contents_logs）
+gcloud sql instances create Eduanima-contents-logs-prod \
   --database-version=POSTGRES_18 \
   --tier=db-custom-2-8192 \
   --region=asia-northeast1 \
@@ -8485,46 +8485,46 @@ gcloud sql instances create edumint-contents-logs-prod \
 
 ```bash
 # Cloud SQLインスタンス作成（gcloud CLI）
-gcloud sql instances create edumint-content-prod   --database-version=POSTGRES_18   --tier=db-custom-8-32768   --region=asia-northeast1   --availability-type=REGIONAL   --backup-start-time=03:00   --enable-bin-log   --retained-backups-count=30   --transaction-log-retention-days=7   --database-flags=max_connections=300,shared_buffers=8GB,effective_cache_size=24GB,maintenance_work_mem=2GB,work_mem=128MB,wal_buffers=16MB,max_wal_size=4GB,min_wal_size=1GB,checkpoint_completion_target=0.9,random_page_cost=1.1,effective_io_concurrency=200
+gcloud sql instances create Eduanima-content-prod   --database-version=POSTGRES_18   --tier=db-custom-8-32768   --region=asia-northeast1   --availability-type=REGIONAL   --backup-start-time=03:00   --enable-bin-log   --retained-backups-count=30   --transaction-log-retention-days=7   --database-flags=max_connections=300,shared_buffers=8GB,effective_cache_size=24GB,maintenance_work_mem=2GB,work_mem=128MB,wal_buffers=16MB,max_wal_size=4GB,min_wal_size=1GB,checkpoint_completion_target=0.9,random_page_cost=1.1,effective_io_concurrency=200
 ```
 
 #### **接続制限とタイムアウト設定**
 
 ```sql
 -- データベースレベル設定
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET max_connections = 300;
 
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET idle_in_transaction_session_timeout = '10s';
 
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET statement_timeout = '30s';
 
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET lock_timeout = '5s';
 
 -- 長時間クエリ検出設定
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET log_min_duration_statement = 1000;  -- 1秒以上のクエリをログ
 
 -- デッドロック検出
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET deadlock_timeout = '1s';
 
 -- PostgreSQL 18.1新機能: AIO (Asynchronous I/O) 最適化
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET effective_io_concurrency = 200;
 
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET maintenance_io_concurrency = 100;
 
 -- B-tree Skip Scan最適化
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET enable_skip_scan = on;
 
 -- pgvector 0.8.1最適化設定
-ALTER DATABASE edumint_content_prod 
+ALTER DATABASE Eduanima_content_prod 
 SET hnsw.ef_search = 40;  -- デフォルト検索精度
 ```
 
@@ -8532,97 +8532,97 @@ SET hnsw.ef_search = 40;  -- デフォルト検索精度
 
 #### **4DB構成のサービスアカウント設計（v7.2.0）**
 
-edumintContentsの4DB構成では、セキュリティと責務分離を強化するため、DB単位で異なるサービスアカウントを使用します。
+EduanimaContentsの4DB構成では、セキュリティと責務分離を強化するため、DB単位で異なるサービスアカウントを使用します。
 
 **サービスアカウント構成:**
 
 | サービスアカウント | 対象DB | アクセス権限 | 用途 |
 |:---|:---|:---|:---|
-| edumint-contents-app-sa | edumint_contents | SELECT, INSERT, UPDATE | メインDB操作（通常アプリ） |
-| edumint-contents-app-sa | edumint_contents_search | SELECT, INSERT, UPDATE, DELETE | 検索用語管理 |
-| edumint-contents-master-sa | edumint_contents_master | INSERT のみ | OCRテキスト書き込み専用 |
-| edumint-admin-sa | edumint_contents_master | SELECT のみ | OCRテキスト読み取り（管理者） |
-| edumint-contents-app-sa | edumint_contents_logs | INSERT のみ | ログ書き込み専用 |
-| edumint-analyst-sa | 全DB（master除く） | SELECT のみ | 分析・レポート用 |
+| Eduanima-contents-app-sa | Eduanima_contents | SELECT, INSERT, UPDATE | メインDB操作（通常アプリ） |
+| Eduanima-contents-app-sa | Eduanima_contents_search | SELECT, INSERT, UPDATE, DELETE | 検索用語管理 |
+| Eduanima-contents-master-sa | Eduanima_contents_master | INSERT のみ | OCRテキスト書き込み専用 |
+| Eduanima-admin-sa | Eduanima_contents_master | SELECT のみ | OCRテキスト読み取り（管理者） |
+| Eduanima-contents-app-sa | Eduanima_contents_logs | INSERT のみ | ログ書き込み専用 |
+| Eduanima-analyst-sa | 全DB（master除く） | SELECT のみ | 分析・レポート用 |
 
 ```bash
 # 1. アプリケーション用サービスアカウント（メインDB・検索DB・ログDB）
-gcloud iam service-accounts create edumint-contents-app-sa \
-  --display-name="EduMint Contents Application Service Account" \
-  --project=edumint-prod
+gcloud iam service-accounts create Eduanima-contents-app-sa \
+  --display-name="Eduanima Contents Application Service Account" \
+  --project=Eduanima-prod
 
 # 2. マスターDB書き込み専用サービスアカウント
-gcloud iam service-accounts create edumint-contents-master-sa \
-  --display-name="EduMint Contents Master DB Writer" \
-  --project=edumint-prod
+gcloud iam service-accounts create Eduanima-contents-master-sa \
+  --display-name="Eduanima Contents Master DB Writer" \
+  --project=Eduanima-prod
 
 # 3. 管理者用サービスアカウント（マスターDB読み取り）
-gcloud iam service-accounts create edumint-admin-sa \
-  --display-name="EduMint Administrator Service Account" \
-  --project=edumint-prod
+gcloud iam service-accounts create Eduanima-admin-sa \
+  --display-name="Eduanima Administrator Service Account" \
+  --project=Eduanima-prod
 
 # 4. 分析用サービスアカウント
-gcloud iam service-accounts create edumint-analyst-sa \
-  --display-name="EduMint Analyst Service Account" \
-  --project=edumint-prod
+gcloud iam service-accounts create Eduanima-analyst-sa \
+  --display-name="Eduanima Analyst Service Account" \
+  --project=Eduanima-prod
 
 # Cloud SQL Client権限付与
-for sa in edumint-contents-app-sa edumint-contents-master-sa edumint-admin-sa edumint-analyst-sa; do
-  gcloud projects add-iam-policy-binding edumint-prod \
-    --member="serviceAccount:${sa}@edumint-prod.iam.gserviceaccount.com" \
+for sa in Eduanima-contents-app-sa Eduanima-contents-master-sa Eduanima-admin-sa Eduanima-analyst-sa; do
+  gcloud projects add-iam-policy-binding Eduanima-prod \
+    --member="serviceAccount:${sa}@Eduanima-prod.iam.gserviceaccount.com" \
     --role="roles/cloudsql.client"
 done
 
 # Workload Identity連携（GKE使用時）
 gcloud iam service-accounts add-iam-policy-binding \
-  edumint-contents-app-sa@edumint-prod.iam.gserviceaccount.com \
+  Eduanima-contents-app-sa@Eduanima-prod.iam.gserviceaccount.com \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:edumint-prod.svc.id.goog[default/edumint-contents]"
+  --member "serviceAccount:Eduanima-prod.svc.id.goog[default/Eduanima-contents]"
 ```
 
 #### **データベースユーザー作成（4DB構成）**
 
 ```sql
--- ===== edumint_contents (メインDB) =====
+-- ===== Eduanima_contents (メインDB) =====
 -- アプリケーション用ユーザー
-CREATE USER "edumint-contents-app-sa@edumint-prod.iam" WITH LOGIN;
-GRANT CONNECT ON DATABASE edumint_contents TO "edumint-contents-app-sa@edumint-prod.iam";
-GRANT USAGE, CREATE ON SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
-GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO "edumint-contents-app-sa@edumint-prod.iam";
+CREATE USER "Eduanima-contents-app-sa@Eduanima-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE Eduanima_contents TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+GRANT USAGE, CREATE ON SCHEMA public TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
 
--- ===== edumint_contents_search (検索用DB) =====
+-- ===== Eduanima_contents_search (検索用DB) =====
 -- アプリケーション用ユーザー（DELETE権限も付与）
-CREATE USER "edumint-contents-app-sa@edumint-prod.iam" WITH LOGIN;
-GRANT CONNECT ON DATABASE edumint_contents_search TO "edumint-contents-app-sa@edumint-prod.iam";
-GRANT USAGE, CREATE ON SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "edumint-contents-app-sa@edumint-prod.iam";
+CREATE USER "Eduanima-contents-app-sa@Eduanima-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE Eduanima_contents_search TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+GRANT USAGE, CREATE ON SCHEMA public TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
 
--- ===== edumint_contents_master (マスターDB) =====
+-- ===== Eduanima_contents_master (マスターDB) =====
 -- 書き込み専用ユーザー（INSERT のみ）
-CREATE USER "edumint-contents-master-sa@edumint-prod.iam" WITH LOGIN;
-GRANT CONNECT ON DATABASE edumint_contents_master TO "edumint-contents-master-sa@edumint-prod.iam";
-GRANT USAGE ON SCHEMA public TO "edumint-contents-master-sa@edumint-prod.iam";
-GRANT INSERT ON ALL TABLES IN SCHEMA public TO "edumint-contents-master-sa@edumint-prod.iam";
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "edumint-contents-master-sa@edumint-prod.iam";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT INSERT ON TABLES TO "edumint-contents-master-sa@edumint-prod.iam";
+CREATE USER "Eduanima-contents-master-sa@Eduanima-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE Eduanima_contents_master TO "Eduanima-contents-master-sa@Eduanima-prod.iam";
+GRANT USAGE ON SCHEMA public TO "Eduanima-contents-master-sa@Eduanima-prod.iam";
+GRANT INSERT ON ALL TABLES IN SCHEMA public TO "Eduanima-contents-master-sa@Eduanima-prod.iam";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "Eduanima-contents-master-sa@Eduanima-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT INSERT ON TABLES TO "Eduanima-contents-master-sa@Eduanima-prod.iam";
 
 -- 管理者用ユーザー（SELECT のみ）
-CREATE USER "edumint-admin-sa@edumint-prod.iam" WITH LOGIN;
-GRANT CONNECT ON DATABASE edumint_contents_master TO "edumint-admin-sa@edumint-prod.iam";
-GRANT USAGE ON SCHEMA public TO "edumint-admin-sa@edumint-prod.iam";
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO "edumint-admin-sa@edumint-prod.iam";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO "edumint-admin-sa@edumint-prod.iam";
+CREATE USER "Eduanima-admin-sa@Eduanima-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE Eduanima_contents_master TO "Eduanima-admin-sa@Eduanima-prod.iam";
+GRANT USAGE ON SCHEMA public TO "Eduanima-admin-sa@Eduanima-prod.iam";
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO "Eduanima-admin-sa@Eduanima-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO "Eduanima-admin-sa@Eduanima-prod.iam";
 
--- ===== edumint_contents_logs (ログDB) =====
+-- ===== Eduanima_contents_logs (ログDB) =====
 -- 書き込み専用ユーザー（INSERT のみ）
-CREATE USER "edumint-contents-app-sa@edumint-prod.iam" WITH LOGIN;
-GRANT CONNECT ON DATABASE edumint_contents_logs TO "edumint-contents-app-sa@edumint-prod.iam";
-GRANT USAGE ON SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
-GRANT INSERT ON ALL TABLES IN SCHEMA public TO "edumint-contents-app-sa@edumint-prod.iam";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT INSERT ON TABLES TO "edumint-contents-app-sa@edumint-prod.iam";
+CREATE USER "Eduanima-contents-app-sa@Eduanima-prod.iam" WITH LOGIN;
+GRANT CONNECT ON DATABASE Eduanima_contents_logs TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+GRANT USAGE ON SCHEMA public TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+GRANT INSERT ON ALL TABLES IN SCHEMA public TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT INSERT ON TABLES TO "Eduanima-contents-app-sa@Eduanima-prod.iam";
 ```
 
 #### **読み取り専用ユーザー（分析・レポート用 - 4DB対応）**
@@ -8632,13 +8632,13 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT INSERT ON TABLES TO "edumint-con
 CREATE ROLE analyst_role;
 
 -- メインDB: 全テーブル読み取り
-GRANT CONNECT ON DATABASE edumint_contents TO analyst_role;
+GRANT CONNECT ON DATABASE Eduanima_contents TO analyst_role;
 GRANT USAGE ON SCHEMA public TO analyst_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO analyst_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO analyst_role;
 
 -- 検索DB: 全テーブル読み取り
-GRANT CONNECT ON DATABASE edumint_contents_search TO analyst_role;
+GRANT CONNECT ON DATABASE Eduanima_contents_search TO analyst_role;
 GRANT USAGE ON SCHEMA public TO analyst_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO analyst_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO analyst_role;
@@ -8646,13 +8646,13 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO analyst_role
 -- マスターDB: アクセス不可（機密情報）
 
 -- ログDB: 全テーブル読み取り
-GRANT CONNECT ON DATABASE edumint_contents_logs TO analyst_role;
+GRANT CONNECT ON DATABASE Eduanima_contents_logs TO analyst_role;
 GRANT USAGE ON SCHEMA public TO analyst_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO analyst_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO analyst_role;
 
 -- IAM認証ユーザーに分析ロール付与
-CREATE USER "edumint-analyst-sa@edumint-prod.iam" WITH LOGIN IN ROLE analyst_role;
+CREATE USER "Eduanima-analyst-sa@Eduanima-prod.iam" WITH LOGIN IN ROLE analyst_role;
 ```
 
 **設計注記（v7.2.0）:**
@@ -8667,42 +8667,42 @@ CREATE USER "edumint-analyst-sa@edumint-prod.iam" WITH LOGIN IN ROLE analyst_rol
 
 ```bash
 # アプリケーション用サービスアカウント
-gcloud iam service-accounts create edumint-content-sa   --display-name="EduMint Content Service Account"   --project=edumint-prod
+gcloud iam service-accounts create Eduanima-content-sa   --display-name="Eduanima Content Service Account"   --project=Eduanima-prod
 
 # Cloud SQL Client権限付与
-gcloud projects add-iam-policy-binding edumint-prod   --member="serviceAccount:edumint-content-sa@edumint-prod.iam.gserviceaccount.com"   --role="roles/cloudsql.client"
+gcloud projects add-iam-policy-binding Eduanima-prod   --member="serviceAccount:Eduanima-content-sa@Eduanima-prod.iam.gserviceaccount.com"   --role="roles/cloudsql.client"
 
 # Workload Identity連携（GKE使用時）
-gcloud iam service-accounts add-iam-policy-binding   edumint-content-sa@edumint-prod.iam.gserviceaccount.com   --role roles/iam.workloadIdentityUser   --member "serviceAccount:edumint-prod.svc.id.goog[default/edumint-content]"
+gcloud iam service-accounts add-iam-policy-binding   Eduanima-content-sa@Eduanima-prod.iam.gserviceaccount.com   --role roles/iam.workloadIdentityUser   --member "serviceAccount:Eduanima-prod.svc.id.goog[default/Eduanima-content]"
 ```
 
 #### **データベースユーザー作成**
 
 ```sql
 -- IAM認証用ユーザー作成
-CREATE USER "edumint-content-sa@edumint-prod.iam" WITH LOGIN;
+CREATE USER "Eduanima-content-sa@Eduanima-prod.iam" WITH LOGIN;
 
 -- アプリケーション用権限付与
-GRANT CONNECT ON DATABASE edumint_content_prod 
-TO "edumint-content-sa@edumint-prod.iam";
+GRANT CONNECT ON DATABASE Eduanima_content_prod 
+TO "Eduanima-content-sa@Eduanima-prod.iam";
 
 GRANT USAGE, CREATE ON SCHEMA public 
-TO "edumint-content-sa@edumint-prod.iam";
+TO "Eduanima-content-sa@Eduanima-prod.iam";
 
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public 
-TO "edumint-content-sa@edumint-prod.iam";
+TO "Eduanima-content-sa@Eduanima-prod.iam";
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public 
-TO "edumint-content-sa@edumint-prod.iam";
+TO "Eduanima-content-sa@Eduanima-prod.iam";
 
 -- 将来作成されるテーブルにも自動適用
 ALTER DEFAULT PRIVILEGES IN SCHEMA public 
 GRANT SELECT, INSERT, UPDATE ON TABLES 
-TO "edumint-content-sa@edumint-prod.iam";
+TO "Eduanima-content-sa@Eduanima-prod.iam";
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public 
 GRANT USAGE, SELECT ON SEQUENCES 
-TO "edumint-content-sa@edumint-prod.iam";
+TO "Eduanima-content-sa@Eduanima-prod.iam";
 ```
 
 #### **読み取り専用ユーザー（分析・レポート用）**
@@ -8710,7 +8710,7 @@ TO "edumint-content-sa@edumint-prod.iam";
 ```sql
 CREATE ROLE readonly_role;
 
-GRANT CONNECT ON DATABASE edumint_content_prod TO readonly_role;
+GRANT CONNECT ON DATABASE Eduanima_content_prod TO readonly_role;
 GRANT USAGE ON SCHEMA public TO readonly_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly_role;
 
@@ -8718,7 +8718,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT SELECT ON TABLES TO readonly_role;
 
 -- IAM認証ユーザーに読み取り専用ロール付与
-CREATE USER "edumint-analyst@edumint-prod.iam" WITH LOGIN IN ROLE readonly_role;
+CREATE USER "Eduanima-analyst@Eduanima-prod.iam" WITH LOGIN IN ROLE readonly_role;
 ```
 
 ### 19.3 .env + Secret Manager統合
@@ -8729,8 +8729,8 @@ CREATE USER "edumint-analyst@edumint-prod.iam" WITH LOGIN IN ROLE readonly_role;
 # .env.development
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
-DATABASE_NAME=edumint_content_dev
-DATABASE_USER=edumint
+DATABASE_NAME=Eduanima_content_dev
+DATABASE_USER=Eduanima
 DATABASE_PASSWORD=localdevpassword
 DATABASE_SSL_MODE=disable
 DATABASE_MAX_CONNS=10
@@ -8751,13 +8751,13 @@ VECTOR_DIMENSION=1536
 
 ```bash
 # Google Cloud Secret Managerに保存
-# Secret名: edumint-content-db-config
+# Secret名: Eduanima-content-db-config
 
 {
-  "DATABASE_HOST": "/cloudsql/edumint-prod:asia-northeast1:edumint-content",
+  "DATABASE_HOST": "/cloudsql/Eduanima-prod:asia-northeast1:Eduanima-content",
   "DATABASE_PORT": "5432",
-  "DATABASE_NAME": "edumint_content_prod",
-  "DATABASE_USER": "edumint-content-sa@edumint-prod.iam",
+  "DATABASE_NAME": "Eduanima_content_prod",
+  "DATABASE_USER": "Eduanima-content-sa@Eduanima-prod.iam",
   "DATABASE_PASSWORD": "",
   "DATABASE_SSL_MODE": "require",
   "DATABASE_IAM_AUTH": "true",
@@ -9017,9 +9017,9 @@ gcloud alpha monitoring policies create   --notification-channels=CHANNEL_ID   -
 
 ## **20. 可観測性・監査ログ設計**
 
-### 20.1 OpenTelemetryトレース実装（EduMint固有パターン）
+### 20.1 OpenTelemetryトレース実装（Eduanima固有パターン）
 
-EduMintでは、試験アップロードから問題解析、ベクトル埋め込み生成、インデックス登録までの一連のフローを完全にトレースします。
+Eduanimaでは、試験アップロードから問題解析、ベクトル埋め込み生成、インデックス登録までの一連のフローを完全にトレースします。
 
 #### **カスタムSpan属性定義**
 
@@ -9028,15 +9028,15 @@ EduMintでは、試験アップロードから問題解析、ベクトル埋め�
 package observability
 
 const (
-    // EduMint固有のSpan属性キー
-    AttrExamPublicID        = "edumint.exam.public_id"
-    AttrExamYear           = "edumint.exam.year"
-    AttrInstitutionName    = "edumint.institution.name"
-    AttrQuestionCount      = "edumint.question.count"
-    AttrVectorDimension    = "edumint.vector.dimension"
-    AttrEmbeddingModel     = "edumint.ai.embedding_model"
-    AttrSimilarityScore    = "edumint.search.similarity_score"
-    AttrUserRole           = "edumint.user.role"
+    // Eduanima固有のSpan属性キー
+    AttrExamPublicID        = "Eduanima.exam.public_id"
+    AttrExamYear           = "Eduanima.exam.year"
+    AttrInstitutionName    = "Eduanima.institution.name"
+    AttrQuestionCount      = "Eduanima.question.count"
+    AttrVectorDimension    = "Eduanima.vector.dimension"
+    AttrEmbeddingModel     = "Eduanima.ai.embedding_model"
+    AttrSimilarityScore    = "Eduanima.search.similarity_score"
+    AttrUserRole           = "Eduanima.user.role"
 )
 
 // 試験処理フロー専用のトレースヘルパー
@@ -9086,7 +9086,7 @@ var (
     // 試験アップロード処理時間（機関別）
     ExamUploadDurationSeconds = promauto.NewHistogramVec(
         prometheus.HistogramOpts{
-            Name:    "edumint_exam_upload_duration_seconds",
+            Name:    "Eduanima_exam_upload_duration_seconds",
             Help:    "Time taken to process exam upload by institution",
             Buckets: []float64{1, 5, 10, 30, 60, 120, 300},
         },
@@ -9096,7 +9096,7 @@ var (
     // ベクトル検索クエリ性能
     VectorSearchPerformance = promauto.NewHistogramVec(
         prometheus.HistogramOpts{
-            Name:    "edumint_vector_search_ms",
+            Name:    "Eduanima_vector_search_ms",
             Help:    "Vector similarity search latency in milliseconds",
             Buckets: []float64{1, 5, 10, 25, 50, 100, 250, 500},
         },
@@ -9106,7 +9106,7 @@ var (
     // 問題生成AIワーカー状態
     AIWorkerQueueDepth = promauto.NewGaugeVec(
         prometheus.GaugeOpts{
-            Name: "edumint_ai_worker_queue_depth",
+            Name: "Eduanima_ai_worker_queue_depth",
             Help: "Number of pending AI processing jobs",
         },
         []string{"job_type", "priority"},
@@ -9115,7 +9115,7 @@ var (
     // データベース接続プール使用率（サービス別）
     DatabaseConnectionUtilization = promauto.NewGaugeVec(
         prometheus.GaugeOpts{
-            Name: "edumint_db_connection_utilization_ratio",
+            Name: "Eduanima_db_connection_utilization_ratio",
             Help: "Database connection pool utilization (0-1)",
         },
         []string{"service_name", "database_name"},
@@ -9134,7 +9134,7 @@ func (mr *MetricsRecorder) RecordVectorSearch(searchType string, resultCount int
 }
 ```
 
-### 20.3 構造化ログ設計（EduMint監査要件）
+### 20.3 構造化ログ設計（Eduanima監査要件）
 
 ```go
 // internal/observability/audit_logger.go
@@ -9146,7 +9146,7 @@ import (
     "os"
 )
 
-// EduMint監査ログ専用構造
+// Eduanima監査ログ専用構造
 type AuditEvent struct {
     ActorUserID      string
     ActorRole        string
@@ -9275,7 +9275,7 @@ func (dae *DailyAuditExporter) ExportYesterdayLogs(ctx context.Context) error {
     
     // BigQueryへストリーミング挿入
     tableName := fmt.Sprintf("audit_logs_%s", strings.ReplaceAll(yesterday, "-", ""))
-    inserter := dae.bqClient.Dataset("edumint_audit").Table(tableName).Inserter()
+    inserter := dae.bqClient.Dataset("Eduanima_audit").Table(tableName).Inserter()
     
     var batchItems []*AuditLogBQSchema
     for rows.Next() {
@@ -9351,7 +9351,7 @@ func (dae *DailyAuditExporter) ExportYesterdayLogs(ctx context.Context) error {
 3. Echoの `httptest.NewRequest` でリクエストを投げる。
 4. 外部サービス（例: 決済API）へのClient Interfaceは `gomock` でモック化する。
 
-### EduMint専用実装テンプレート
+### Eduanima専用実装テンプレート
 
 ```go
 // tests/component/user_handler_test.go
@@ -9373,8 +9373,8 @@ import (
     "github.com/testcontainers/testcontainers-go/modules/postgres"
     "go.uber.org/mock/gomock"
     
-    "github.com/edumint/content/internal/handler"
-    "github.com/edumint/content/internal/service/mock"
+    "github.com/Eduanima/content/internal/handler"
+    "github.com/Eduanima/content/internal/service/mock"
 )
 
 func TestCreateUser_Component(t *testing.T) {
@@ -9463,12 +9463,12 @@ import (
     "github.com/stretchr/testify/require"
 )
 
-type EduMintTestDatabase struct {
+type EduanimaTestDatabase struct {
     Pool      *pgxpool.Pool
     Container testcontainers.Container
 }
 
-func (db *EduMintTestDatabase) SeedInstitution(t *testing.T, name string) uuid.UUID {
+func (db *EduanimaTestDatabase) SeedInstitution(t *testing.T, name string) uuid.UUID {
     ctx := context.Background()
     
     institutionID := uuid.NewV7() // UUIDv7使用
@@ -9483,7 +9483,7 @@ func (db *EduMintTestDatabase) SeedInstitution(t *testing.T, name string) uuid.U
     return institutionID
 }
 
-func (db *EduMintTestDatabase) SeedExam(t *testing.T, institutionID uuid.UUID, year int32) uuid.UUID {
+func (db *EduanimaTestDatabase) SeedExam(t *testing.T, institutionID uuid.UUID, year int32) uuid.UUID {
     ctx := context.Background()
     
     examID := uuid.NewV7()
@@ -9526,7 +9526,7 @@ func TestUserOperations_Parallel(t *testing.T) {
 
 ### HTTP API契約テスト（Consumer Driven）
 
-#### Consumer側（edumintGateways）
+#### Consumer側（EduanimaGateways）
 
 ```go
 // tests/contract/user_api_consumer_test.go
@@ -9545,8 +9545,8 @@ import (
 func TestUserAPIContract_Consumer(t *testing.T) {
     // Pact Mock Serverセットアップ
     mockProvider, err := consumer.NewV2Pact(consumer.MockHTTPProviderConfig{
-        Consumer: "edumintGateways",
-        Provider: "edumintUsers",
+        Consumer: "EduanimaGateways",
+        Provider: "EduanimaUsers",
         Host:     "127.0.0.1",
     })
     assert.NoError(t, err)
@@ -9580,7 +9580,7 @@ func TestUserAPIContract_Consumer(t *testing.T) {
 }
 ```
 
-#### Provider側（edumintUsers）
+#### Provider側（EduanimaUsers）
 
 ```go
 // tests/contract/user_api_provider_test.go
@@ -9615,9 +9615,9 @@ func TestUserAPIContract_Provider(t *testing.T) {
     _, err := provider.NewVerifier().
         VerifyProvider(t, provider.VerifyRequest{
             ProviderBaseURL:        testServer.URL,
-            PactURLs:               []string{"../pacts/edumintGateways-edumintUsers.json"},
+            PactURLs:               []string{"../pacts/EduanimaGateways-EduanimaUsers.json"},
             StateHandlers:          stateHandlers,
-            BrokerURL:              "https://pact-broker.edumint.internal",
+            BrokerURL:              "https://pact-broker.Eduanima.internal",
             PublishVerificationResults: true,
             ProviderVersion:        "1.0.0",
         })
@@ -9628,7 +9628,7 @@ func TestUserAPIContract_Provider(t *testing.T) {
 
 ### Kafka Event契約テスト（Publisher/Subscriber）
 
-#### Publisher側（edumintContents）
+#### Publisher側（EduanimaContents）
 
 ```go
 // tests/contract/exam_created_event_publisher_test.go
@@ -9646,8 +9646,8 @@ import (
 func TestExamCreatedEvent_Publisher(t *testing.T) {
     // メッセージPactセットアップ
     p, err := message.NewMessagePact(message.Config{
-        Consumer: "edumintSearch",
-        Provider: "edumintContents",
+        Consumer: "EduanimaSearch",
+        Provider: "EduanimaContents",
     })
     assert.NoError(t, err)
 
@@ -9680,7 +9680,7 @@ func TestExamCreatedEvent_Publisher(t *testing.T) {
 }
 ```
 
-#### Subscriber側（edumintSearch）
+#### Subscriber側（EduanimaSearch）
 
 ```go
 // tests/contract/exam_created_event_subscriber_test.go
@@ -9696,9 +9696,9 @@ import (
 func TestExamCreatedEvent_Subscriber(t *testing.T) {
     // Pactファイルから契約を読み込み
     p, err := message.NewMessageConsumer(message.Config{
-        Consumer: "edumintSearch",
-        Provider: "edumintContents",
-        PactURLs: []string{"../pacts/edumintSearch-edumintContents.json"},
+        Consumer: "EduanimaSearch",
+        Provider: "EduanimaContents",
+        PactURLs: []string{"../pacts/EduanimaSearch-EduanimaContents.json"},
     })
     assert.NoError(t, err)
 
@@ -9758,16 +9758,16 @@ import { test, expect } from '@playwright/test';
 test.describe('試験アップロード導線', () => {
   test('ログイン後、試験をアップロードし、問題一覧が表示される', async ({ page }) => {
     // 1. ログイン
-    await page.goto('https://staging.edumint.jp/login');
+    await page.goto('https://staging.Eduanima.jp/login');
     await page.fill('input[name="email"]', 'test@example.com');
     await page.fill('input[name="password"]', 'testpass123');
     await page.click('button[type="submit"]');
     
-    await expect(page).toHaveURL('https://staging.edumint.jp/dashboard');
+    await expect(page).toHaveURL('https://staging.Eduanima.jp/dashboard');
     
     // 2. 試験アップロードページへ遷移
     await page.click('a[href="/exams/upload"]');
-    await expect(page).toHaveURL('https://staging.edumint.jp/exams/upload');
+    await expect(page).toHaveURL('https://staging.Eduanima.jp/exams/upload');
     
     // 3. ファイル選択・アップロード
     await page.setInputFiles('input[type="file"]', 'fixtures/sample-exam.pdf');
@@ -9829,8 +9829,8 @@ test.describe('試験アップロード導線', () => {
 ### GitHub Actions完全版
 
 ```yaml
-# .github/workflows/edumint_service_test.yml
-name: EduMint Service Test & Deploy
+# .github/workflows/Eduanima_service_test.yml
+name: Eduanima Service Test & Deploy
 
 on:
   push:
@@ -9934,7 +9934,7 @@ jobs:
         run: |
           pact-broker publish ./pacts \
             --consumer-app-version=${{ github.sha }} \
-            --broker-base-url=https://pact-broker.edumint.internal \
+            --broker-base-url=https://pact-broker.Eduanima.internal \
             --broker-token=${{ secrets.PACT_BROKER_TOKEN }}
 
   # Stage 4: Contract Tests - Provider
@@ -9960,7 +9960,7 @@ jobs:
         run: |
           go test -v -tags=contract_provider ./tests/contract/provider/...
         env:
-          PACT_BROKER_BASE_URL: https://pact-broker.edumint.internal
+          PACT_BROKER_BASE_URL: https://pact-broker.Eduanima.internal
           PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
 
   # Stage 5: Schema Validation
@@ -10003,7 +10003,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           service_account_key: ${{ secrets.GCP_SA_KEY }}
-          project_id: edumint-prod
+          project_id: Eduanima-prod
       
       - name: Configure Docker for GCR
         run: |
@@ -10011,8 +10011,8 @@ jobs:
       
       - name: Build & Push
         run: |
-          docker build -t asia-northeast1-docker.pkg.dev/edumint-prod/edumint-services/edumint-contents:${{ github.sha }} .
-          docker push asia-northeast1-docker.pkg.dev/edumint-prod/edumint-services/edumint-contents:${{ github.sha }}
+          docker build -t asia-northeast1-docker.pkg.dev/Eduanima-prod/Eduanima-services/Eduanima-contents:${{ github.sha }} .
+          docker push asia-northeast1-docker.pkg.dev/Eduanima-prod/Eduanima-services/Eduanima-contents:${{ github.sha }}
 ```
 
 ### Docker-in-Docker権限設定
@@ -10060,11 +10060,11 @@ jobs:
     strategy:
       matrix:
         service: 
-          - edumintUsers
-          - edumintContents
-          - edumintFiles
-          - edumintSearch
-          - edumintSocial
+          - EduanimaUsers
+          - EduanimaContents
+          - EduanimaFiles
+          - EduanimaSearch
+          - EduanimaSocial
       max-parallel: 2  # 同時実行数を制限（v7.5.1追加）
       fail-fast: false
     steps:
@@ -10430,7 +10430,7 @@ func TestValidateEmail(t *testing.T) {
 ### 22.1 推奨プロジェクト構成
 
 ```
-edumintContents/
+EduanimaContents/
 ├── cmd/
 │   └── api/
 │       └── main.go                     # エントリーポイント
@@ -10470,7 +10470,7 @@ edumintContents/
 ### 22.2 依存関係管理（go.mod）
 
 ```go
-module github.com/edumint/edumint-content
+module github.com/Eduanima/Eduanima-content
 
 go 1.25
 
@@ -10514,8 +10514,8 @@ import (
     "fmt"
     "time"
     
-    "github.com/edumint/edumint-content/internal/db/dbgen"
-    "github.com/edumint/edumint-content/internal/observability"
+    "github.com/Eduanima/Eduanima-content/internal/db/dbgen"
+    "github.com/Eduanima/Eduanima-content/internal/observability"
 )
 
 // ExamOrchestrator: 試験処理の統合オーケストレーター
@@ -10636,7 +10636,7 @@ import (
     "fmt"
     "time"
     
-    "github.com/edumint/edumint-content/internal/db/dbgen"
+    "github.com/Eduanima/Eduanima-content/internal/db/dbgen"
     "github.com/google/uuid"
 )
 
@@ -10880,7 +10880,7 @@ import (
     "context"
     "fmt"
     
-    "github.com/edumint/edumint-content/internal/db/dbgen"
+    "github.com/Eduanima/Eduanima-content/internal/db/dbgen"
     "github.com/google/uuid"
 )
 
@@ -11020,7 +11020,7 @@ import (
     "fmt"
     "strings"
     
-    "github.com/edumint/edumint-content/internal/db/dbgen"
+    "github.com/Eduanima/Eduanima-content/internal/db/dbgen"
     "github.com/google/uuid"
 )
 
@@ -11052,7 +11052,7 @@ func (s *OCRCombinerService) CombineOCRResults(
     // 2. 各ファイルのOCR結果を取得
     var combinedText strings.Builder
     for i, fileID := range req.SourceFileIDs {
-        // edumintFiles サービスからOCR結果を取得
+        // EduanimaFiles サービスからOCR結果を取得
         ocrResult, err := s.getOCRResultFromFile(ctx, fileID)
         if err != nil {
             return nil, fmt.Errorf("failed to get OCR for file %s: %w", fileID, err)
@@ -11102,18 +11102,18 @@ func (s *OCRCombinerService) validateFileExists(
     ctx context.Context,
     fileID uuid.UUID,
 ) (bool, error) {
-    // TODO: edumintFiles サービスのAPIを呼び出してファイルの存在を確認
+    // TODO: EduanimaFiles サービスのAPIを呼び出してファイルの存在を確認
     // 例: resp, err := s.filesClient.FileExists(ctx, &files.FileExistsRequest{FileID: fileID.String()})
     return true, nil
 }
 
-// getOCRResultFromFile: edumintFiles サービスからOCR結果を取得
+// getOCRResultFromFile: EduanimaFiles サービスからOCR結果を取得
 func (s *OCRCombinerService) getOCRResultFromFile(
     ctx context.Context,
     fileID uuid.UUID,
 ) (string, error) {
-    // TODO: 実装が必要（edumintFilesサービスAPI仕様が確定後に実装）
-    // edumintFiles サービスのAPIを呼び出してOCRテキストを取得
+    // TODO: 実装が必要（EduanimaFilesサービスAPI仕様が確定後に実装）
+    // EduanimaFiles サービスのAPIを呼び出してOCRテキストを取得
     // または、file_metadata テーブルに保存されたOCRテキストを取得
     // 
     // 実装例: 
@@ -11124,7 +11124,7 @@ func (s *OCRCombinerService) getOCRResultFromFile(
     //     return "", fmt.Errorf("failed to get OCR text: %w", err)
     // }
     // return resp.OcrText, nil
-    return "", fmt.Errorf("not implemented: getOCRResultFromFile - requires edumintFiles API integration")
+    return "", fmt.Errorf("not implemented: getOCRResultFromFile - requires EduanimaFiles API integration")
 }
 
 type CombineOCRRequest struct {
@@ -11149,7 +11149,7 @@ import (
     "context"
     "fmt"
     
-    "github.com/edumint/edumint-content/internal/db/dbgen"
+    "github.com/Eduanima/Eduanima-content/internal/db/dbgen"
     "github.com/google/uuid"
 )
 
@@ -11295,7 +11295,7 @@ package handlers
 import (
     "net/http"
     
-    "github.com/edumint/edumint-content/internal/service"
+    "github.com/Eduanima/Eduanima-content/internal/service"
     "github.com/labstack/echo/v5"
 )
 
@@ -11390,7 +11390,7 @@ package handlers
 import (
     "net/http"
     
-    "github.com/edumint/edumint-content/internal/service"
+    "github.com/Eduanima/Eduanima-content/internal/service"
     "github.com/labstack/echo/v5"
 )
 
@@ -11989,7 +11989,7 @@ func (s *AdService) blockUser(ctx context.Context, userID uuid.UUID, duration ti
         slog.Duration("duration", duration),
     )
     
-    // edumintModerationへイベント送信
+    // EduanimaModerationへイベント送信
     return s.publishEvent(ctx, "user.blocked", map[string]interface{}{
         "user_id":  userID.String(),
         "reason":   reason,
@@ -12112,7 +12112,7 @@ import "github.com/prometheus/client_golang/prometheus"
 var (
     AdFraudDetected = prometheus.NewCounterVec(
         prometheus.CounterOpts{
-            Name: "edumint_ad_fraud_detected_total",
+            Name: "Eduanima_ad_fraud_detected_total",
             Help: "Total number of ad fraud detections",
         },
         []string{"fraud_type"},
@@ -12120,7 +12120,7 @@ var (
     
     UserBlocked = prometheus.NewCounterVec(
         prometheus.CounterOpts{
-            Name: "edumint_user_blocked_total",
+            Name: "Eduanima_user_blocked_total",
             Help: "Total number of users blocked",
         },
         []string{"block_reason"},
@@ -12128,7 +12128,7 @@ var (
     
     TokenGenerationRate = prometheus.NewHistogramVec(
         prometheus.HistogramOpts{
-            Name:    "edumint_ad_token_generation_rate",
+            Name:    "Eduanima_ad_token_generation_rate",
             Help:    "Rate of token generation per user",
             Buckets: prometheus.LinearBuckets(0, 1, 10),
         },
@@ -12146,16 +12146,16 @@ func init() {
 **Grafanaダッシュボードクエリ:**
 ```promql
 # 不正検知アラート数（1時間あたり）
-sum(rate(edumint_ad_fraud_detected_total[1h])) by (fraud_type)
+sum(rate(Eduanima_ad_fraud_detected_total[1h])) by (fraud_type)
 
 # ユーザー凍結数（日次）
-sum(increase(edumint_user_blocked_total[24h])) by (block_reason)
+sum(increase(Eduanima_user_blocked_total[24h])) by (block_reason)
 
 # トークン生成レート異常（1分間に5回以上）
-count(rate(edumint_ad_token_generated_total[1m]) > 5) by (user_id)
+count(rate(Eduanima_ad_token_generated_total[1m]) > 5) by (user_id)
 
 # 試験アクセス異常（1時間に10回以上）
-count(rate(edumint_exam_access_total[1h]) > 10) by (user_id, exam_id)
+count(rate(Eduanima_exam_access_total[1h]) > 10) by (user_id, exam_id)
 ```
 
 #### 手動レビュー対象の自動抽出
@@ -12215,7 +12215,7 @@ groups:
   interval: 1m
   rules:
   - alert: HighTokenGenerationRate
-    expr: rate(edumint_ad_token_generated_total[1m]) > 5
+    expr: rate(Eduanima_ad_token_generated_total[1m]) > 5
     for: 1m
     labels:
       severity: warning
@@ -12224,7 +12224,7 @@ groups:
       description: "User {{ $labels.user_id }} is generating tokens at {{ $value }} tokens/min"
   
   - alert: ExcessiveUserBlocking
-    expr: increase(edumint_user_blocked_total[1h]) > 10
+    expr: increase(Eduanima_user_blocked_total[1h]) > 10
     for: 5m
     labels:
       severity: critical
@@ -12481,7 +12481,7 @@ import (
     "fmt"
     "time"
     
-    "github.com/edumint/edumint-users/internal/db/dbgen"
+    "github.com/Eduanima/Eduanima-users/internal/db/dbgen"
     "github.com/google/uuid"
     gonanoid "github.com/matoous/go-nanoid/v2"
 )
@@ -12754,7 +12754,7 @@ package handlers
 import (
     "net/http"
     
-    "github.com/edumint/edumint-users/internal/service"
+    "github.com/Eduanima/Eduanima-users/internal/service"
     "github.com/labstack/echo/v5"
 )
 
@@ -13167,7 +13167,7 @@ const ChangePrimaryIdPDialog: React.FC = () => {
 **原則: UI上で「ログイン」と「新規登録」を分割しない**
 
 **設計判断:**
-- edumintUsersサービスはv7.5.0で自社パスワード認証を全面廃止し、OAuth専用認証に移行しました
+- EduanimaUsersサービスはv7.5.0で自社パスワード認証を全面廃止し、OAuth専用認証に移行しました
 - この前提では、「ログイン」と「新規登録」は**技術的に同一の行為**であり、ユーザーに区別を強制する必要はありません
 - UI/UX設計では **「OAuthで続行する」** 一本化された導線が最適です
 
@@ -13201,7 +13201,7 @@ const ChangePrimaryIdPDialog: React.FC = () => {
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│ EduMint                                                        │
+│ Eduanima                                                        │
 │ アカウントを作成・利用する                                      │
 ├──────────────────────────────────────────────────────────────┤
 │ (説明文: 小さく)                                              │
@@ -13274,7 +13274,7 @@ redirectTo("/profile-setup", {
 - **実装**: `users.registration_completed_at` で正式登録日時を記録(契約成立タイミング)
 
 **懸念3: 高齢者等、ITリテラシーが低いユーザーへの配慮は?**
-- **EduMintの対象ユーザー**: 大学生・大学院生(ITリテラシー高)
+- **Eduanimaの対象ユーザー**: 大学生・大学院生(ITリテラシー高)
 - **判断**: 本プロジェクトでは統一導線が最適、特例対応不要
 
 ---
@@ -13282,14 +13282,14 @@ redirectTo("/profile-setup", {
 #### **例外的に分割UIが検討対象となるケース(本プロジェクトでは該当しない)**
 
 1. **有料サービスで契約成立タイミングの明確化が必須**
-   - EduMint: MVP版は無料、課金機能はPhase 2以降
+   - Eduanima: MVP版は無料、課金機能はPhase 2以降
    - 対応: 課金時の「購入確認」フローで契約成立を明示
 
 2. **行政・公共系サービスで法令により事前同意が必要**
-   - EduMint: 民間サービスのため該当しない
+   - Eduanima: 民間サービスのため該当しない
 
 3. **極端にITリテラシーが低いユーザー層(高齢者向けサービス等)**
-   - EduMint: 大学生向けのため該当しない
+   - Eduanima: 大学生向けのため該当しない
 
 ---
 
@@ -13305,7 +13305,7 @@ redirectTo("/profile-setup", {
 export function AuthPage() {
   return (
     <div className="auth-container">
-      <h1>EduMint</h1>
+      <h1>Eduanima</h1>
       <h2>アカウントを作成・利用する</h2>
       <p className="description">
         Google等の外部サービスで認証します。<br />
@@ -13335,7 +13335,7 @@ export function AuthPage() {
 // OAuth認証ハンドラー
 function handleOAuthLogin(provider: 'google' | 'apple' | 'meta' | 'microsoft') {
   const redirectURI = `${window.location.origin}/auth/callback`;
-  const authURL = `https://api.edumint.dev/v1/auth/${provider}?redirect_uri=${redirectURI}`;
+  const authURL = `https://api.Eduanima.dev/v1/auth/${provider}?redirect_uri=${redirectURI}`;
   
   // PKCE対応のOAuth認証開始
   window.location.href = authURL;
@@ -13363,7 +13363,7 @@ function handleOAuthLogin(provider: 'google' | 'apple' | 'meta' | 'microsoft') {
 ---
 
 **関連セクション:**
-- [4. edumintUsers(統合ユーザー管理サービス)](#4-edumintusers-統合ユーザー管理サービス)
+- [4. EduanimaUsers(統合ユーザー管理サービス)](#4-Eduanimausers-統合ユーザー管理サービス)
 - [22.10 認証サービス実装(v7.5.0)](#2210-認証サービス実装v750)
 
 **変更履歴:**
@@ -13378,10 +13378,10 @@ function handleOAuthLogin(provider: 'google' | 'apple' | 'meta' | 'microsoft') {
 #### **sqlcクエリ生成プロンプト**
 
 ```markdown
-# EduMint専用sqlcクエリ生成依頼
+# Eduanima専用sqlcクエリ生成依頼
 
 ## コンテキスト
-- プロジェクト: EduMint（教育コンテンツ管理プラットフォーム）
+- プロジェクト: Eduanima（教育コンテンツ管理プラットフォーム）
 - データベース: PostgreSQL 18.1 + pgvector 0.8
 - 主キー: uuidv7()を使用（gen_random_uuid()禁止）
 - ドライバー: pgx/v5
@@ -13423,7 +13423,7 @@ sqlc annotation付きSQL（-- name: で開始）
 #### **Atlas HCL生成プロンプト**
 
 ```markdown
-# EduMint専用Atlas HCLスキーマ生成依頼
+# Eduanima専用Atlas HCLスキーマ生成依頼
 
 ## テーブル要件
 テーブル名: question_collaboration
@@ -13455,7 +13455,7 @@ Atlas HCL v2構文
 ### 23.2 AIコードレビューチェックリスト
 
 ```markdown
-# EduMintデータベースコード変更レビューチェックリスト
+# Eduanimaデータベースコード変更レビューチェックリスト
 
 ## 1. スキーマ設計（Atlas HCL）
 - [ ] 主キーにuuidv7()を使用（gen_random_uuid()使用禁止）
@@ -13591,9 +13591,9 @@ AI: [テストケース生成]
 
 **v7.2.0 主要変更点のまとめ:**
 
-1. **edumintContents 4DB構成への拡張**
+1. **EduanimaContents 4DB構成への拡張**
    - 2DB構成（v7.1.0）から4DB構成（v7.2.0）へ拡張
-   - 物理DB: edumint_contents (メインDB), edumint_contents_search (検索用DB), edumint_contents_master (マスターDB), edumint_contents_logs (ログDB)
+   - 物理DB: Eduanima_contents (メインDB), Eduanima_contents_search (検索用DB), Eduanima_contents_master (マスターDB), Eduanima_contents_logs (ログDB)
    - 各DBの役割・特性に応じた最適なインスタンス設定
 
 2. **セキュリティ強化（OCRテキスト統合管理）**
@@ -13611,8 +13611,8 @@ AI: [テストケース生成]
    - クエリキャッシュ戦略の独立設定
 
 4. **Debezium CDC 3コネクタ構成**
-   - edumint_contents コネクタ: メインDBテーブルの同期
-   - edumint_contents_search コネクタ: 検索用語テーブルの同期（新設）
+   - Eduanima_contents コネクタ: メインDBテーブルの同期
+   - Eduanima_contents_search コネクタ: 検索用語テーブルの同期（新設）
    - レプリケーション対象の精密制御（master DBは非レプリケーション）
    - PostgreSQL 論理レプリケーションスロット3構成
 
@@ -13688,7 +13688,7 @@ AI: [テストケース生成]
      - `ad_revenue_estimated DECIMAL(15,4) DEFAULT 0.00`: 推定広告収益（USD）
      - `last_ad_displayed_at TIMESTAMPTZ`: 最終広告表示日時
    - 広告表示回数集計バッチ処理の追加
-   - 収益計算連携（edumintRevenue）の実装例追加
+   - 収益計算連携（EduanimaRevenue）の実装例追加
 
 2. **広告視聴進捗管理テーブル新設**
    - `ad_viewing_progress` テーブル新規作成
@@ -13802,7 +13802,7 @@ AI: [テストケース生成]
 ---
 
 **v7.2.0からの継続:**
-- edumintContents 4DB構成（メインDB、検索DB、マスターDB、ログDB）
+- EduanimaContents 4DB構成（メインDB、検索DB、マスターDB、ログDB）
 - Debezium CDC 3コネクタ構成
 - セキュリティ強化（OCRテキスト統合管理）
 - I/O性能改善（検索用語テーブル分離）
@@ -13825,7 +13825,7 @@ AI: [テストケース生成]
    - 推奨パラメータ設定、IAM最小権限例
    - Doppler統合、Go接続プール設定、監視アラート
 5. 可観測性・監査ログ設計（セクション20）
-   - OpenTelemetryトレース（EduMint固有Span属性）
+   - OpenTelemetryトレース（Eduanima固有Span属性）
    - Prometheusカスタムメトリクス、構造化監査ログ
    - BigQuery連携による日次ログエクスポート
 6. テスト・CI/CD設計（セクション21）
@@ -13844,4 +13844,4 @@ AI: [テストケース生成]
 - ログテーブル物理DB分離設計
 - ENUM型厳格化、外部API非依存設計
 
-この設計書は、EduMintのプレリリース前の初期DB構築を前提としています。本番稼働後の変更は、適切なマイグレーション戦略と共に実施してください。
+この設計書は、Eduanimaのプレリリース前の初期DB構築を前提としています。本番稼働後の変更は、適切なマイグレーション戦略と共に実施してください。
