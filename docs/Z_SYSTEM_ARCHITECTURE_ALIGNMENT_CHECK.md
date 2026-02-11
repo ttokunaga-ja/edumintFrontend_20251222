@@ -152,7 +152,7 @@
 
 | 項目 | ドキュメント | 理由 |
 | :--- | :--- | :--- |
-| **eduanimaSocial** | Section 11 | **Phase 1 MVP では未実装（図では省略）**。Phase 2 で exam_comments, comment_likes, DM機能を追加。試験コメント機能は Phase 2 以降のみ利用可能 |
+| **eduanimaSocial** | Section 11 | **Phase 1 MVP では未実装（図では省略）**。Phase 2 で exam_comments, comment_likes, DM機能を追加。試験コメント機能は Phase 2 以降のみ利用可能。注: exam_likes/exam_badsは廃止され、EduanimaContents.exam_interaction_eventsへ統合済 |
 | **eduanimaMonetizeWallet** | Section 9.2 | Phase 2 以降で実装。MintCoin取引の強整合性を保証 |
 | **eduanimaModeration** | Section 10 | Phase 2 以降。コンテンツ・ユーザー通報管理 |
 | **Kafka イベント仕様** | Section 11.2 | 図には全 Kafka トピックが表示されていない。ドキュメント表 11.2 で完全リスト |
