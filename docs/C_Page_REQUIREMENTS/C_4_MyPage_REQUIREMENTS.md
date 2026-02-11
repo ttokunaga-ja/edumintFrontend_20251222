@@ -11,7 +11,7 @@
   - Lists:
     - `GET /user/{userId}/problems?page=&limit=`
     - `GET /user/{userId}/liked?page=&limit=`
-    - `GET /user/{userId}/commented?page=&limit=`
+    - `GET /user/{userId}/commented?page=&limit=` （Phase 2: eduanimaSocial）
   - Notifications:
     - `GET /notifications?limit=`, `POST /notifications/read-all`, `DELETE /notifications/{id}`
   - Wallet:

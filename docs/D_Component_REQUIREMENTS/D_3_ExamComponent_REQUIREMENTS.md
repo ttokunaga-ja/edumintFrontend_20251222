@@ -13,7 +13,7 @@
   - History: version 差分表示、ロールバック（`GET /exam-edit-history/{examId}`, `POST /exam-history/{examId}/rollback`）
 - Social（Phase2）
   - いいね/コメント/投票/通知はヘルスとフラグで制御
-  - API: `POST /exams/{examId}/like`, `GET/POST/DELETE /comments`, `POST /comments/{commentId}/vote`
+  - API: `POST /exams/{examId}/like`, `GET/POST/DELETE /comments`, `POST /comments/{commentId}/vote` （Phase 2: eduanimaSocial）
 - ActionBar
   - bookmark/share/report を提供（`POST /exams/{examId}/bookmark`, `POST /exams/{examId}/share`, `POST /reports`）
   - 実装規約: UI コンポーネントは `services/api/*` を直接 import しない。`features/content` / `features/moderation` / `features/notifications` の hook/repository 経由で呼ぶ。
