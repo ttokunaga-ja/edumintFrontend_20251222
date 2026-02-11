@@ -1,8 +1,20 @@
-# **Eduanima 統合データモデル設計書 v8.6.0**
+# **Eduanima 統合データモデル設計書 v8.7.0**
 
 本ドキュメントは、Eduanimaのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
 **最終更新日: 2026-02-11**
+
+**v8.7.0 主要更新:**
+- **Phase構成見直し**: EduanimaSocialをPhase 2 → Phase 3へ移行、段階的SNS拡張戦略の明確化
+- **EduanimaSocial Phase 3拡張設計**: サブドメイン分離 (`social.eduanima.com`)、ハイブリッド型設計（学習モード+SNSモード）
+- **SNS機能段階的展開**:
+  - Phase 2: 試験コメント、基本DM（学習補助機能）
+  - Phase 3: ストーリー、マッチング、拡張DM、投稿機能（フルSNS化）
+- **SNS設計比較分析追加**: Instagram型/YouTube型/ハイブリッド型の比較検証とEduanima最適解の選定
+- **ハイブリッド型設計詳細**: モード切替UI/UX、セッション管理、API設計、フロントエンド実装方針
+- **Phase 3実装ロードマップ追加**: サブドメイン構築、認証統合、段階的機能リリース計画
+- **Phase 3リスク対策表追加**: サブドメイン分離リスク、モード切替UXリスク、スケーラビリティリスクと対策
+- **サブドメイン&認証設計技術仕様**: Cookie戦略、CORS設定、SSO実装、セキュリティポリシー
 
 **v8.6.0 主要更新:**
 - **EduanimaAiWorker ログDB設計追加**: ai_processing_logs テーブル、複数ファイル対応、Eduanima_ai_worker_logs DB新設
@@ -222,8 +234,14 @@
 ### デプロイ段階
 
 *   **Phase 1 (MVP)**: EduanimaGateways, EduanimaUsers, EduanimaContents, EduanimaFiles, EduanimaAiWorker, EduanimaSearch
-*   **Phase 2 (製品版)**: + EduanimaMonetizeWallet, EduanimaRevenue, EduanimaSocial, EduanimaModeration
-*   **Phase 3 (拡張版)**: + 多言語・推薦等
+*   **Phase 2 (製品版)**: + EduanimaMonetizeWallet, EduanimaRevenue, EduanimaModeration
+*   **Phase 3 (SNS拡張版)**: + EduanimaSocial（サブドメイン分離、ハイブリッド型設計）、多言語・推薦機能拡張
+
+**Phase 3 SNS拡張の主要特徴:**
+*   **サブドメイン分離**: `social.eduanima.com` で独立したSNS空間を提供
+*   **ハイブリッド型設計**: 学習モード（試験・問題閲覧）とSNSモード（投稿・DM・マッチング）のシームレスな切替
+*   **段階的拡張**: Phase 2でコメント・基本DM → Phase 3でストーリー・マッチング・拡張DM
+*   **認証統合**: メインドメインと共通セッション、サブドメイン間でのシームレスなSSO
 
 ### UUID + NanoID 設計原則
 
@@ -726,6 +744,26 @@ CREATE TYPE interaction_event_type_enum AS ENUM (
   'bookmark',
   'unbookmark'
 );
+
+-- ユーザーモード（v8.7.0新設: Phase 3）
+CREATE TYPE user_mode_enum AS ENUM (
+  'learning',    -- 学習モード（eduanima.com）
+  'social'       -- SNSモード（social.eduanima.com）
+);
+
+-- モード切替トリガー（v8.7.0新設: Phase 3）
+CREATE TYPE switch_trigger_enum AS ENUM (
+  'manual',         -- 手動切替（ユーザーがボタンクリック）
+  'auto',           -- 自動切替（コンテキスト判断）
+  'deep_link',      -- ディープリンク経由
+  'notification'    -- 通知経由
+);
+
+-- ストーリーメディアタイプ（v8.7.0新設: Phase 3）
+CREATE TYPE story_media_type_enum AS ENUM (
+  'image',    -- 画像
+  'video'     -- 動画
+);
 ```
 
 #### **1.8. AI処理関連ENUM（v8.6.0新設）**
@@ -948,7 +986,7 @@ Eduanimaプロジェクトでは、以下のツール・ライブラリの使用
 | **EduanimaFiles** | ファイルストレージ管理 | `file_metadata`, `report_attachment`, `file_upload_jobs`, `file_logs` (分離DB) | `file.uploaded`, `file.encrypted` | `content.ocr`, `moderation.evidence` |
 | **EduanimaSearch** | 検索・インデックス（無状態化） | **Elasticsearch索引のみ（物理DB廃止）**, `search_logs` (分離DB) | `search.indexed`, `search.term_generation` | `content.lifecycle`, `content.interaction` via **Debezium CDC** |
 | **EduanimaAiWorker** | AI処理（ステートレス + ログDB）（v8.6.0） | **[ログDB: `Eduanima_ai_worker_logs`]** `ai_processing_logs` (パーティション設計) + **ELKログ** | `ai.results` | `gateway.jobs`, `file.uploaded`, `content.ocr`, `search.term_generation` |
-| **EduanimaSocial** | SNS機能（投稿・コメント・DM・マッチング） | `user_posts`, `post_likes`, `post_comments`, `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages`, `dm_read_receipts`, `user_match_preferences`, `user_matches` | `social.activity` | `content.interaction` |
+| **EduanimaSocial (Phase 3拡張)** | SNS機能（投稿・コメント・DM・マッチング・ストーリー）、ハイブリッド型設計（学習モード+SNSモード）、サブドメイン分離 | **[Phase 2基本機能]** `exam_comments`, `comment_likes`, `dm_conversations`, `dm_participants`, `dm_messages` / **[Phase 3拡張機能]** `user_posts`, `post_likes`, `post_comments`, `user_stories`, `story_views`, `dm_read_receipts`, `user_match_preferences`, `user_matches`, `social_mode_sessions` | `social.activity`, `social.mode_switch` | `content.interaction` |
 | **EduanimaMonetizeWallet** | MintCoin管理 | `wallets`, `wallet_transactions`, `wallet_logs` (分離DB, 7年保持) | `monetization.transactions` | - |
 | **EduanimaRevenue** | 収益分配 | `revenue_reports`, `ad_impressions_agg`, `revenue_logs` (分離DB) | `revenue.reports` | `monetization.transactions`, `content.interaction` |
 | **EduanimaModeration** | 通報管理 | `content_reports`, `user_reports`, `moderation_logs` (分離DB) | `moderation.events` | - |
@@ -5155,7 +5193,33 @@ func (s *AILoggerService) LogJobError(ctx context.Context, jobID uuid.UUID, err 
 
 ---
 
-## **9. EduanimaSocial (ソーシャルサービス)**
+## **9. EduanimaSocial (ソーシャルサービス - Phase 3拡張版)**
+
+### 設計変更点（v8.7.0 - Phase 3拡張設計）
+
+**Phase構成の見直し:**
+- **Phase 2（製品版）**: 試験コメント、基本DM機能（学習補助としてのSNS機能）
+- **Phase 3（SNS拡張版）**: ストーリー、マッチング、拡張DM、投稿機能（フルSNS化）
+
+**Phase 3 主要設計決定:**
+- **サブドメイン分離**: `social.eduanima.com` での独立したSNS空間提供
+- **ハイブリッド型設計**: 学習モード（試験・問題閲覧中心）とSNSモード（投稿・DM・マッチング中心）のシームレスな切替
+- **段階的機能展開**: Phase 2で基礎機能実装、Phase 3で本格SNS化
+- **認証統合**: メインドメイン (`eduanima.com`) と共通セッション管理
+
+**SNS設計比較分析（Phase 3検証結果）:**
+
+| 設計タイプ | 特徴 | メリット | デメリット | Eduanima適合度 |
+|:---|:---|:---|:---|:---|
+| **Instagram型** | 投稿・ストーリー中心、フォロー・フィード重視 | 視覚的コンテンツ共有、エンゲージメント高 | 学習コンテンツとの統合が弱い | △（SNSのみなら最適） |
+| **YouTube型** | コンテンツ（試験）中心、コメント・評価重視 | 学習コンテンツとの親和性高、SEO強 | SNS的交流が限定的 | ○（学習特化なら最適） |
+| **ハイブリッド型** | 学習モードとSNSモードの切替、両方の利点統合 | ユーザーニーズに応じた柔軟な体験 | 実装複雑度高、モード切替UX要工夫 | ◎（**Eduanima採用**） |
+
+**ハイブリッド型採用理由:**
+1. **学習とSNSの両立**: 試験閲覧時は集中（YouTubeライク）、SNS利用時は交流（Instagramライク）
+2. **段階的移行**: Phase 2でYouTube型ベース → Phase 3でInstagram型機能追加
+3. **ドメイン分離**: メインドメインは学習特化、サブドメインはSNS特化で明確な役割分担
+4. **ユーザー選択性**: モード切替により、ユーザーが自分の目的に合わせて使い分け可能
 
 ### 設計変更点（v7.0.3）
 
@@ -5164,16 +5228,98 @@ func (s *AILoggerService) LogJobError(ctx context.Context, jobID uuid.UUID, err 
 - **新規テーブル**: SNS投稿、DM、マッチング機能用テーブルを追加
 - **コメント機能強化**: YouTubeスタイルのスレッド型コメント
 
-### 10.1 サービス責務
+### 9.1 サービス責務（Phase別機能展開）
 
-EduanimaSocialは以下のソーシャル機能を提供します：
-
+**Phase 2（製品版）- 学習補助SNS:**
 1. **試験コメント機能**: 試験に対するユーザーコメント、返信、いいね
-2. **SNS投稿機能**: ユーザーのタイムライン、投稿、シェア
-3. **DM機能**: 1対1・グループチャット、既読管理
-4. **マッチング機能**: 学習パートナー探し（Phase 3）
+2. **基本DM機能**: 1対1チャット、学習相談用メッセージング
 
-### 10.2 本体DBテーブル (DDL例)
+**Phase 3（SNS拡張版）- フルSNS化:**
+3. **SNS投稿機能**: ユーザーのタイムライン、投稿、シェア、ハッシュタグ
+4. **ストーリー機能**: 24時間限定投稿、閲覧履歴、スワイプUI
+5. **拡張DM機能**: グループチャット、既読管理、メディア共有、リアクション
+6. **マッチング機能**: 学習パートナー探し、スキルベースマッチング、相性スコア算出
+7. **モード切替機能**: 学習モード ⇔ SNSモードのシームレスな切替UI
+
+**ハイブリッド型設計の実装詳細:**
+
+#### **9.1.1 学習モード（`eduanima.com`）**
+- **主要機能**: 試験検索・閲覧、問題解答、コメント投稿
+- **UI/UX**: シンプルで集中できるデザイン、YouTube型レイアウト
+- **ヘッダー**: 検索バー、ユーザーアイコン、通知アイコン
+- **モード切替**: ヘッダー右上に「SNSモードへ」ボタン（`social.eduanima.com` へ遷移）
+
+#### **9.1.2 SNSモード（`social.eduanima.com`）**
+- **主要機能**: タイムライン、投稿作成、ストーリー閲覧、DM、マッチング
+- **UI/UX**: エンゲージメント重視、Instagram型レイアウト
+- **ヘッダー**: ホーム、検索、投稿、DM、プロフィール
+- **モード切替**: ヘッダー左上に「学習モードへ」ボタン（`eduanima.com` へ遷移）
+
+#### **9.1.3 モード切替の技術仕様**
+
+**セッション管理:**
+```typescript
+// セッションCookie設定（両ドメインで共有）
+Set-Cookie: session_id=...; Domain=.eduanima.com; Path=/; Secure; HttpOnly; SameSite=Lax
+
+// モード状態Cookie
+Set-Cookie: user_mode=learning|social; Domain=.eduanima.com; Path=/; Secure; SameSite=Lax
+
+// 最終アクセスドメイン記録
+Set-Cookie: last_domain=eduanima.com|social.eduanima.com; Domain=.eduanima.com; Path=/; Secure; SameSite=Lax
+```
+
+**API設計（モード切替エンドポイント）:**
+```yaml
+POST /api/v1/user/mode/switch
+Request:
+  {
+    "target_mode": "social",  # "learning" | "social"
+    "return_url": "/feed"  # 遷移先URL（オプション）
+  }
+Response:
+  {
+    "redirect_url": "https://social.eduanima.com/feed",
+    "session_id": "...",
+    "mode": "social"
+  }
+```
+
+**フロントエンド実装（React/TypeScript）:**
+```typescript
+// hooks/useMode.ts
+export const useMode = () => {
+  const [mode, setMode] = useState<'learning' | 'social'>('learning');
+  
+  const switchMode = async (targetMode: 'learning' | 'social') => {
+    const response = await fetch('/api/v1/user/mode/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_mode: targetMode })
+    });
+    const data = await response.json();
+    window.location.href = data.redirect_url;
+  };
+  
+  return { mode, switchMode };
+};
+
+// components/ModeSwitch.tsx
+export const ModeSwitch: React.FC = () => {
+  const { mode, switchMode } = useMode();
+  
+  return (
+    <button 
+      onClick={() => switchMode(mode === 'learning' ? 'social' : 'learning')}
+      className="mode-switch-btn"
+    >
+      {mode === 'learning' ? '📱 SNSモードへ' : '📚 学習モードへ'}
+    </button>
+  );
+};
+```
+
+### 9.2 本体DBテーブル（Phase別分類）
 
 #### **exam_comments (試験コメント)**
 
@@ -5347,7 +5493,115 @@ CREATE UNIQUE INDEX idx_user_matches_unique_pair ON user_matches(user_id_1, user
   WHERE status != 'rejected';
 ```
 
-### 10.3 イベント駆動フロー
+#### **ストーリー機能テーブル（Phase 3）**
+
+Instagram型の24時間限定投稿機能。
+
+```sql
+-- ストーリー投稿テーブル
+CREATE TABLE user_stories (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(8) NOT NULL UNIQUE,
+  user_id UUID NOT NULL,
+  media_url VARCHAR(512) NOT NULL,  -- 画像/動画URL
+  media_type story_media_type_enum NOT NULL,  -- 'image' | 'video'
+  caption TEXT,
+  background_color VARCHAR(7),  -- HEX色コード（#RRGGBB）
+  sticker_data JSONB,  -- ステッカー、テキスト、リンクなどのメタデータ
+  view_count INT DEFAULT 0,
+  reply_count INT DEFAULT 0,
+  is_highlighted BOOLEAN DEFAULT FALSE,  -- ハイライトに追加されたか
+  highlight_collection_id UUID,  -- ハイライトコレクションID
+  expires_at TIMESTAMPTZ NOT NULL,  -- 24時間後に自動期限切れ
+  is_deleted BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
+
+-- パーティション（日次、自動削除で30日保持）
+CREATE TABLE user_stories_2026_02_11 PARTITION OF user_stories
+  FOR VALUES FROM ('2026-02-11') TO ('2026-02-12');
+
+CREATE INDEX idx_user_stories_user_active ON user_stories(user_id, created_at DESC) 
+  WHERE is_deleted = FALSE AND expires_at > CURRENT_TIMESTAMP;
+CREATE INDEX idx_user_stories_public_id ON user_stories(public_id);
+CREATE INDEX idx_user_stories_expires ON user_stories(expires_at) 
+  WHERE is_deleted = FALSE;
+
+-- ストーリー閲覧履歴テーブル
+CREATE TABLE story_views (
+  story_id UUID NOT NULL REFERENCES user_stories(id) ON DELETE CASCADE,
+  viewer_user_id UUID NOT NULL,
+  viewed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (story_id, viewer_user_id)
+);
+
+CREATE INDEX idx_story_views_story ON story_views(story_id, viewed_at DESC);
+CREATE INDEX idx_story_views_viewer ON story_views(viewer_user_id, viewed_at DESC);
+
+-- ストーリーハイライトコレクション
+CREATE TABLE story_highlight_collections (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID NOT NULL,
+  collection_name VARCHAR(100) NOT NULL,
+  cover_story_id UUID,  -- カバー画像として使用するストーリーID
+  story_count INT DEFAULT 0,
+  display_order INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_story_highlights_user ON story_highlight_collections(user_id, display_order);
+
+-- ENUM型定義
+CREATE TYPE story_media_type_enum AS ENUM ('image', 'video');
+```
+
+**ストーリー機能の設計ポイント:**
+- **24時間自動削除**: `expires_at` カラムでバッチ処理による自動非表示
+- **閲覧履歴管理**: 投稿者は誰が見たか確認可能（Instagram準拠）
+- **ハイライト機能**: 期限切れストーリーを永続的に保存可能
+- **パーティション設計**: 日次パーティションで効率的なデータ管理
+- **メディアストレージ**: GCSに保存、URLのみDB管理
+
+#### **モード切替セッション管理テーブル（Phase 3）**
+
+学習モードとSNSモードの切替履歴と分析用データ。
+
+```sql
+CREATE TABLE social_mode_sessions (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  user_id UUID NOT NULL,
+  session_id VARCHAR(255) NOT NULL,  -- Cookieのsession_id
+  mode user_mode_enum NOT NULL,  -- 'learning' | 'social'
+  domain VARCHAR(100) NOT NULL,  -- 'eduanima.com' | 'social.eduanima.com'
+  entry_url TEXT,  -- セッション開始URL
+  referrer_url TEXT,  -- 遷移元URL
+  switch_trigger switch_trigger_enum,  -- 'manual' | 'auto' | 'deep_link'
+  session_duration_seconds INT,  -- セッション継続時間（秒）
+  started_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  ended_at TIMESTAMPTZ
+) PARTITION BY RANGE (started_at);
+
+-- パーティション（月次、3ヶ月保持）
+CREATE TABLE social_mode_sessions_2026_02 PARTITION OF social_mode_sessions
+  FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+
+CREATE INDEX idx_mode_sessions_user_started ON social_mode_sessions(user_id, started_at DESC);
+CREATE INDEX idx_mode_sessions_mode ON social_mode_sessions(mode, started_at DESC);
+
+-- ENUM型定義
+CREATE TYPE user_mode_enum AS ENUM ('learning', 'social');
+CREATE TYPE switch_trigger_enum AS ENUM ('manual', 'auto', 'deep_link', 'notification');
+```
+
+**モード切替分析用途:**
+- ユーザーの学習時間 vs SNS利用時間の分析
+- モード切替の頻度とパターンの把握
+- 自動切替（通知経由など）の効果測定
+- ドメイン間の遷移フロー最適化
+
+### 9.3 イベント駆動フロー
 
 EduanimaSocialは`content.interaction`イベントを購読し、通知生成のみ実行します。統計情報の更新責務はEduanimaContentsが持ちます。
 
@@ -5450,6 +5704,258 @@ WHERE created_at >= NOW() - INTERVAL '10 minutes'
 GROUP BY user_id, event_type
 HAVING COUNT(*) > 20
 ORDER BY event_count DESC;
+```
+
+### 9.4 Phase 3 実装ロードマップ
+
+**Phase 3のSNS拡張は以下の4段階でリリースします:**
+
+#### **Stage 1: サブドメイン基盤構築（1ヶ月）**
+- [ ] `social.eduanima.com` サブドメイン設定とDNS登録
+- [ ] Nginx/Cloud Load Balancer設定（サブドメインルーティング）
+- [ ] 共通セッション管理実装（`.eduanima.com` Cookie）
+- [ ] SSO認証フロー統合（メインドメイン ⇔ サブドメイン）
+- [ ] CORS設定とセキュリティポリシー実装
+- [ ] モード切替APIエンドポイント実装
+- [ ] フロントエンドモード切替UI実装（React）
+
+**技術スタック:**
+- DNS: Cloud DNS
+- Load Balancer: Cloud Load Balancing
+- SSL証明書: Let's Encrypt（自動更新）
+- Cookie管理: secure, httpOnly, sameSite=Lax
+
+#### **Stage 2: ストーリー機能リリース（2週間）**
+- [ ] `user_stories`, `story_views`, `story_highlight_collections` テーブル作成
+- [ ] ストーリー投稿API実装（画像/動画アップロード）
+- [ ] 24時間自動削除バッチ処理実装
+- [ ] ストーリー閲覧UI実装（スワイプ、進捗バー）
+- [ ] ハイライト機能実装（永続保存）
+- [ ] GCSメディアストレージ統合
+- [ ] プッシュ通知実装（新ストーリー投稿時）
+
+**UI/UX設計:**
+- Instagram型スワイプインターフェース
+- 進捗バー（複数ストーリー連続再生）
+- 閲覧者リスト表示（投稿者のみ）
+- ステッカー、テキスト、リンク追加機能
+
+#### **Stage 3: マッチング機能リリース（3週間）**
+- [ ] `user_match_preferences`, `user_matches` テーブル拡張
+- [ ] 相性スコアアルゴリズム実装（機械学習ベース）
+- [ ] マッチング推薦API実装
+- [ ] マッチングリクエストUI実装
+- [ ] マッチング承認/拒否フロー実装
+- [ ] マッチング後のDM自動作成
+- [ ] マッチング通知実装
+
+**マッチングアルゴリズム:**
+```python
+# 相性スコア計算（簡易版）
+compatibility_score = (
+  institution_match * 0.3 +      # 同じ大学: 30%
+  faculty_match * 0.2 +           # 同じ学部: 20%
+  academic_fields_overlap * 0.2 + # 学習分野重複: 20%
+  language_match * 0.15 +         # 言語一致: 15%
+  availability_overlap * 0.15     # 時間帯重複: 15%
+)
+```
+
+#### **Stage 4: 投稿・タイムライン機能強化（2週間）**
+- [ ] `user_posts` 機能拡張（メディア、ハッシュタグ強化）
+- [ ] タイムラインアルゴリズム実装（時系列＋推薦ミックス）
+- [ ] ハッシュタグ検索実装
+- [ ] 投稿共有機能実装
+- [ ] トレンド表示機能実装
+- [ ] 投稿分析ダッシュボード（投稿者向け）
+
+**リリーススケジュール:**
+- **Month 1**: Stage 1完了（サブドメイン基盤）
+- **Month 2**: Stage 2完了（ストーリー）
+- **Month 3**: Stage 3完了（マッチング）
+- **Month 4**: Stage 4完了（投稿強化）、Phase 3正式リリース
+
+### 9.5 Phase 3 リスク対策表
+
+| リスクカテゴリ | リスク内容 | 影響度 | 発生確率 | 対策 | 代替案 |
+|:---|:---|:---|:---|:---|:---|
+| **サブドメイン分離** | Cookie共有失敗、セッション切断 | 高 | 中 | `.eduanima.com` ドメインCookie設定、徹底的なE2Eテスト | OAuth2トークンベース認証への切替 |
+| **モード切替UX** | ユーザーが混乱、離脱率上昇 | 高 | 中 | オンボーディングチュートリアル、明確なモード表示 | 単一ドメインでのモーダル切替 |
+| **スケーラビリティ** | ストーリー・DM高負荷でDB過負荷 | 中 | 中 | パーティション設計、Redis Cacheレイヤー追加 | Read Replicaスケールアウト |
+| **セキュリティ** | サブドメイン間CSRF攻撃 | 高 | 低 | CSRF Token検証、SameSite Cookie設定 | サブドメイン廃止、単一ドメイン設計 |
+| **コンテンツモデレーション** | 不適切ストーリー・投稿の拡散 | 中 | 高 | AI画像認識（Cloud Vision API）、通報機能強化 | 人力モデレーション体制構築 |
+| **データ保持** | ストーリー削除後のGCS容量逼迫 | 低 | 中 | 24時間後にGCSオブジェクト自動削除（Lifecycle Policy） | 手動削除バッチ処理 |
+| **マッチング品質** | 低品質マッチング、ユーザー不満 | 中 | 中 | フィードバックループ実装、スコアアルゴリズム改善 | 手動マッチング推薦機能 |
+| **プッシュ通知** | 通知過多でアプリ削除 | 中 | 高 | 通知頻度制限、カスタマイズ設定提供 | オプトイン方式、通知OFF可 |
+
+**重大リスク対応プラン:**
+1. **サブドメイン分離失敗時**: 単一ドメインでのSPA内モード切替に回帰（1週間で実装可能）
+2. **スケーラビリティ問題時**: Cloud SQL Read Replica追加、Redis Cache導入（即日対応可）
+3. **セキュリティ脆弱性発見時**: 該当機能の即座無効化、パッチ適用後に再公開（24時間以内）
+
+### 9.6 サブドメイン & 認証設計 技術仕様
+
+#### **9.6.1 Cookie戦略**
+
+```nginx
+# Nginx設定例（メインドメイン: eduanima.com）
+location /api/v1/auth/login {
+    # 共通セッションCookie設定
+    add_header Set-Cookie "session_id=$session_id; Domain=.eduanima.com; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=604800" always;
+    
+    # モード状態Cookie
+    add_header Set-Cookie "user_mode=learning; Domain=.eduanima.com; Path=/; Secure; SameSite=Lax; Max-Age=604800" always;
+    
+    proxy_pass http://backend;
+}
+
+# サブドメイン設定（social.eduanima.com）
+server {
+    server_name social.eduanima.com;
+    
+    location / {
+        # 既存セッションCookie読み取り
+        if ($cookie_session_id = "") {
+            return 302 https://eduanima.com/login?return_url=$request_uri;
+        }
+        
+        # モード状態Cookie更新
+        add_header Set-Cookie "user_mode=social; Domain=.eduanima.com; Path=/; Secure; SameSite=Lax; Max-Age=604800" always;
+        
+        proxy_pass http://backend;
+    }
+}
+```
+
+#### **9.6.2 CORS設定**
+
+```go
+// Go Echo v5 CORS設定
+import "github.com/labstack/echo/v5"
+
+func configureCORS(e *echo.Echo) {
+    e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+        AllowOrigins: []string{
+            "https://eduanima.com",
+            "https://social.eduanima.com",
+        },
+        AllowMethods: []string{
+            http.MethodGet,
+            http.MethodPost,
+            http.MethodPut,
+            http.MethodDelete,
+            http.MethodOptions,
+        },
+        AllowHeaders: []string{
+            echo.HeaderOrigin,
+            echo.HeaderContentType,
+            echo.HeaderAccept,
+            echo.HeaderAuthorization,
+            "X-CSRF-Token",
+        },
+        AllowCredentials: true, // Cookie送信許可
+        MaxAge:           3600,
+    }))
+}
+```
+
+#### **9.6.3 SSO実装（サブドメイン遷移）**
+
+```typescript
+// フロントエンド: モード切替処理
+export const switchToSocialMode = async (): Promise<void> => {
+  // 1. モード切替API呼び出し（セッション検証）
+  const response = await fetch('https://eduanima.com/api/v1/user/mode/switch', {
+    method: 'POST',
+    credentials: 'include', // Cookie送信
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_mode: 'social', return_url: '/feed' })
+  });
+  
+  const data = await response.json();
+  
+  // 2. サブドメインへリダイレクト（セッションCookie自動送信）
+  window.location.href = data.redirect_url; // https://social.eduanima.com/feed
+};
+```
+
+```go
+// バックエンド: モード切替API実装
+func (h *UserHandler) SwitchMode(c echo.Context) error {
+    var req struct {
+        TargetMode string `json:"target_mode" validate:"required,oneof=learning social"`
+        ReturnURL  string `json:"return_url"`
+    }
+    if err := c.Bind(&req); err != nil {
+        return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+    }
+    
+    // セッション検証
+    sessionID := c.Cookie("session_id")
+    user, err := h.sessionService.ValidateSession(sessionID)
+    if err != nil {
+        return echo.NewHTTPError(http.StatusUnauthorized, "Invalid session")
+    }
+    
+    // モード切替ログ記録
+    _ = h.socialService.LogModeSwitch(user.ID, req.TargetMode, c.Request().Referer())
+    
+    // リダイレクトURL生成
+    var redirectURL string
+    if req.TargetMode == "social" {
+        redirectURL = fmt.Sprintf("https://social.eduanima.com%s", req.ReturnURL)
+    } else {
+        redirectURL = fmt.Sprintf("https://eduanima.com%s", req.ReturnURL)
+    }
+    
+    // モードCookie更新
+    c.SetCookie(&http.Cookie{
+        Name:     "user_mode",
+        Value:    req.TargetMode,
+        Domain:   ".eduanima.com",
+        Path:     "/",
+        Secure:   true,
+        HttpOnly: false, // JSから読み取り可能
+        SameSite: http.SameSiteLaxMode,
+        MaxAge:   604800, // 7日間
+    })
+    
+    return c.JSON(http.StatusOK, map[string]string{
+        "redirect_url": redirectURL,
+        "session_id":   sessionID,
+        "mode":         req.TargetMode,
+    })
+}
+```
+
+#### **9.6.4 セキュリティポリシー**
+
+**Content Security Policy (CSP):**
+```nginx
+# メインドメイン
+add_header Content-Security-Policy "default-src 'self'; connect-src 'self' https://social.eduanima.com; frame-ancestors 'none';" always;
+
+# サブドメイン
+add_header Content-Security-Policy "default-src 'self'; connect-src 'self' https://eduanima.com; frame-ancestors 'none';" always;
+```
+
+**CSRF対策:**
+```go
+// Double Submit Cookie パターン
+func (h *Handler) CSRFMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+    return func(c echo.Context) error {
+        // POSTリクエストのみ検証
+        if c.Request().Method == "POST" || c.Request().Method == "PUT" || c.Request().Method == "DELETE" {
+            tokenHeader := c.Request().Header.Get("X-CSRF-Token")
+            tokenCookie, err := c.Cookie("csrf_token")
+            
+            if err != nil || tokenHeader != tokenCookie.Value {
+                return echo.NewHTTPError(http.StatusForbidden, "Invalid CSRF token")
+            }
+        }
+        return next(c)
+    }
+}
 ```
 
 ---
