@@ -2591,6 +2591,10 @@ CREATE INDEX idx_term_generation_candidates_confidence ON term_generation_candid
 
 #### **ad_display_events (広告表示イベント)**
 
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2から広告配信開始時に有効化。
+
 広告表示イベントを記録します（v7.1.0新設）。
 
 ```sql
@@ -2627,6 +2631,10 @@ CREATE INDEX idx_ad_display_events_displayed_at ON ad_display_events(displayed_a
 - BigQueryへエクスポート対応
 
 #### **ad_viewing_progress (広告視聴進捗管理)**
+
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2から広告配信開始時に有効化。
 
 ユーザーごとの広告視聴段階を記録し、スキップロジックを実装します（v7.4.0新設、ad_viewing_history統合）。
 
@@ -2668,6 +2676,10 @@ CREATE INDEX idx_ad_viewing_progress_first_viewed ON ad_viewing_progress(first_v
 - ユーザーエクスペリエンス最適化（段階別の広告スキップ制御）
 
 #### **ad_delivery_config (広告配信ステータス管理)**
+
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2から広告配信開始時に有効化。
 
 外部要因（MVP期間、広告障害、キャンペーン）による広告配信制御を管理します（v7.4.1新設: 段階的コンテンツ開示機能）。
 
@@ -2743,6 +2755,10 @@ RETURNING *;
 ```
 
 #### **user_ad_exemptions (ユーザー広告免除設定)**
+
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2から広告配信開始時に有効化。
 
 ユーザーごとの広告視聴免除設定を管理します（v7.4.1新設: 新規ユーザー判定・MintCoin自動使用）。
 
@@ -2831,6 +2847,10 @@ WHERE user_id = $1;
 ```
 
 #### **content_unlock_tokens (コンテンツ解除トークン)**
+
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2から広告配信開始時に有効化。
 
 広告視聴完了後のコンテンツ解除トークンを管理します（v7.4.1新設: 不正防止機能）。
 
@@ -3013,6 +3033,8 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 - 人的ミス（バケット名の手動入力誤り）を排除
 
 #### **master_ocr_contents (統合OCRテキスト - イミュータブル)**
+
+**Phase: 1 (MVP)**
 
 OCR処理された演習問題・教材のテキストデータを統合管理します。**原本ファイルはEduanimaFilesで保存**されます。
 
@@ -3326,6 +3348,8 @@ buckets:
 ```
 
 #### **master_submitted_texts (ユーザー送信テキスト - イミュータブル)（v8.6.0新設）**
+
+**Phase: 1 (MVP)**
 
 ユーザーが直接送信したテキストデータを保存する暗号化対象テーブルです。master_ocr_contentsと同様の構成で、テキスト入力のみのケースに対応します。
 
@@ -4082,6 +4106,8 @@ CREATE TYPE mime_category_enum AS ENUM (
 
 ### 6.3 file_metadataテーブル（完全版）
 
+**Phase: 1 (MVP)**
+
 **物理DB:** `Eduanima_files`
 
 アップロードされた全ファイルのメタデータと2バケット構成を一元管理します。
@@ -4195,6 +4221,8 @@ COMMENT ON COLUMN file_metadata.is_llm_training_data IS 'LLM学習データ対�
 
 #### 6.4.1 file_migration_logs（移行ログ）
 
+**Phase: 1 (MVP)**
+
 移行処理の監査証跡と整合性検証を記録します。
 
 ```sql
@@ -4252,6 +4280,8 @@ COMMENT ON TABLE file_migration_logs IS 'ファイル移行ログテーブル（
 ```
 
 #### 6.4.2 copyright_claims（著作権侵害申し立て）
+
+**Phase: 1 (MVP)**
 
 DMCAに基づく著作権侵害申し立てを管理します。
 
@@ -5001,6 +5031,9 @@ EduanimaSearch (Elasticsearch + ログDB)
 **物理DB:** `Eduanima_search`
 
 #### **search_queries (検索クエリ履歴)**
+
+**Phase: 1 (MVP)**
+
 ```sql
 CREATE TABLE search_queries (
   query_id UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -5017,6 +5050,9 @@ CREATE INDEX idx_search_queries_text ON search_queries USING gin(to_tsvector('ja
 ```
 
 #### **search_cache (Redis連携キャッシュテーブル)**
+
+**Phase: 1 (MVP)**
+
 ```sql
 CREATE TABLE search_cache (
   cache_key VARCHAR(255) PRIMARY KEY, -- SHA256(query_text + filters)
@@ -5689,6 +5725,10 @@ export const ModeSwitch: React.FC = () => {
 
 #### **exam_comments (試験コメント)**
 
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2でSNS機能開始時に有効化。
+
 試験へのコメントを管理します。YouTubeスタイルのスレッド型コメント機能。
 
 ```sql
@@ -5718,6 +5758,10 @@ CREATE INDEX idx_exam_comments_pinned ON exam_comments(exam_id, is_pinned, creat
 
 #### **comment_likes (コメントいいね)**
 
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2でSNS機能開始時に有効化。
+
 ```sql
 CREATE TABLE comment_likes (
   comment_id UUID NOT NULL REFERENCES exam_comments(id) ON DELETE CASCADE,
@@ -5730,6 +5774,10 @@ CREATE INDEX idx_comment_likes_user_id ON comment_likes(user_id, created_at DESC
 ```
 
 #### **user_posts (ユーザー投稿)**
+
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2でSNS機能開始時に有効化。
 
 ```sql
 CREATE TABLE user_posts (
@@ -5759,6 +5807,10 @@ CREATE INDEX idx_user_posts_hashtags ON user_posts USING gin(hashtags) WHERE is_
 
 #### **post_likes, post_comments**
 
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2でSNS機能開始時に有効化。
+
 ```sql
 CREATE TABLE post_likes (
   post_id UUID NOT NULL REFERENCES user_posts(id) ON DELETE CASCADE,
@@ -5781,6 +5833,10 @@ CREATE TABLE post_comments (
 ```
 
 #### **DM機能テーブル**
+
+**Phase: 2 (SNS拡張・マネタイズ基盤)**
+
+Phase 1では未使用。Phase 2でSNS機能開始時に有効化。
 
 ```sql
 CREATE TABLE dm_conversations (
@@ -5825,6 +5881,10 @@ CREATE INDEX idx_dm_messages_conversation_id ON dm_messages(conversation_id, cre
 
 #### **マッチング機能テーブル（Phase 3）**
 
+**Phase: 3 (SNS Phase 3拡張)**
+
+Phase 1-2では未実装。Phase 3のSNS拡張時に有効化。
+
 ```sql
 CREATE TABLE user_match_preferences (
   user_id UUID PRIMARY KEY,
@@ -5860,6 +5920,10 @@ CREATE UNIQUE INDEX idx_user_matches_unique_pair ON user_matches(user_id_1, user
 ```
 
 #### **ストーリー機能テーブル（Phase 3）**
+
+**Phase: 3 (SNS Phase 3拡張)**
+
+Phase 1-2では未実装。Phase 3のSNS拡張時に有効化。
 
 Instagram型の24時間限定投稿機能。
 
@@ -6348,6 +6412,10 @@ func (h *Handler) CSRFMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 #### **wallets**
 
+**Phase: 3 (収益化)**
+
+Phase 1-2では未使用。Phase 3で収益化プログラム開始時に有効化。
+
 ユーザーのウォレット情報を管理します。
 
 ```sql
@@ -6366,6 +6434,10 @@ CREATE INDEX idx_wallets_balance ON wallets(balance);
 ```
 
 #### **wallet_transactions**
+
+**Phase: 3 (収益化)**
+
+Phase 1-2では未使用。Phase 3で収益化プログラム開始時に有効化。
 
 ウォレットトランザクション情報を管理します。
 
@@ -6441,6 +6513,10 @@ CREATE INDEX idx_wallet_logs_retention_until ON wallet_logs(retention_until);
 
 #### **revenue_reports**
 
+**Phase: 3 (収益化)**
+
+Phase 1-2では未使用。Phase 3で収益化プログラム開始時に有効化。
+
 収益レポートを管理します。
 
 ```sql
@@ -6468,6 +6544,10 @@ CREATE INDEX idx_revenue_reports_period ON revenue_reports(report_period_start, 
 ```
 
 #### **ad_impressions_agg**
+
+**Phase: 3 (収益化)**
+
+Phase 1-2では未使用。Phase 3で収益化プログラム開始時に有効化。
 
 広告表示集計データを管理します。
 
@@ -6537,6 +6617,8 @@ CREATE INDEX idx_revenue_logs_action ON revenue_logs(action, created_at);
 
 #### **content_reports**
 
+**Phase: 1 (MVP)**
+
 コンテンツ通報情報を管理します。
 
 ```sql
@@ -6569,6 +6651,8 @@ CREATE INDEX idx_content_reports_moderator ON content_reports(assigned_moderator
 - **v7.4.1**: reported_entity_type を reportable_entity_type_enum に変更
 
 #### **user_reports**
+
+**Phase: 1 (MVP)**
 
 ユーザー通報情報を管理します。
 
@@ -6677,6 +6761,8 @@ CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
 
 #### **jobs**
 
+**Phase: 1 (MVP)**
+
 ジョブの**最新状態**を管理します（OLTP最適化）。履歴は`job_events`テーブルに記録されます。
 
 ```sql
@@ -6709,6 +6795,8 @@ COMMENT ON TABLE jobs IS 'ジョブの最新状態を管理(OLTP最適化)。履
 ```
 
 #### **job_events**
+
+**Phase: 1 (MVP)**
 
 ジョブ状態遷移履歴・Kafkaイベント受信履歴を記録します（監査証跡）。
 
