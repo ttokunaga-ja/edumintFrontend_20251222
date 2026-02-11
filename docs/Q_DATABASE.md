@@ -172,16 +172,16 @@
 
 **サービス別設計編**
 
+13. [EduanimaGateways (ジョブゲートウェイ)](#13-Eduanimagateways-ジョブゲートウェイ)
 4. [EduanimaUsers (統合ユーザー管理サービス)](#4-Eduanimausers-統合ユーザー管理サービス)
 5. [EduanimaContents (コンテンツ・OCRテキスト管理サービス)](#5-Eduanimacontents-コンテンツocrテキスト管理サービス)
 6. [EduanimaFiles (ファイルストレージ管理サービス)](#6-Eduanimafiles-ファイルストレージ管理サービス)
 7. [EduanimaSearch (検索サービス)](#7-Eduanimasearch-検索サービス)
 8. [EduanimaAiWorker (AI処理サービス)](#8-Eduanimaaiworker-ai処理サービス)
+12. [EduanimaModeration (通報管理サービス)](#12-Eduanimamoderation-通報管理サービス)
 9. [EduanimaSocial (ソーシャルサービス)](#9-Eduanimasocial-ソーシャルサービス)
 10. [EduanimaMonetizeWallet (ウォレット管理サービス)](#10-Eduanimamonetizewallet-ウォレット管理サービス)
 11. [EduanimaRevenue (収益分配サービス)](#11-Eduanimarevenue-収益分配サービス)
-12. [EduanimaModeration (通報管理サービス)](#12-Eduanimamoderation-通報管理サービス)
-13. [EduanimaGateways (ジョブゲートウェイ)](#13-Eduanimagateways-ジョブゲートウェイ)
 
 **統合設計編**
 
