@@ -126,8 +126,8 @@ FR-INTERACT-001:
   pages: [C_3]
   health: [social, notifications]
   gateway:
-    - POST /comments
-    - POST /comments/{id}/vote
+    - POST /comments （Phase 2: eduanimaSocial）
+    - POST /comments/{id}/vote （Phase 2: eduanimaSocial）
     - POST /exams/{id}/like
 
 FR-MYPAGE-001:
