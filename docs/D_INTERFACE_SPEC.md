@@ -23,10 +23,10 @@ To-Be（設計）では `src/src/services/api/httpClient.ts` + `src/src/services
 - `POST /exams/{examId}/like`（toggle）
 - `POST /exams/{examId}/bookmark`（toggle）
 - `POST /exams/{examId}/share`
-- `GET /comments?examId={examId}`
-- `POST /comments`
-- `DELETE /comments/{commentId}`
-- `POST /comments/{commentId}/vote`
+- `GET /comments?examId={examId}` （Phase 2: eduanimaSocial）
+- `POST /comments` （Phase 2: eduanimaSocial）
+- `DELETE /comments/{commentId}` （Phase 2: eduanimaSocial）
+- `POST /comments/{commentId}/vote` （Phase 2: eduanimaSocial）
 
 ### File Upload（現状）
 - `POST /files/upload-job`
@@ -47,7 +47,7 @@ To-Be（設計）では `src/src/services/api/httpClient.ts` + `src/src/services
 - `GET /user/stats` / `GET /user/stats/{userId}`
 - `GET /user/{userId}/problems?page=&limit=`
 - `GET /user/{userId}/liked?page=&limit=`
-- `GET /user/{userId}/commented?page=&limit=`
+- `GET /user/{userId}/commented?page=&limit=` （Phase 2: eduanimaSocial）
 - `GET /wallet/balance`
 - `POST /wallet/withdraw`
 - `GET /notifications?limit=`
