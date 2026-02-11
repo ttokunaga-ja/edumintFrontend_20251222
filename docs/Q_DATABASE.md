@@ -1012,10 +1012,10 @@ Eduanimaプロジェクトでは、以下のツール・ライブラリの使用
 ```
 1. EduanimaGateways      - ジョブゲートウェイ
 2. EduanimaUsers         - 統合ユーザー管理(OAuth認証)
-3. EduanimaFiles         - ファイルストレージ管理
-4. EduanimaAiWorker      - AI処理(OCR・分類)
 5. EduanimaContents      - コンテンツ管理
+3. EduanimaFiles         - ファイルストレージ管理
 6. EduanimaSearch        - 検索機能
+4. EduanimaAiWorker      - AI処理(OCR・分類)
 7. EduanimaModeration    - 通報管理
 ```
 
