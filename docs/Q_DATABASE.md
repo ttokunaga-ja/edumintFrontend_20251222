@@ -1347,6 +1347,242 @@ ENABLE_WALLET=true
 
 ---
 
+## **13. EduanimaGateways (ジョブゲートウェイ)**
+
+### 設計変更点
+
+#### v7.0.0
+- 全テーブルの主キーをUUIDに変更
+- ログテーブルを物理DB分離
+
+#### v7.5.0（パターンB: 2テーブル構成への移行）
+- **`job_events`テーブルを新設**: ジョブ状態遷移履歴・Kafkaイベント受信履歴を記録
+- **監査要件強化**: 全ての状態遷移を完全な証跡として保持
+- **デバッグ性向上**: SQLで履歴を直接確認可能（Kafkaログ依存を回避）
+- **冪等性保証**: Kafka offsetを記録して重複処理を防止
+
+**設計判断の根拠:**
+
+| 観点 | 判断 |
+|------|------|
+| **タイミング** | リリース前であり、今後の移行コストを回避 |
+| **監査要件** | ジョブ状態遷移の完全な証跡が必要 |
+| **デバッグ性** | SQLで履歴を直接確認可能(Kafkaログ依存を回避) |
+| **実装複雑度** | トランザクション管理の範囲内で実現可能 |
+| **スケーラビリティ** | パーティショニング・アーカイブ戦略が明確化 |
+
+### 13.1 本体DBテーブル (DDL例)
+
+#### **jobs**
+
+**Phase: 1 (MVP)**
+
+ジョブの**最新状態**を管理します（OLTP最適化）。履歴は`job_events`テーブルに記録されます。
+
+```sql
+CREATE TABLE jobs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  job_type job_type_enum NOT NULL,
+  status job_status_enum DEFAULT 'pending',
+  priority INT DEFAULT 0,
+  payload JSONB NOT NULL,
+  result JSONB,
+  error_message TEXT,
+  retry_count INT DEFAULT 0,
+  max_retries INT DEFAULT 3,
+  scheduled_at TIMESTAMPTZ,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_by_user_id UUID,  -- users.idを参照（論理的）
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_jobs_public_id ON jobs(public_id);
+CREATE INDEX idx_jobs_type ON jobs(job_type);
+CREATE INDEX idx_jobs_status ON jobs(status, priority, created_at);
+CREATE INDEX idx_jobs_created_by ON jobs(created_by_user_id);
+CREATE INDEX idx_jobs_scheduled_at ON jobs(scheduled_at) WHERE status = 'pending';
+
+COMMENT ON TABLE jobs IS 'ジョブの最新状態を管理(OLTP最適化)。履歴はjob_eventsに記録';
+```
+
+#### **job_events**
+
+**Phase: 1 (MVP)**
+
+ジョブ状態遷移履歴・Kafkaイベント受信履歴を記録します（監査証跡）。
+
+```sql
+CREATE TABLE job_events (
+  event_id UUID PRIMARY KEY DEFAULT uuidv7(),
+  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('created', 'status_changed', 'completed', 'failed', 'cancelled')),
+  old_status job_status_enum,
+  new_status job_status_enum,
+  event_payload JSONB,  -- 詳細情報(resource_id, error等)
+  event_source VARCHAR(50) NOT NULL,  -- 'gateway', 'content', 'ai', 'file'
+  kafka_topic VARCHAR(255),
+  kafka_partition INT,
+  kafka_offset BIGINT,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  
+  CONSTRAINT check_status_transition CHECK (
+    (event_type = 'status_changed' AND old_status IS NOT NULL AND new_status IS NOT NULL) OR
+    (event_type != 'status_changed')
+  ),
+  
+  -- Kafka冪等性保証: 同じoffsetからのイベントは1回のみ記録
+  CONSTRAINT unique_kafka_event UNIQUE (job_id, kafka_topic, kafka_offset)
+);
+
+CREATE INDEX idx_job_events_job_id ON job_events(job_id, occurred_at DESC);
+CREATE INDEX idx_job_events_occurred_at ON job_events(occurred_at DESC);
+CREATE INDEX idx_job_events_event_type ON job_events(event_type, occurred_at DESC);
+CREATE INDEX idx_job_events_source ON job_events(event_source, occurred_at DESC);
+CREATE INDEX idx_job_events_kafka_offset ON job_events(kafka_topic, kafka_partition, kafka_offset);
+
+COMMENT ON TABLE job_events IS 'ジョブ状態遷移履歴・Kafkaイベント受信履歴を記録(監査証跡)';
+COMMENT ON COLUMN job_events.event_payload IS 'JSONB形式で詳細情報を格納: {resource_id, error_message, metadata等}';
+COMMENT ON COLUMN job_events.kafka_offset IS 'Kafkaイベント起因の場合、offsetを記録して冪等性を保証';
+```
+
+**設計注記:**
+- **`jobs`テーブル**: ジョブの最新状態のみを保持（OLTP最適化）
+- **`job_events`テーブル**: 全ての状態遷移履歴を保持（監査・分析用）
+- Kafka offsetによる冪等性保証（UNIQUE制約により重複イベント自動除外）
+- event_payloadで柔軟な詳細情報保持（resource_id, error_message等）
+
+#### **イベント駆動フロー例**
+
+```go
+// Kafkaイベント受信時の標準処理パターン
+func (uc *JobUseCase) OnExamCreated(ctx context.Context, event ExamCreatedEvent) error {
+    tx, err := uc.db.BeginTx(ctx, nil)
+    if err != nil {
+        return err
+    }
+    defer tx.Rollback()
+
+    // 1. jobs.status を更新(最新状態)
+    oldJob, err := uc.jobRepo.GetByID(ctx, tx, event.JobID)
+    if err != nil {
+        return err
+    }
+    
+    if err := uc.jobRepo.UpdateStatus(ctx, tx, event.JobID, "processing", event.ExamID); err != nil {
+        return err
+    }
+
+    // 2. job_events に履歴記録(監査証跡)
+    jobEvent := &JobEvent{
+        EventID:       uuidv7.New(),
+        JobID:         event.JobID,
+        EventType:     "status_changed",
+        OldStatus:     oldJob.Status,
+        NewStatus:     "processing",
+        EventPayload:  map[string]any{"exam_id": event.ExamID},
+        EventSource:   "content",
+        KafkaTopic:    "content.lifecycle",
+        KafkaPartition: event.KafkaPartition,
+        KafkaOffset:   event.KafkaOffset,
+        OccurredAt:    time.Now(),
+    }
+    
+    // UNIQUE制約により、同じKafkaメッセージの重複は自動的に無視される
+    if err := uc.jobEventRepo.Create(ctx, tx, jobEvent); err != nil {
+        // 冪等性エラー(重複offset)は無視
+        if !errors.Is(err, ErrDuplicateKafkaEvent) {
+            return err
+        }
+    }
+
+    return tx.Commit()
+}
+
+// ジョブ作成時の処理パターン
+func (uc *JobUseCase) CreateJob(ctx context.Context, req CreateJobRequest) (*Job, error) {
+    tx, err := uc.db.BeginTx(ctx, nil)
+    if err != nil {
+        return nil, err
+    }
+    defer tx.Rollback()
+
+    // 1. jobsテーブルにINSERT
+    job := &Job{
+        ID:        uuidv7.New(),
+        PublicID:  nanoid.New(),
+        JobType:   req.JobType,
+        Status:    "pending",
+        Payload:   req.Payload,
+        CreatedByUserID: req.UserID,
+    }
+    if err := uc.jobRepo.Create(ctx, tx, job); err != nil {
+        return nil, err
+    }
+
+    // 2. job_eventsに作成イベントを記録
+    jobEvent := &JobEvent{
+        EventID:      uuidv7.New(),
+        JobID:        job.ID,
+        EventType:    "created",
+        NewStatus:    "pending",
+        EventPayload: req.Payload,
+        EventSource:  "gateway",
+        OccurredAt:   time.Now(),
+    }
+    if err := uc.jobEventRepo.Create(ctx, tx, jobEvent); err != nil {
+        return nil, err
+    }
+
+    if err := tx.Commit(); err != nil {
+        return nil, err
+    }
+
+    // 3. Kafkaへイベント発行
+    if err := uc.kafka.Publish("gateway.jobs", JobCreatedEvent{
+        JobID:   job.ID,
+        JobType: job.JobType,
+    }); err != nil {
+        // ログ記録のみ（ジョブは既にDBに保存済み）
+        log.Error("Failed to publish job created event", "error", err)
+    }
+
+    return job, nil
+}
+```
+
+### 13.2 ログテーブル (DB分離設計)
+
+**物理DB:** `Eduanima_gateway_logs`
+
+#### **job_logs**
+
+ジョブ実行履歴を記録します。
+
+```sql
+CREATE TABLE job_logs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  job_id UUID NOT NULL,  -- jobs.idを参照
+  status job_status_enum NOT NULL,
+  message TEXT,
+  metadata JSONB,
+  execution_time_ms INT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
+
+CREATE INDEX idx_job_logs_job_id ON job_logs(job_id, created_at);
+CREATE INDEX idx_job_logs_status ON job_logs(status, created_at);
+```
+
+**設計注記:**
+- ジョブの詳細なログメッセージを記録（デバッグ・パフォーマンス分析用）
+- 本体DBと分離して高速クエリを実現
+- **`job_events`との違い**: `job_logs`は実行時の詳細ログ、`job_events`は状態遷移の監査証跡
+
+---
+
 ## **4. EduanimaUsers (統合ユーザー管理サービス)**
 
 ### 設計変更点（v7.1.0）
@@ -6733,241 +6969,7 @@ CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
 
 ---
 
-## **13. EduanimaGateways (ジョブゲートウェイ)**
 
-### 設計変更点
-
-#### v7.0.0
-- 全テーブルの主キーをUUIDに変更
-- ログテーブルを物理DB分離
-
-#### v7.5.0（パターンB: 2テーブル構成への移行）
-- **`job_events`テーブルを新設**: ジョブ状態遷移履歴・Kafkaイベント受信履歴を記録
-- **監査要件強化**: 全ての状態遷移を完全な証跡として保持
-- **デバッグ性向上**: SQLで履歴を直接確認可能（Kafkaログ依存を回避）
-- **冪等性保証**: Kafka offsetを記録して重複処理を防止
-
-**設計判断の根拠:**
-
-| 観点 | 判断 |
-|------|------|
-| **タイミング** | リリース前であり、今後の移行コストを回避 |
-| **監査要件** | ジョブ状態遷移の完全な証跡が必要 |
-| **デバッグ性** | SQLで履歴を直接確認可能(Kafkaログ依存を回避) |
-| **実装複雑度** | トランザクション管理の範囲内で実現可能 |
-| **スケーラビリティ** | パーティショニング・アーカイブ戦略が明確化 |
-
-### 13.1 本体DBテーブル (DDL例)
-
-#### **jobs**
-
-**Phase: 1 (MVP)**
-
-ジョブの**最新状態**を管理します（OLTP最適化）。履歴は`job_events`テーブルに記録されます。
-
-```sql
-CREATE TABLE jobs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  job_type job_type_enum NOT NULL,
-  status job_status_enum DEFAULT 'pending',
-  priority INT DEFAULT 0,
-  payload JSONB NOT NULL,
-  result JSONB,
-  error_message TEXT,
-  retry_count INT DEFAULT 0,
-  max_retries INT DEFAULT 3,
-  scheduled_at TIMESTAMPTZ,
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  created_by_user_id UUID,  -- users.idを参照（論理的）
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_jobs_public_id ON jobs(public_id);
-CREATE INDEX idx_jobs_type ON jobs(job_type);
-CREATE INDEX idx_jobs_status ON jobs(status, priority, created_at);
-CREATE INDEX idx_jobs_created_by ON jobs(created_by_user_id);
-CREATE INDEX idx_jobs_scheduled_at ON jobs(scheduled_at) WHERE status = 'pending';
-
-COMMENT ON TABLE jobs IS 'ジョブの最新状態を管理(OLTP最適化)。履歴はjob_eventsに記録';
-```
-
-#### **job_events**
-
-**Phase: 1 (MVP)**
-
-ジョブ状態遷移履歴・Kafkaイベント受信履歴を記録します（監査証跡）。
-
-```sql
-CREATE TABLE job_events (
-  event_id UUID PRIMARY KEY DEFAULT uuidv7(),
-  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-  event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('created', 'status_changed', 'completed', 'failed', 'cancelled')),
-  old_status job_status_enum,
-  new_status job_status_enum,
-  event_payload JSONB,  -- 詳細情報(resource_id, error等)
-  event_source VARCHAR(50) NOT NULL,  -- 'gateway', 'content', 'ai', 'file'
-  kafka_topic VARCHAR(255),
-  kafka_partition INT,
-  kafka_offset BIGINT,
-  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
-  CONSTRAINT check_status_transition CHECK (
-    (event_type = 'status_changed' AND old_status IS NOT NULL AND new_status IS NOT NULL) OR
-    (event_type != 'status_changed')
-  ),
-  
-  -- Kafka冪等性保証: 同じoffsetからのイベントは1回のみ記録
-  CONSTRAINT unique_kafka_event UNIQUE (job_id, kafka_topic, kafka_offset)
-);
-
-CREATE INDEX idx_job_events_job_id ON job_events(job_id, occurred_at DESC);
-CREATE INDEX idx_job_events_occurred_at ON job_events(occurred_at DESC);
-CREATE INDEX idx_job_events_event_type ON job_events(event_type, occurred_at DESC);
-CREATE INDEX idx_job_events_source ON job_events(event_source, occurred_at DESC);
-CREATE INDEX idx_job_events_kafka_offset ON job_events(kafka_topic, kafka_partition, kafka_offset);
-
-COMMENT ON TABLE job_events IS 'ジョブ状態遷移履歴・Kafkaイベント受信履歴を記録(監査証跡)';
-COMMENT ON COLUMN job_events.event_payload IS 'JSONB形式で詳細情報を格納: {resource_id, error_message, metadata等}';
-COMMENT ON COLUMN job_events.kafka_offset IS 'Kafkaイベント起因の場合、offsetを記録して冪等性を保証';
-```
-
-**設計注記:**
-- **`jobs`テーブル**: ジョブの最新状態のみを保持（OLTP最適化）
-- **`job_events`テーブル**: 全ての状態遷移履歴を保持（監査・分析用）
-- Kafka offsetによる冪等性保証（UNIQUE制約により重複イベント自動除外）
-- event_payloadで柔軟な詳細情報保持（resource_id, error_message等）
-
-#### **イベント駆動フロー例**
-
-```go
-// Kafkaイベント受信時の標準処理パターン
-func (uc *JobUseCase) OnExamCreated(ctx context.Context, event ExamCreatedEvent) error {
-    tx, err := uc.db.BeginTx(ctx, nil)
-    if err != nil {
-        return err
-    }
-    defer tx.Rollback()
-
-    // 1. jobs.status を更新(最新状態)
-    oldJob, err := uc.jobRepo.GetByID(ctx, tx, event.JobID)
-    if err != nil {
-        return err
-    }
-    
-    if err := uc.jobRepo.UpdateStatus(ctx, tx, event.JobID, "processing", event.ExamID); err != nil {
-        return err
-    }
-
-    // 2. job_events に履歴記録(監査証跡)
-    jobEvent := &JobEvent{
-        EventID:       uuidv7.New(),
-        JobID:         event.JobID,
-        EventType:     "status_changed",
-        OldStatus:     oldJob.Status,
-        NewStatus:     "processing",
-        EventPayload:  map[string]any{"exam_id": event.ExamID},
-        EventSource:   "content",
-        KafkaTopic:    "content.lifecycle",
-        KafkaPartition: event.KafkaPartition,
-        KafkaOffset:   event.KafkaOffset,
-        OccurredAt:    time.Now(),
-    }
-    
-    // UNIQUE制約により、同じKafkaメッセージの重複は自動的に無視される
-    if err := uc.jobEventRepo.Create(ctx, tx, jobEvent); err != nil {
-        // 冪等性エラー(重複offset)は無視
-        if !errors.Is(err, ErrDuplicateKafkaEvent) {
-            return err
-        }
-    }
-
-    return tx.Commit()
-}
-
-// ジョブ作成時の処理パターン
-func (uc *JobUseCase) CreateJob(ctx context.Context, req CreateJobRequest) (*Job, error) {
-    tx, err := uc.db.BeginTx(ctx, nil)
-    if err != nil {
-        return nil, err
-    }
-    defer tx.Rollback()
-
-    // 1. jobsテーブルにINSERT
-    job := &Job{
-        ID:        uuidv7.New(),
-        PublicID:  nanoid.New(),
-        JobType:   req.JobType,
-        Status:    "pending",
-        Payload:   req.Payload,
-        CreatedByUserID: req.UserID,
-    }
-    if err := uc.jobRepo.Create(ctx, tx, job); err != nil {
-        return nil, err
-    }
-
-    // 2. job_eventsに作成イベントを記録
-    jobEvent := &JobEvent{
-        EventID:      uuidv7.New(),
-        JobID:        job.ID,
-        EventType:    "created",
-        NewStatus:    "pending",
-        EventPayload: req.Payload,
-        EventSource:  "gateway",
-        OccurredAt:   time.Now(),
-    }
-    if err := uc.jobEventRepo.Create(ctx, tx, jobEvent); err != nil {
-        return nil, err
-    }
-
-    if err := tx.Commit(); err != nil {
-        return nil, err
-    }
-
-    // 3. Kafkaへイベント発行
-    if err := uc.kafka.Publish("gateway.jobs", JobCreatedEvent{
-        JobID:   job.ID,
-        JobType: job.JobType,
-    }); err != nil {
-        // ログ記録のみ（ジョブは既にDBに保存済み）
-        log.Error("Failed to publish job created event", "error", err)
-    }
-
-    return job, nil
-}
-```
-
-### 13.2 ログテーブル (DB分離設計)
-
-**物理DB:** `Eduanima_gateway_logs`
-
-#### **job_logs**
-
-ジョブ実行履歴を記録します。
-
-```sql
-CREATE TABLE job_logs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  job_id UUID NOT NULL,  -- jobs.idを参照
-  status job_status_enum NOT NULL,
-  message TEXT,
-  metadata JSONB,
-  execution_time_ms INT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-) PARTITION BY RANGE (created_at);
-
-CREATE INDEX idx_job_logs_job_id ON job_logs(job_id, created_at);
-CREATE INDEX idx_job_logs_status ON job_logs(status, created_at);
-```
-
-**設計注記:**
-- ジョブの詳細なログメッセージを記録（デバッグ・パフォーマンス分析用）
-- 本体DBと分離して高速クエリを実現
-- **`job_events`との違い**: `job_logs`は実行時の詳細ログ、`job_events`は状態遷移の監査証跡
-
----
 
 ## **14. Debezium CDC レプリケーション設計**
 
