@@ -52,7 +52,7 @@
 - **Redis戦略導入**: 広告配信ステータス、ユーザー免除設定、トークン検証のキャッシュ層（TTL: 60秒〜300秒）
 - **レート制限実装**: コンテンツアクセス（10回/時）、トークン発行（5回/時）、広告視聴完了（5回/分）
 - **不正防止戦略**: トークン再利用防止、改竄検出、異常アクセスパターン検出
-- **API設計追加**: 初期表示API、広告視聴完了API、コンテンツ解除API（section 22.7-22.9）
+- **API設計追加**: 初期表示API、広告視聴完了API、コンテンツ解除API（section 25.7-25.9）
 - **ENUM型の徹底化**: 高優先度・中優先度のENUM型を全面導入（IdPプロバイダー、マッチングタイプ、トークンタイプ、投稿タイプ、通報理由など）
 - **IdPプロバイダー拡張**: Meta系サービス（Facebook、Instagram）追加、電話番号認証対応IdPを優先採用
 - **マッチングタイプ拡張**: 友達探し、先輩/後輩探し、恋人探し等の新規タイプ追加
@@ -152,7 +152,7 @@
 - **Test/E2E/Testcontainer/CI/CD例を新設**
 - **Atlas+Auto Lint+Goバージョン固定パイプライン標準化**
 - **AIコード生成/レビュー用プロンプト例・チェックリスト新設**
-- **セクション15以降: Goインテグレーション章、AIエージェント協働章を追加**
+- **第25章以降: Goインテグレーション章、AIエージェント協働章を追加**
 - **全環境（本番/開発/テスト）でAtlas→sqlc→Go型直結・ENUM/UUID/Vector全自動化パターン統一**
 
 **v7.0.0からの継続:**
@@ -172,29 +172,37 @@
 
 **サービス別設計編**
 
-13. [EduanimaGateways (ジョブゲートウェイ)](#13-Eduanimagateways-ジョブゲートウェイ)
-4. [EduanimaUsers (統合ユーザー管理サービス)](#4-Eduanimausers-統合ユーザー管理サービス)
-5. [EduanimaContents (コンテンツ・OCRテキスト管理サービス)](#5-Eduanimacontents-コンテンツocrテキスト管理サービス)
-6. [EduanimaFiles (ファイルストレージ管理サービス)](#6-Eduanimafiles-ファイルストレージ管理サービス)
-7. [EduanimaSearch (検索サービス)](#7-Eduanimasearch-検索サービス)
-8. [EduanimaAiWorker (AI処理サービス)](#8-Eduanimaaiworker-ai処理サービス)
-12. [EduanimaModeration (通報管理サービス)](#12-Eduanimamoderation-通報管理サービス)
-9. [EduanimaSocial (ソーシャルサービス)](#9-Eduanimasocial-ソーシャルサービス)
-10. [EduanimaMonetizeWallet (ウォレット管理サービス)](#10-Eduanimamonetizewallet-ウォレット管理サービス)
-11. [EduanimaRevenue (収益分配サービス)](#11-Eduanimarevenue-収益分配サービス)
+**【Phase 1: MVP - 2026 Q2-Q3】**
+4. [EduanimaGateways (統合API Gateway)](#4-eduanimagateways-統合api-gateway)
+5. [EduanimaUsers (ユーザー管理)](#5-eduanimausers-ユーザー管理)
+6. [EduanimaContents (コンテンツ管理)](#6-eduanimacontents-コンテンツ管理)
+7. [EduanimaFiles (ファイルストレージ)](#7-eduanimafiles-ファイルストレージ)
+8. [EduanimaSearch (検索サービス)](#8-eduanimasearch-検索サービス)
+9. [EduanimaAiWorker (AI処理)](#9-eduanimaaiworker-ai処理)
+10. [EduanimaModeration (通報管理)](#10-eduanimamoderation-通報管理)
 
-**統合設計編**
+**【Phase 2: SNS拡張 - 2026 Q4-2027 Q1】**
+11. [EduanimaSocial (ソーシャル機能)](#11-eduanimasocial-ソーシャル機能)
+12. [EduanimaNotification (通知サービス)](#12-eduanimanotification-通知サービス)
+13. [EduanimaAnalytics (分析サービス)](#13-eduanimaanalytics-分析サービス)
+14. [EduanimaAds (広告配信サービス)](#14-eduanimaads-広告配信サービス)
 
-13. [Debezium CDC レプリケーション設計](#14-debezium-cdc-レプリケーション設計)
-14. [イベント駆動フロー](#15-イベント駆動フロー)
-15. [データベース設計ガイドライン](#16-データベース設計ガイドライン)
-16. [pgvector + ベクトル検索設計](#17-pgvectorベクトル検索設計)
-17. [Atlas HCL + sqlcワークフロー](#18-atlas-hclsqlcワークフロー)
-18. [Cloud SQL運用設定](#19-cloud-sql運用設定)
-19. [可観測性・監査ログ設計](#20-可観測性監査ログ設計)
-20. [テスト・CI/CD設計](#21-テストcicd設計)
-21. [Goインテグレーション](#22-goインテグレーション)
-22. [AIエージェント協働](#23-aiエージェント協働)
+**【Phase 3/4: 収益化・AI Tutor - 2027 Q2-Q3】**
+15. [EduanimaMonetizeWallet (ウォレット管理)](#15-eduanimamonetizewallet-ウォレット管理)
+16. [EduanimaRevenue (収益分配)](#16-eduanimarevenue-収益分配)
+
+**システム基盤・横断機能**
+
+17. [Debezium CDC レプリケーション設計](#17-debezium-cdc-レプリケーション設計)
+18. [イベント駆動フロー](#18-イベント駆動フロー)
+19. [データベース設計ガイドライン](#19-データベース設計ガイドライン)
+20. [pgvector + ベクトル検索設計](#20-pgvectorベクトル検索設計)
+21. [Atlas HCL + sqlcワークフロー](#21-atlas-hclsqlcワークフロー)
+22. [Cloud SQL運用設定](#22-cloud-sql運用設定)
+23. [可観測性・監査ログ設計](#23-可観測性監査ログ設計)
+24. [テスト・CI/CD設計](#24-テストcicd設計)
+25. [Goインテグレーション](#25-goインテグレーション)
+26. [AIエージェント協働](#26-aiエージェント協働)
 
 ---
 
@@ -1347,7 +1355,9 @@ ENABLE_WALLET=true
 
 ---
 
-## **13. EduanimaGateways (ジョブゲートウェイ)**
+## **4. EduanimaGateways (統合API Gateway)**
+
+**Phase: 1 (MVP - 2026 Q2-Q3)**
 
 ### 設計変更点
 
@@ -1583,7 +1593,9 @@ CREATE INDEX idx_job_logs_status ON job_logs(status, created_at);
 
 ---
 
-## **4. EduanimaUsers (統合ユーザー管理サービス)**
+## **5. EduanimaUsers (ユーザー管理)**
+
+**Phase: 1 (MVP - 2026 Q2-Q3)**
 
 ### 設計変更点（v7.1.0）
 
@@ -1926,7 +1938,9 @@ CREATE INDEX idx_user_profile_logs_action ON user_profile_logs(action, created_a
 
 ---
 
-## **5. EduanimaContents (コンテンツ・OCRテキスト管理サービス)**
+## **6. EduanimaContents (コンテンツ管理)**
+
+**Phase: 1 (MVP - 2026 Q2-Q3)**
 
 ### 設計変更点（v7.2.0）
 
@@ -4218,7 +4232,9 @@ func (s *TokenService) CheckTokenIssueRateLimit(ctx context.Context, userID, exa
 
 ---
 
-## **6. EduanimaFiles (ファイルストレージ管理サービス)**
+## **7. EduanimaFiles (ファイルストレージ)**
+
+**Phase: 1 (MVP - 2026 Q2-Q3)**
 
 ### 6.1 設計方針（v7.3.0）
 
@@ -5235,7 +5251,9 @@ WHERE file_category = 'report_evidence'
 
 ---
 
-## **7. EduanimaSearch (検索サービス)**
+## **8. EduanimaSearch (検索サービス)**
+
+**Phase: 1 (MVP - 2026 Q2-Q3)**
 
 ### 設計変更点（v7.1.0）
 
@@ -5453,7 +5471,9 @@ curl -X POST "localhost:9200/_bulk" -H 'Content-Type: application/json' --data-b
 
 ---
 
-## **8. EduanimaAiWorker (AI処理サービス)**
+## **9. EduanimaAiWorker (AI処理)**
+
+**Phase: 1 (MVP - 2026 Q2-Q3)**
 
 ### 設計変更点（v8.6.0）
 
@@ -5831,7 +5851,9 @@ func (s *AILoggerService) LogJobError(ctx context.Context, jobID uuid.UUID, err 
 
 ---
 
-## **9. EduanimaSocial (ソーシャルサービス - Phase 3拡張版)**
+## **11. EduanimaSocial (ソーシャル機能)**
+
+**Phase: 2 (SNS拡張 - 2026 Q4-2027 Q1) / Phase 3 (フルSNS化 - 2027 Q2-Q3)**
 
 ### 設計変更点（v8.7.0 - Phase 3拡張設計）
 
@@ -6636,7 +6658,84 @@ func (h *Handler) CSRFMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 ---
 
-## **10. EduanimaMonetizeWallet (ウォレット管理サービス)**
+## **12. EduanimaNotification (通知サービス)**
+
+**Phase: 2 (SNS拡張 - 2026 Q4-2027 Q1)**
+
+### 設計ステータス
+- Phase: Phase 2 (2026 Q4-2027 Q1)
+- 設計状況: 未着手（詳細設計は後日実施）
+
+### 概要
+ユーザーへのリアルタイム通知配信を担当するマイクロサービス。
+
+### 主要機能（予定）
+- プッシュ通知配信
+- メール通知
+- アプリ内通知
+- 通知設定管理
+
+### 12.1 本体DBテーブル
+（詳細設計未実施）
+
+### 12.2 ログテーブル
+（詳細設計未実施）
+
+---
+
+## **13. EduanimaAnalytics (分析サービス)**
+
+**Phase: 2 (SNS拡張 - 2026 Q4-2027 Q1)**
+
+### 設計ステータス
+- Phase: Phase 2 (2026 Q4-2027 Q1)
+- 設計状況: 未着手（詳細設計は後日実施）
+
+### 概要
+ユーザー行動分析とビジネスインテリジェンスを担当するマイクロサービス。
+
+### 主要機能（予定）
+- ユーザー行動トラッキング
+- コンテンツパフォーマンス分析
+- A/Bテスト管理
+- ダッシュボード提供
+
+### 13.1 本体DBテーブル
+（詳細設計未実施）
+
+### 13.2 ログテーブル
+（詳細設計未実施）
+
+---
+
+## **14. EduanimaAds (広告配信サービス)**
+
+**Phase: 2 (SNS拡張 - 2026 Q4-2027 Q1)**
+
+### 設計ステータス
+- Phase: Phase 2 (2026 Q4-2027 Q1)
+- 設計状況: 未着手（詳細設計は後日実施）
+
+### 概要
+広告配信とターゲティングを担当するマイクロサービス。
+
+### 主要機能（予定）
+- 広告在庫管理
+- ターゲティングエンジン
+- 配信最適化
+- 広告主管理
+
+### 14.1 本体DBテーブル
+（詳細設計未実施）
+
+### 14.2 ログテーブル
+（詳細設計未実施）
+
+---
+
+## **15. EduanimaMonetizeWallet (ウォレット管理)**
+
+**Phase: 3/4 (収益化 - 2027 Q2-Q3)**
 
 ### 設計変更点（v7.0.0）
 
@@ -6738,7 +6837,9 @@ CREATE INDEX idx_wallet_logs_retention_until ON wallet_logs(retention_until);
 
 ---
 
-## **11. EduanimaRevenue (収益分配サービス)**
+## **16. EduanimaRevenue (収益分配)**
+
+**Phase: 3/4 (収益化 - 2027 Q2-Q3)**
 
 ### 設計変更点（v7.0.0）
 
@@ -6840,7 +6941,9 @@ CREATE INDEX idx_revenue_logs_action ON revenue_logs(action, created_at);
 
 ---
 
-## **12. EduanimaModeration (通報管理サービス)**
+## **10. EduanimaModeration (通報管理)**
+
+**Phase: 1 (MVP - 2026 Q2-Q3)**
 
 ### 設計変更点（v7.0.0）
 
@@ -6971,7 +7074,7 @@ CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
 
 
 
-## **14. Debezium CDC レプリケーション設計**
+## **17. Debezium CDC レプリケーション設計**
 
 ### 概要
 
@@ -7309,7 +7412,7 @@ kafka-topics --bootstrap-server kafka:9092 \
 
 ---
 
-## **15. イベント駆動フロー**
+## **18. イベント駆動フロー**
 
 ### Kafkaトピック設計
 
@@ -7522,7 +7625,7 @@ PostgreSQLの変更をDebezium CDCで捕捉し、Kafkaを経由してElasticsear
 
 ---
 
-## **16. データベース設計ガイドライン**
+## **19. データベース設計ガイドライン**
 
 ### 16.1 命名規則
 
@@ -8700,7 +8803,7 @@ CREATE TABLE idp_links (
 - [ ] Schema Registryにスキーマを登録している（イベント駆動）
 
 
-## **17. pgvector + ベクトル検索設計**
+## **20. pgvector + ベクトル検索設計**
 
 ### 17.1 ベクトル型カラム基本設計
 
@@ -9139,7 +9242,7 @@ table "questions" {
 
 ---
 
-## **18. Atlas HCL + sqlcワークフロー**
+## **21. Atlas HCL + sqlcワークフロー**
 
 ### 18.1 統合ディレクトリ構成
 
@@ -10159,7 +10262,7 @@ echo "✓ ワークフロー完了"
 
 ---
 
-## **19. Cloud SQL運用設定**
+## **22. Cloud SQL運用設定**
 
 ### 19.1 推奨インスタンス設定
 
@@ -10780,7 +10883,7 @@ gcloud alpha monitoring policies create   --notification-channels=CHANNEL_ID   -
 
 ---
 
-## **20. 可観測性・監査ログ設計**
+## **23. 可観測性・監査ログ設計**
 
 ### 20.1 OpenTelemetryトレース実装（Eduanima固有パターン）
 
@@ -11069,7 +11172,7 @@ func (dae *DailyAuditExporter) ExportYesterdayLogs(ctx context.Context) error {
 
 ---
 
-## **21. テスト・CI/CD設計**
+## **24. テスト・CI/CD設計**
 
 ### 基本方針
 
@@ -11081,7 +11184,7 @@ func (dae *DailyAuditExporter) ExportYesterdayLogs(ctx context.Context) error {
 
 ---
 
-## **21.1 テクノロジースタック & 指定ライブラリ (Strict)**
+## **24.1 テクノロジースタック & 指定ライブラリ (Strict)**
 
 **Coding Agentへの指示:** 以下のバージョンとライブラリを厳守すること。存在しない関数や非推奨のパッケージを使用しないこと。
 
@@ -11105,7 +11208,7 @@ func (dae *DailyAuditExporter) ExportYesterdayLogs(ctx context.Context) error {
 
 ---
 
-## **21.2 コンポーネント/統合テスト (Component Tests)**
+## **24.2 コンポーネント/統合テスト (Component Tests)**
 
 **最も重要なレイヤーです。** ハンドラからDBまでを貫通させますが、他マイクロサービスへの通信はモックします。
 
@@ -11285,7 +11388,7 @@ func TestUserOperations_Parallel(t *testing.T) {
 
 ---
 
-## **21.3 契約テスト (Contract Tests)**
+## **24.3 契約テスト (Contract Tests)**
 
 **通信相手との「約束」を守っているか検証します。**
 
@@ -11492,7 +11595,7 @@ func TestExamCreatedEvent_Subscriber(t *testing.T) {
 
 ---
 
-## **21.4 E2Eテスト (Minimal)**
+## **24.4 E2Eテスト (Minimal)**
 
 **E2Eテストは最小限に抑制します。** ユーザーの重要導線のみをカバーし、詳細な検証はコンポーネントテストと契約テストに委ねます。
 
@@ -11555,7 +11658,7 @@ test.describe('試験アップロード導線', () => {
 
 ---
 
-## **21.5 テスト実行場所と責任範囲（Matrix）**
+## **24.5 テスト実行場所と責任範囲（Matrix）**
 
 | テスト種別 | 誰が書く？ | どのRepo？ | いつ走る？ | 依存リソース | カバレッジ目標 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -11589,7 +11692,7 @@ test.describe('試験アップロード導線', () => {
 
 ---
 
-## **21.6 CI/CDパイプライン（Testcontainers対応版）**
+## **24.6 CI/CDパイプライン（Testcontainers対応版）**
 
 ### GitHub Actions完全版
 
@@ -11936,7 +12039,7 @@ func TestExamCreation_WritesToOutbox(t *testing.T) {
 
 ---
 
-## **21.7 コーディング規約・ベストプラクティス (AI向け指示書)**
+## **24.7 コーディング規約・ベストプラクティス (AI向け指示書)**
 
 ### 1. UUIDv7の使用
 
@@ -12190,7 +12293,7 @@ func TestValidateEmail(t *testing.T) {
 
 ---
 
-## **22. Goインテグレーション**
+## **25. Goインテグレーション**
 
 ### 22.1 推奨プロジェクト構成
 
@@ -15136,7 +15239,7 @@ function handleOAuthLogin(provider: 'google' | 'apple' | 'meta' | 'microsoft') {
 
 ---
 
-## **23. AIエージェント協働**
+## **26. AIエージェント協働**
 
 ### 23.1 AIコード生成プロンプトテンプレート
 
@@ -15605,7 +15708,7 @@ AI: [テストケース生成]
 
 **v7.0.0からの継続:**
 - UUID + NanoID主キー設計（uuidv7()統一、gen_random_uuid()全廃止）
-- マイクロサービス別章立て（セクション4-14）
+- マイクロサービス別章立て（第4章-第16章）
 - ログテーブル物理DB分離設計
 - ENUM型厳格化、外部API非依存設計
 
