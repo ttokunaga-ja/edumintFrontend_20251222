@@ -4305,7 +4305,9 @@ func (s *ExamService) GetExamByNanoID(ctx context.Context, nanoID string) (*Exam
   cached, err := s.redis.Get(ctx, cacheKey).Bytes()
   if err == nil {
     var exam Exam
-    json.Unmarshal(cached, &exam)
+    if err := json.Unmarshal(cached, &exam); err != nil {
+      return nil, fmt.Errorf("cache unmarshal error: %w", err)
+    }
     return &exam, nil
   }
   
@@ -4316,7 +4318,10 @@ func (s *ExamService) GetExamByNanoID(ctx context.Context, nanoID string) (*Exam
   }
   
   // 3. Redisに保存(TTL: 1時間)
-  data, _ := json.Marshal(exam)
+  data, err := json.Marshal(exam)
+  if err != nil {
+    return exam, nil  // キャッシュ失敗してもDBデータを返す
+  }
   s.redis.Set(ctx, cacheKey, data, 1*time.Hour)
   
   return exam, nil
@@ -4373,7 +4378,10 @@ func (s *ExamService) IncrementViewCount(ctx context.Context, examID uuid.UUID) 
    ```go
    // バージョン番号をキーに含める
    func (s *ExamService) GetExamWithVersion(ctx context.Context, examID uuid.UUID) (*Exam, error) {
-     version, _ := s.queries.GetExamVersion(ctx, examID)
+     version, err := s.queries.GetExamVersion(ctx, examID)
+     if err != nil {
+       return nil, fmt.Errorf("version query failed: %w", err)
+     }
      cacheKey := fmt.Sprintf("exam:id:%s:v%d", examID, version)
      
      // バージョン変更時は自動的に新規キーとなり、旧キャッシュは自然消滅
@@ -4402,7 +4410,9 @@ func (s *ExamService) GetExamByNanoID(ctx context.Context, nanoID string) (*Exam
     cached, err := s.redis.Get(ctx, cacheKey).Bytes()
     if err == nil {
       var exam Exam
-      json.Unmarshal(cached, &exam)
+      if err := json.Unmarshal(cached, &exam); err != nil {
+        return nil, fmt.Errorf("cache unmarshal error: %w", err)
+      }
       return &exam, nil
     }
     
@@ -4413,8 +4423,10 @@ func (s *ExamService) GetExamByNanoID(ctx context.Context, nanoID string) (*Exam
     }
     
     // Redis保存
-    data, _ := json.Marshal(exam)
-    s.redis.Set(ctx, cacheKey, data, 1*time.Hour)
+    data, err := json.Marshal(exam)
+    if err == nil {
+      s.redis.Set(ctx, cacheKey, data, 1*time.Hour)
+    }
     
     return exam, nil
   })
