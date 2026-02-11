@@ -1410,7 +1410,7 @@ Create Atlas HCL schema for "exam_comments" table (Phase 2 deployment - 2026 Q4-
 - is_edited, is_deleted: BOOLEAN
 - created_at, updated_at: TIMESTAMPTZ
 - Indexes on exam_id, user_id
-- Add comment indicating Phase 2 deployment
+- Add table comment: "試験コメント機能 (Phase 2以降)"
 ```
 
 ---
