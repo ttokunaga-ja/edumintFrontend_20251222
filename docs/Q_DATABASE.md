@@ -1,8 +1,16 @@
-# **Eduanima 統合データモデル設計書 v8.8.0**
+# **Eduanima 統合データモデル設計書 v8.8.1**
 
 本ドキュメントは、Eduanimaのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
 **最終更新日: 2026-02-11**
+
+**v8.8.1 主要更新:**
+- **Phase別機能展開の順序を確定**: Phase 3をAI Agent Tutor、Phase XXを収益化（実施時期未定）に変更
+- **外部キー戦略を「サービス内部許可・サービス間禁止」に明確化**: セクション16.14.5を全面改訂し、DDL例を追加
+- **UUIDv7のログテーブルでの使用理由を追記**: セクション19.10にログテーブルでの採用理由を明記
+- **NanoID併用の設計判断を詳細化**: UUID単独ではなくNanoIDを併用する理由を明確化
+- **Redisキャッシュ戦略(無効化・スタンピード対策)を拡充**: Cache-Aside/Write-Throughパターン、Singleflight実装例を追加
+- **GCS CMEKコスト見積もりを実態に即した年次ローテーション基準に修正**: 日次ローテーションから年次ローテーションへ変更
 
 **v8.8.0 主要更新:**
 - **Phase別リリース戦略セクションを追加**: セクション2.5として詳細なPhase別リリース計画を明記
@@ -323,6 +331,53 @@ CREATE TABLE special_table (
 4. **外部キー参照**:
    - 常にUUIDカラムを参照
    - `REFERENCES table_name(id)`
+
+#### **NanoID併用の設計判断**
+
+##### **なぜUUID単独ではなくNanoIDを併用するのか?**
+
+1. **公開URLの安全性向上**
+   ```
+   ❌ UUID単独: https://eduanima.com/exams/018d7e52-5e3a-7000-8000-000000000001
+   ✅ NanoID併用: https://eduanima.com/exams/B4kT9xZ2mP8
+   
+   - UUIDのみでは、連番推測やタイムスタンプ解析が可能(UUIDv7は時刻情報を含む)
+   - NanoIDにより、公開エンドポイントでの列挙攻撃を防止
+   ```
+
+2. **内部管理と公開識別子の分離**
+   ```go
+   // 内部処理: UUID(主キー)で高速JOIN
+   SELECT * FROM exams e
+   JOIN subjects s ON e.subject_id = s.id  -- UUID比較
+   WHERE e.id = $1;  -- UUID検索
+
+   // 公開API: NanoID(インデックス付き)で外部公開
+   GET /api/v1/exams/{nano_id}
+   SELECT * FROM exams WHERE nano_id = $1;  -- NanoIDインデックススキャン
+   ```
+
+3. **セキュリティの多層防御**
+   - UUID漏洩時でも、公開URLで使用されるNanoIDが異なるため、直接アクセス不可
+   - データベースダンプやログ露出時の影響範囲を限定
+
+4. **URL可読性とユーザビリティ**
+   ```
+   短縮・共有時の利便性:
+   - UUID(36文字): 018d7e52-5e3a-7000-8000-000000000001
+   - NanoID(11文字): B4kT9xZ2mP8
+   ```
+
+##### **NanoID採用テーブル(公開URL必須エンティティのみ)**
+- `exams.nano_id`
+- `questions.nano_id`
+- `user_posts.nano_id`
+- `institutions.nano_id`
+
+##### **UUID単独で良いケース(NanoID不要)**
+- 内部管理専用テーブル(例: `job_events`, `wallet_transactions`)
+- マイクロサービス間のイベント識別子
+- ログテーブル全般
 
 #### **AUTO_INCREMENT/SERIAL廃止の理由**
 
@@ -1208,107 +1263,55 @@ EduanimaUsers:
 3. **MVPの明確化**: Phase 1では試験閲覧・検索・アップロード機能に専念し、ユーザーフィードバックを収集
 4. **マイクロサービス境界の明確化**: EduanimaSocialサービスの管轄として統合管理
 
-### **2.5.4 Phase 3 または Phase 4 (収益化) - 2027 Q2-Q3**
-
-#### **目標**
-クリエイター収益化プログラムの開始
-
-#### **追加サービス(2個)**
-```
-12. EduanimaMonetizeWallet - ウォレット管理
-13. EduanimaRevenue        - 収益分配
-```
-
-#### **新規使用テーブル**
-```yaml
-EduanimaMonetizeWallet:
-  ✅ wallets
-  ✅ wallet_transactions
-
-EduanimaRevenue:
-  ✅ revenue_reports
-  ✅ ad_impressions_agg
-```
-
-#### **機能追加**
-```
-✅ ポイント→現金化(固定レート: 1pt=1円)
-✅ 収益化基準の設定(YouTube方式)
-✅ 月次出金上限管理
-✅ 資金決済法対応
-✅ 源泉徴収・税務処理
-```
-
-#### **収益化基準(YouTube参考モデル)**
-```yaml
-初期基準(Phase 3開始時):
-  - 累計アップロード試験数: 10件以上
-  - 総ダウンロード数: 1000回以上
-  - アカウント開設後: 90日以上
-  - 利用規約違反: なし
-  - 大学メール認証: 必須
-  - コンテンツ品質スコア: 4.0/5.0以上
-  - 通報削除率: 5%未満
-  - 著作権侵害警告: 0件
-
-段階的緩和計画:
-  Phase 3+6ヶ月:
-    - アップロード数: 5件
-    - ダウンロード数: 500回
-  
-  Phase 3+1年:
-    - アップロード数: 3件
-    - ダウンロード数: 300回
-```
-
-### **2.5.5 Phase 4 または Phase 3 (AI Agent Tutor) - 2027 Q2-Q3**
+### **2.5.4 Phase 3 (AI Agent Tutor) - 2027 Q2-Q3**
 
 #### **目標**
 個別最適化されたAI学習支援
 
 #### **追加サービス(1個)**
-```
-14. EduanimaTutor - AI Agent Tutor
-```
+- **EduanimaAiTutor**: 個別学習支援AI
 
 #### **新規使用テーブル**
-```yaml
-EduanimaTutor (Phase 4で新設):
-  ✅ tutor_sessions
-  ✅ tutor_messages
-  ✅ learning_plans
-  ✅ study_progress
-```
+- `learning_sessions` (学習セッション履歴)
+- `knowledge_graphs` (知識グラフ)
+- `personalized_recommendations` (個別推薦)
 
 #### **機能追加**
-```
-✅ LLM統合(GPT-4/Claude)
-✅ RAGベース質問応答
-✅ 個別学習プラン生成
-✅ 試験問題自動生成
-✅ 弱点分析・推奨問題提示
-```
+- 対話型学習アシスタント
+- 弱点診断・補強問題生成
+- 学習パス最適化
 
-### **2.5.6 Phase 3/4の順序決定基準**
+### **2.5.5 Phase XX (収益化) - 実施時期未定**
 
-```yaml
-Phase 3(収益化)を優先する条件:
-  ✅ 資金調達が完了している
-  ✅ 法務体制が整備されている
-  ✅ ユーザー数が10万人を超えている
-  ✅ 既存ユーザーのマネタイズが急務
+#### **実装条件**
+以下の条件を満たした後に着手:
+1. **法的基盤整備完了**
+   - 資金移動業登録または銀行代理業許可取得
+   - PCI DSS準拠完了
+2. **資金調達完了**
+   - シリーズA以降の資金調達により開発リソース確保
+3. **ユーザーベース確立**
+   - MAU 10万人以上達成
 
-Phase 4(AI Tutor)を優先する条件:
-  ✅ 競合がAI機能を先行投入
-  ✅ 新規ユーザー獲得が停滞
-  ✅ 技術チームのリソースが豊富
-  ✅ LLM APIコストが許容範囲
+#### **追加サービス(2個)**
+- **EduanimaMonetizeWallet**: ウォレット管理
+- **EduanimaRevenue**: 収益分配
 
-並行開発の可能性:
-  - Phase 3: バックエンドチーム + 法務
-  - Phase 4: AI/MLチーム
-  → 2チーム体制で同時進行可能
-```
+#### **新規使用テーブル**
+- `wallets` (ウォレット)
+- `wallet_transactions` (取引履歴)
+- `revenue_reports` (収益レポート)
+- `ad_impressions_agg` (広告集計)
+
+#### **機能追加**
+- クリエイター収益分配
+- ウォレット残高管理
+- 収益レポート生成
+
+#### **収益化基準(YouTube参考モデル)**
+- フォロワー1,000人以上
+- 直近90日間の視聴時間4,000時間以上
+- コミュニティガイドライン違反なし
 
 ### **2.5.7 Feature Flag戦略**
 
@@ -4288,6 +4291,178 @@ func (s *TokenService) CheckTokenIssueRateLimit(ctx context.Context, userID, exa
 }
 ```
 
+#### **キャッシュ更新戦略**
+
+##### **Cache-Aside (Lazy Loading) パターン**
+読み取り頻度が高く、更新頻度が低いデータに適用。
+
+```go
+// 試験詳細取得(Cache-Aside実装例)
+func (s *ExamService) GetExamByNanoID(ctx context.Context, nanoID string) (*Exam, error) {
+  cacheKey := fmt.Sprintf("exam:nano:%s", nanoID)
+  
+  // 1. Redisから取得試行
+  cached, err := s.redis.Get(ctx, cacheKey).Bytes()
+  if err == nil {
+    var exam Exam
+    json.Unmarshal(cached, &exam)
+    return &exam, nil
+  }
+  
+  // 2. キャッシュミス時、DBから取得
+  exam, err := s.queries.GetExamByNanoID(ctx, nanoID)
+  if err != nil {
+    return nil, err
+  }
+  
+  // 3. Redisに保存(TTL: 1時間)
+  data, _ := json.Marshal(exam)
+  s.redis.Set(ctx, cacheKey, data, 1*time.Hour)
+  
+  return exam, nil
+}
+```
+
+##### **Write-Through パターン**
+更新頻度が高く、即座の整合性が必要なデータに適用。
+
+```go
+// 試験統計更新(Write-Through実装例)
+func (s *ExamService) IncrementViewCount(ctx context.Context, examID uuid.UUID) error {
+  // 1. DBを更新
+  err := s.queries.IncrementExamViews(ctx, examID)
+  if err != nil {
+    return err
+  }
+  
+  // 2. キャッシュも同時更新
+  cacheKey := fmt.Sprintf("exam:stats:%s", examID)
+  s.redis.Incr(ctx, cacheKey)
+  s.redis.Expire(ctx, cacheKey, 5*time.Minute)
+  
+  return nil
+}
+```
+
+##### **キャッシュ無効化戦略**
+
+1. **イベント駆動無効化(推奨)**
+   ```go
+   // Kafkaイベント購読による無効化
+   func (c *CacheInvalidator) HandleExamUpdated(ctx context.Context, event ExamUpdatedEvent) error {
+     keys := []string{
+       fmt.Sprintf("exam:nano:%s", event.NanoID),
+       fmt.Sprintf("exam:id:%s", event.ExamID),
+       fmt.Sprintf("exam:stats:%s", event.ExamID),
+     }
+     return c.redis.Del(ctx, keys...).Err()
+   }
+   ```
+
+2. **TTLベース自動失効**
+   ```go
+   // 長期キャッシュには短めのTTL設定
+   const (
+     ExamDetailTTL     = 1 * time.Hour   // 試験詳細
+     SearchResultTTL   = 5 * time.Minute // 検索結果
+     UserProfileTTL    = 30 * time.Minute // ユーザープロフィール
+   )
+   ```
+
+3. **バージョンキー方式(重要データ)**
+   ```go
+   // バージョン番号をキーに含める
+   func (s *ExamService) GetExamWithVersion(ctx context.Context, examID uuid.UUID) (*Exam, error) {
+     version, _ := s.queries.GetExamVersion(ctx, examID)
+     cacheKey := fmt.Sprintf("exam:id:%s:v%d", examID, version)
+     
+     // バージョン変更時は自動的に新規キーとなり、旧キャッシュは自然消滅
+     // ...
+   }
+   ```
+
+##### **キャッシュスタンピード対策**
+
+```go
+// Singleflightパターンによる同時リクエスト集約
+import "golang.org/x/sync/singleflight"
+
+type ExamService struct {
+  queries *db.Queries
+  redis   *redis.Client
+  sf      singleflight.Group  // 追加
+}
+
+func (s *ExamService) GetExamByNanoID(ctx context.Context, nanoID string) (*Exam, error) {
+  cacheKey := fmt.Sprintf("exam:nano:%s", nanoID)
+  
+  // Singleflightでリクエスト集約(キャッシュミス時のDB負荷軽減)
+  result, err, _ := s.sf.Do(cacheKey, func() (interface{}, error) {
+    // Redisチェック
+    cached, err := s.redis.Get(ctx, cacheKey).Bytes()
+    if err == nil {
+      var exam Exam
+      json.Unmarshal(cached, &exam)
+      return &exam, nil
+    }
+    
+    // DB取得
+    exam, err := s.queries.GetExamByNanoID(ctx, nanoID)
+    if err != nil {
+      return nil, err
+    }
+    
+    // Redis保存
+    data, _ := json.Marshal(exam)
+    s.redis.Set(ctx, cacheKey, data, 1*time.Hour)
+    
+    return exam, nil
+  })
+  
+  if err != nil {
+    return nil, err
+  }
+  return result.(*Exam), nil
+}
+```
+
+##### **モニタリング指標**
+
+```go
+// Prometheusメトリクス定義
+var (
+  cacheHitRate = prometheus.NewCounterVec(
+    prometheus.CounterOpts{
+      Name: "eduanima_cache_requests_total",
+      Help: "Total cache requests by result",
+    },
+    []string{"cache_key_prefix", "result"}, // result: hit/miss
+  )
+  
+  cacheInvalidations = prometheus.NewCounterVec(
+    prometheus.CounterOpts{
+      Name: "eduanima_cache_invalidations_total",
+      Help: "Total cache invalidations by reason",
+    },
+    []string{"reason"}, // reason: event_driven/ttl_expired/manual
+  )
+)
+
+// 使用例
+func (s *ExamService) GetExamByNanoID(ctx context.Context, nanoID string) (*Exam, error) {
+  cacheKey := fmt.Sprintf("exam:nano:%s", nanoID)
+  
+  cached, err := s.redis.Get(ctx, cacheKey).Bytes()
+  if err == nil {
+    cacheHitRate.WithLabelValues("exam", "hit").Inc()
+    // ...
+  } else {
+    cacheHitRate.WithLabelValues("exam", "miss").Inc()
+    // ...
+  }
+}
+```
+
 ---
 
 ## **7. EduanimaFiles (ファイルストレージ)**
@@ -5247,11 +5422,63 @@ WHERE file_category = 'report_evidence'
 
 #### 6.12.4 CMEK暗号化コスト
 
-| 項目 | 回数/容量 | 単価 | 月額 |
-|-----|----------|------|------|
-| KMSキー使用料 | 1キー | $0.06/キー/月 | $0.06 |
-| 暗号化オペレーション | 1,000回 | $0.03/1万回 | $0.003 |
-| **CMEK合計** | - | - | **$0.063** |
+##### **前提条件の修正**
+- **キーローテーション頻度**: 年1回(NIST推奨基準)
+- **アクティブキーバージョン数**: 12バージョン(過去1年分保持)
+- **復号処理頻度**: 低頻度(Vaultバケットは長期保存用)
+
+##### **Cloud KMSコスト**
+
+1. **キーバージョンコスト**
+   ```
+   $0.06/バージョン/月 × 12バージョン = $0.72/月
+   ```
+
+2. **暗号化/復号処理コスト**
+   ```
+   想定処理回数:
+   - 暗号化: 10,000ファイル/月 (Staging→Vault移行時)
+   - 復号: 100ファイル/月 (著作権侵害調査・監査ログ確認)
+   
+   計算:
+   - 暗号化: 10,000回 × $0.03/10,000回 = $0.03/月
+   - 復号: 100回 × $0.03/10,000回 = $0.0003/月
+   
+   合計: $0.03/月
+   ```
+
+3. **CMEK月間コスト合計**
+   ```
+   $0.72 (キーバージョン) + $0.03 (処理) = $0.75/月
+   ```
+
+##### **なぜ日次ローテーションを推奨しないか**
+
+1. **セキュリティ上の過剰対策**
+   - NIST SP 800-57では、データ暗号化キーの推奨ローテーション期間は1-2年
+   - Vaultバケットは「長期保存・低アクセス頻度」用途であり、暗号化キー漏洩リスクは極めて低い
+
+2. **運用コストの増大**
+   - 日次ローテーション時: $0.06 × 365 = $21.9/月
+   - 年次ローテーション時: $0.72/月
+   - 29倍のコスト差が発生
+
+3. **復号パフォーマンスへの影響**
+   - 大量のキーバージョンが存在すると、GCSがファイル復号時に正しいキーバージョンを特定するオーバーヘッドが増加
+
+##### **推奨ローテーション戦略**
+
+| キーの種類 | ローテーション頻度 | 理由 |
+|----------|----------------|------|
+| Vault CMEK | 年1回 | 低アクセス頻度・長期保存用途 |
+| Staging CMEK | 半年1回 | 中頻度アクセス・一時保存用途 |
+| DB暗号化キー | 年1回 | データベースバックアップとの整合性維持 |
+
+##### **緊急ローテーションが必要になるケース**
+以下の場合のみ、スケジュール外のローテーションを実施:
+- キー漏洩の疑いがある場合
+- 元従業員がキーアクセス権限を持っていた場合
+- コンプライアンス監査で指摘を受けた場合
 
 #### 6.12.5 総コスト
 
@@ -5259,13 +5486,14 @@ WHERE file_category = 'report_evidence'
 |-----|------|
 | Stagingバケット | $0.71 |
 | Vaultバケット | $1.35 |
-| CMEK暗号化 | $0.063 |
-| **合計（1年目平均）** | **$2.12** |
+| CMEK暗号化 | $0.75 |
+| **合計（1年目平均）** | **$2.81** |
 
 **コスト削減効果:**
 - v7.1.0（単一バケット）: $3.50/月
 - v7.3.0（2バケット構成）: $2.12/月
-- **月間削減額: $1.38（39%削減）**
+- v8.8.1（CMEK年次ローテーション）: $2.81/月
+- **月間削減額 (v7.1.0比): $0.69（20%削減）**
 
 ### 7.13 イベント発行・購読
 
@@ -8048,6 +8276,45 @@ from nanoid import generate
 public_id = generate(size=8)  # 8文字
 ```
 
+#### **ログテーブルでのUUIDv7使用理由**
+
+ログテーブルは追記専用(append-only)のため、時系列順序保証が不要に見えるが、以下の理由によりUUIDv7を継続使用する:
+
+1. **クエリパフォーマンス向上**
+   ```sql
+   -- 時間範囲検索でインデックススキャンが効率的
+   SELECT * FROM auth_logs
+   WHERE id >= uuidv7_at('2026-02-01'::timestamptz)
+     AND id < uuidv7_at('2026-02-02'::timestamptz);
+   ```
+
+2. **パーティショニングとの親和性**
+   ```sql
+   -- UUIDv7の時系列性により、パーティションプルーニングが効率化
+   CREATE TABLE auth_logs (
+     id UUID PRIMARY KEY DEFAULT uuidv7(),
+     ...
+   ) PARTITION BY RANGE (id);
+   ```
+
+3. **統一性によるメンテナンス負荷削減**
+   - 全テーブルで同じUUID生成戦略を使用することで、運用スクリプト・モニタリングツールを統一
+   - 開発者の認知負荷を軽減
+
+4. **BigQueryエクスポート時の時系列順序保証**
+   ```sql
+   -- UUIDv7によりBigQueryへのエクスポート時に追加ソート不要
+   COPY (
+     SELECT * FROM auth_logs
+     WHERE id >= uuidv7_at(CURRENT_DATE - INTERVAL '1 day')
+     ORDER BY id  -- UUIDv7により自然順序でソート済み
+   ) TO PROGRAM 'bq load ...'
+   ```
+
+**gen_random_uuid()を使うべきではないケース:**
+- ログテーブルのような高頻度書き込みテーブルでは、UUIDv4のランダム性がインデックスのホットスポット分散効果を発揮しない
+- UUIDv7の時系列順序により、直近データへのアクセスが高速化される
+
 #### **パフォーマンスベンチマーク**
 
 PostgreSQL 18.1での実測値（参考）：
@@ -8336,56 +8603,78 @@ WHERE created_at < NOW() - INTERVAL '7 days'
 - **データ抽出完了後**: DB上のデータが正となり、元ファイルは参照頻度が激減
 - **長期保存**: Archive層で保持（監査・検証用）
 
-#### **16.14.5 マイクロサービス間UUID参照戦略**
+#### **16.14.5 外部キー制約戦略**
 
-**基本原則**:
-- サービス境界を越える参照は**論理的外部キー**のみ（物理FOREIGN KEY制約なし）
-- UUIDで参照し、参照整合性はアプリケーション層とイベント駆動で保証
-- Kafka経由の結果整合性を前提とした設計
+##### **基本原則**
+- **サービス内部**: 物理FOREIGN KEY制約を積極的に使用
+- **サービス間**: 物理FOREIGN KEY制約は禁止、UUID参照のみ
 
-**パターン例**:
+##### **サービス内部の外部キー設計**
+同一マイクロサービス内のテーブル間では、データ整合性保証のため物理FOREIGN KEY制約を必須とする。
 
+**実装例(EduanimaContents内部):**
 ```sql
--- EduanimaContents.examsテーブル（Content管理サービス）
+-- faculties → institutions (サービス内部: 外部キー制約あり)
+ALTER TABLE faculties
+  ADD CONSTRAINT fk_faculties_institution
+  FOREIGN KEY (institution_id) REFERENCES institutions(id)
+  ON DELETE CASCADE;
+
+-- departments → faculties (サービス内部: 外部キー制約あり)
+ALTER TABLE departments
+  ADD CONSTRAINT fk_departments_faculty
+  FOREIGN KEY (faculty_id) REFERENCES faculties(id)
+  ON DELETE CASCADE;
+
+-- exams → subjects (サービス内部: 外部キー制約あり)
+ALTER TABLE exams
+  ADD CONSTRAINT fk_exams_subject
+  FOREIGN KEY (subject_id) REFERENCES subjects(id)
+  ON DELETE RESTRICT;
+```
+
+##### **サービス間のUUID参照設計**
+異なるマイクロサービス間では、物理FOREIGN KEY制約を使用せず、UUID値のみを保持する。
+
+**実装例(サービス間参照):**
+```sql
+-- EduanimaContentsの exams テーブル
 CREATE TABLE exams (
   id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(8) NOT NULL UNIQUE,
-  creator_user_id UUID NOT NULL,              -- EduanimaUsers.usersを論理参照
-  -- creator_user_idにはFOREIGN KEY制約を設定しない（サービス境界を越えるため）
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  uploader_id UUID NOT NULL,  -- EduanimaUsersのuser_id (外部キー制約なし)
+  ...
 );
 
--- EduanimaContents.exam_interaction_eventsテーブル（v7.0.3: 統計情報管理）
-CREATE TABLE exam_interaction_events (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  exam_id UUID NOT NULL,                      -- EduanimaContents.examsを論理参照
-  user_id UUID,                               -- EduanimaUsers.usersを論理参照（NULL許可）
-  event_type VARCHAR(20) NOT NULL,            -- 'view', 'like', 'bad', etc.
-  -- exam_id, user_idにはFOREIGN KEY制約を設定しない（論理参照のため）
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-) PARTITION BY RANGE (created_at);
-
--- インデックスは必須（外部キー制約がなくても）
-CREATE INDEX idx_exam_interaction_events_exam_id ON exam_interaction_events(exam_id);
-CREATE INDEX idx_exam_interaction_events_user_id ON exam_interaction_events(user_id);
+-- CHECK制約によるUUID形式検証のみ実施
+ALTER TABLE exams
+  ADD CONSTRAINT chk_uploader_id_format
+  CHECK (uploader_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$');
 ```
 
-**同一サービス内の参照**:
+##### **サービス間参照の整合性保証**
+物理制約の代替として以下を実装:
+1. **イベント駆動検証**: Kafka経由で削除イベントを購読し、孤児レコードをクリーンアップ
+2. **定期整合性チェックバッチ**: 日次で孤児UUID検出・アラート
+3. **アプリケーション層バリデーション**: API呼び出しによる参照先の存在確認
 
+##### **禁止パターン**
 ```sql
--- 同一サービス内は物理FOREIGN KEY制約を設定（推奨）
-CREATE TABLE questions (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
-  -- 同一サービス内なので物理制約OK
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
+-- ❌ サービス間の物理FOREIGN KEY (絶対禁止)
+ALTER TABLE exams
+  ADD CONSTRAINT fk_exams_uploader  -- これは作成不可
+  FOREIGN KEY (uploader_id) REFERENCES eduanima_users.users(id);
 ```
 
-**参照整合性の保証方法**:
-1. **作成時**: APIリクエスト前に参照先の存在確認
-2. **更新時**: Kafkaイベント購読で非同期反映
-3. **削除時**: 論理削除を使用し、物理削除はバッチ処理で実施
+##### **設計判断の理由**
+- **サービス内部で外部キー制約を使う理由**:
+  - データベーストランザクション内で整合性を即座に保証
+  - カスケード削除による運用効率化
+  - PostgreSQLの最適化機能を最大限活用
+  
+- **サービス間で外部キー制約を使わない理由**:
+  - マイクロサービスの独立デプロイ性維持
+  - クロスデータベーストランザクションの回避
+  - サービス障害の伝播防止
 
 #### **16.14.6 Row Level Security (RLS) 設計**
 
