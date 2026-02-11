@@ -12,7 +12,7 @@
 - API（現状実装: `src/src/services/api/gateway.ts`）
   - `GET /exams/{examId}`
   - `POST /exams/{examId}/like`, `POST /exams/{examId}/bookmark`, `POST /exams/{examId}/share`
-  - `GET /comments?examId=`, `POST /comments`, `DELETE /comments/{commentId}`, `POST /comments/{commentId}/vote`
+  - `GET /comments?examId=`, `POST /comments`, `DELETE /comments/{commentId}`, `POST /comments/{commentId}/vote` （Phase 2: eduanimaSocial）
   - `GET /exam-edit-history/{examId}`, `POST /exam-history/{examId}/rollback`（履歴）
 - ServiceHealth
   - `GET /health/content` / `GET /health/community` / `GET /health/notifications`
@@ -53,7 +53,7 @@
 │  - Structure/Question/Answer view (広告/ロック制御)             │
 │  - QuestionBlock / SubQuestionBlock / AnswerBlock             │
 │  - 全問解答表示 / 解答表示トグル                               │
-│  - (Viewer) CommentSection                                    │
+│  - (Viewer) CommentSection (Phase 2)                          │
 │  - (Owner Preview/History) EditHistoryBlock                   │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -61,7 +61,7 @@
 ## 構造イメージ（閲覧モード）
 ```
 [問題情報 Metadata]
-  - タイトル / 科目・年度 / 大学 / 作成者 / 公開設定 / ステータス / 閲覧数・いいね・バッド・コメント
+  - タイトル / 科目・年度 / 大学 / 作成者 / 公開設定 / ステータス / 閲覧数・いいね・バッド・コメント (Phase 2)
   - アクションバー: いいね / バッド / ブックマーク / 共有 / PDF出力 / 通報
 
 [大問ブロック #1]
@@ -76,7 +76,7 @@
 
 [大問ブロック #2] ... （以降繰り返し）
 
-[コメントセクション]
+[コメントセクション (Phase 2)]
   - コメント入力 / 投稿ボタン / 既存コメント一覧
 ```
 

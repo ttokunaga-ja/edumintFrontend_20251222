@@ -94,7 +94,7 @@ type Exam = {
   goodCount?: number;
   badCount?: number;
   viewCount?: number;
-  commentCount?: number;
+  commentCount?: number;  // Phase 2: eduanimaSocial
   createdAt?: string;
   updatedAt?: string;
 };
@@ -119,6 +119,7 @@ type SubQuestion = {
   keywords?: Keyword[];
 };
 
+// Phase 2: eduanimaSocial
 type ExamComment = {
   id: number;
   examId: number;
@@ -132,7 +133,7 @@ type ExamComment = {
 type Report = {
   id: string;
   reporterUserId: string;
-  contentType: "exam" | "question" | "sub_question" | "exam_comment";
+  contentType: "exam" | "question" | "sub_question" | "exam_comment";  // "exam_comment" in Phase 2
   contentId: string;
   reasonId: number;
   details?: string;
@@ -152,10 +153,11 @@ type WalletBalance = {
   currency: string;
 };
 
+// Phase 2: eduanimaSocial notifications
 type Notification = {
   id: string;
   userId: string;
-  type: "like" | "comment" | "system";
+  type: "like" | "comment" | "system";  // "comment" type in Phase 2
   title: string;
   message: string;
   isRead: boolean;
