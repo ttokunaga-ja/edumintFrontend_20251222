@@ -66,7 +66,7 @@ npm ls --depth=0 | grep -E "react|zod|react-hook-form|@tanstack|@mui"
 ```bash
 # リポジトリクローン
 git clone <repo>
-cd edumintFrontend_20251222
+cd eduanimaFrontend_20251222
 
 # 依存関係インストール
 pnpm install

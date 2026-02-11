@@ -446,6 +446,6 @@ src/features/content/
 ---
 
 **実装完了日**: 2026年1月1日  
-**プロジェクト**: EduMint Frontend Problem Editor  
+**プロジェクト**: Eduanima Frontend Problem Editor  
 **総実装コード**: 3,982行（Phase 1-3）  
 **ステータス**: Features層完全実装 🎉

@@ -1,15 +1,15 @@
-# EduMint Development Standards Documentation
+# Eduanima Development Standards Documentation
 
 ---
 
 ## 1. Complete .clinerules Reference
 
 ```markdown
-# EduMint Development Standards v2026.02.2
+# Eduanima Development Standards v2026.02.2
 
 ## Project Context
 
-EduMint is an educational content sharing platform built with:
+Eduanima is an educational content sharing platform built with:
 - **Microservices Architecture**: 11 services (Auth, Content, Search, AI Worker, etc.)
 - **Development Team**: 1 person + CodingAgent collaboration
 - **Developer Profile**: Junior engineer learning alongside AI assistance
@@ -289,7 +289,7 @@ func generateAccessToken() (string, error) {
 ### 1. Architecture Pattern
 
 ```
-edumintContent/
+eduanimaContent/
   cmd/
     server/
       main.go
@@ -1058,11 +1058,11 @@ func (c *Consumer) Start(ctx context.Context) error {
 
 | Topic | Producer | Consumer | Retention |
 |-------|----------|----------|-----------|
-| `content.lifecycle` | edumintContent | edumintSearch, edumintGateway | 7 days |
-| `content.jobs` | edumintFile | edumintGateway, edumintAiWorker | 3 days |
-| `ai.results` | edumintAiWorker | edumintContent, edumintGateway | 3 days |
-| `content.feedback` | edumintSocial | edumintContent | 30 days |
-| `monetization.transactions` | edumintMonetizeWallet | edumintRevenue | 365 days |
+| `content.lifecycle` | eduanimaContent | eduanimaSearch, eduanimaGateway | 7 days |
+| `content.jobs` | eduanimaFile | eduanimaGateway, eduanimaAiWorker | 3 days |
+| `ai.results` | eduanimaAiWorker | eduanimaContent, eduanimaGateway | 3 days |
+| `content.feedback` | eduanimaSocial | eduanimaContent | 30 days |
+| `monetization.transactions` | eduanimaMonetizeWallet | eduanimaRevenue | 365 days |
 
 ---
 
@@ -1208,7 +1208,7 @@ jobs:
 **Development Environment (.env):**
 ```bash
 # .env (Git-ignored, DO NOT COMMIT)
-DATABASE_URL=postgresql://user:pass@localhost:5432/edumint_dev
+DATABASE_URL=postgresql://user:pass@localhost:5432/eduanima_dev
 JWT_SECRET=dev_secret_key_32_chars_min
 GEMINI_API_KEY=dev_api_key_for_testing
 REDIS_URL=redis://localhost:6379
@@ -1284,8 +1284,8 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'edumint-content'
-      - '--image=gcr.io/${PROJECT_ID}/edumint-content'
+      - 'eduanima-content'
+      - '--image=gcr.io/${PROJECT_ID}/eduanima-content'
       - '--region=asia-northeast1'
       - '--set-secrets=DATABASE_URL=DATABASE_URL:latest,JWT_SECRET=JWT_SECRET:latest'
 ```
@@ -1344,7 +1344,7 @@ func initTracer() {
 }
 
 // Echo middleware
-e.Use(otelecho.Middleware("edumintContent"))
+e.Use(otelecho.Middleware("eduanimaContent"))
 
 // pgx tracing
 config.ConnConfig.Tracer = otelpgx.NewTracer()
@@ -1360,7 +1360,7 @@ kgo.WithHooks(kotel.NewKotel().Hooks()...)
 ```go
 var dbQueryDuration = promauto.NewHistogramVec(
     prometheus.HistogramOpts{
-        Name: "edumint_db_query_duration_seconds",
+        Name: "eduanima_db_query_duration_seconds",
         Buckets: prometheus.ExponentialBuckets(0.001, 2, 10),
     },
     []string{"query_name"},
@@ -1394,7 +1394,7 @@ Generate Echo v5 handler for ExamService.GetExam:
 Generate table-driven unit tests for ExamService.GetExam:
 - Use testify/assert and testify/mock
 - Cover success + not_found + internal_error
-- Follow EduMint conventions
+- Follow Eduanima conventions
 ```
 
 ---
@@ -1433,8 +1433,8 @@ Create Atlas HCL schema for "exam_comments" table:
 | Prohibited | Replacement | Reason |
 |-----------|-------------|--------|
 | **Echo v4** | Echo v5.0.1+ | v5 uses concrete struct `*echo.Context`, v4 uses interface (breaking change) |
-| **Chi router** | Echo v5.0.1+ | EduMint standard framework for consistency |
-| **Gin framework** | Echo v5.0.1+ | EduMint standard framework for consistency |
+| **Chi router** | Echo v5.0.1+ | Eduanima standard framework for consistency |
+| **Gin framework** | Echo v5.0.1+ | Eduanima standard framework for consistency |
 | **golang-migrate** | Atlas v1.0.0+ | No monitoring, no schema statistics, manual versioning |
 | **lib/pq** | pgx/v5.8.0+ | No longer maintained, no context support, no prepared statement pool |
 | **square/go-jose** | go-jose/v4 | Repository moved to go-jose/go-jose, v4 has critical security fixes |
@@ -1806,7 +1806,7 @@ func (q *Queries) SearchBySimilarity(ctx context.Context, embedding pgvector.Vec
 
 **⚠️ ONLY 5 Tables Use Composite Primary Keys**
 
-EduMint uses composite primary keys for exactly **5 tables** where external references are critical:
+Eduanima uses composite primary keys for exactly **5 tables** where external references are critical:
 
 1. **teachers** - Educator profiles
 2. **exams** - Past exam papers

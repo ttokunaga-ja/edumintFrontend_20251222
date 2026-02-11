@@ -1,6 +1,6 @@
 # ディレクトリ構造 & アーキテクチャ規約（Frontend）
 
-本ドキュメントは、`edumintFrontend` における**ディレクトリ構造とアーキテクチャ規約の完全版**である。
+本ドキュメントは、`eduanimaFrontend` における**ディレクトリ構造とアーキテクチャ規約の完全版**である。
 本規約の最大の目的は、**「ライブラリ・フレームワーク標準機能の徹底活用」**による保守性の向上と、独自実装（オレオレ実装）の排除である。
 
 ---
@@ -53,7 +53,7 @@
 「設定（Config）と実装（Source）」を明確に分け、独自ラッパーを排除した構成とする。
 
 ```text
-edumintFrontend/
+eduanimaFrontend/
 ├── .dockerignore                     # Dockerビルド除外設定
 ├── .env.example                      # 環境変数テンプレート
 ├── .gitignore

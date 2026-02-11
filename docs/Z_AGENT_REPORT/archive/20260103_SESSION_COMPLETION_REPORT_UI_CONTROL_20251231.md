@@ -1,7 +1,7 @@
 # UI 制御統一性監査：実施完了レポート
 
 **実施日**: 2025年12月31日  
-**対象**: Edumint Frontend - TopMenuBar 統一性と SAVE/Preview/Edit ボタン制御の汎用化
+**対象**: Eduanima Frontend - TopMenuBar 統一性と SAVE/Preview/Edit ボタン制御の汎用化
 
 ---
 

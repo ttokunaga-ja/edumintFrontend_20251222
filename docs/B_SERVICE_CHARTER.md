@@ -1,9 +1,9 @@
 # Frontend Service Charter（AI Coding 用）
 
-目的: EduMint フロントエンドの責務・非責務を一枚で定義し、バックエンド未完成期間も「Coming Soon」運用で逸脱なく進める。
+目的: Eduanima フロントエンドの責務・非責務を一枚で定義し、バックエンド未完成期間も「Coming Soon」運用で逸脱なく進める。
 
 ```markdown
-サービス名: EduMint Frontend (React + Vite)
+サービス名: Eduanima Frontend (React + Vite)
 ビジネス目的: 問題投稿/検索/閲覧/生成フローを FIGMA 準拠 UI で提供し、バックエンドのフェーズ進行に合わせて段階解放する
 対象ユーザー: 学生・教員（.ac.jp）、運営チーム（管理UIは Phase3 以降）
 責務 (Must):
@@ -25,4 +25,4 @@
 
 ## Sources
 - `../overview/requirements.md`, `../overview/use-cases.md`
-- `../architecture/edumint_architecture.md`
+- `../architecture/eduanima_architecture.md`

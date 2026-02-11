@@ -1,7 +1,7 @@
 # アーキテクチャ適合監査 - Phase 2 修正完了レポート
 
 **実行日:** 2025年12月31日  
-**監査対象:** Edumint Frontend プロジェクト  
+**監査対象:** Eduanima Frontend プロジェクト  
 **修正状況:** ✅ **完全実装**
 
 ---
@@ -251,7 +251,7 @@ export const zIndex = {
 
 ## 📌 監査の完了宣言
 
-**Edumint Frontend プロジェクトの「アーキテクチャ適合監査 (Architecture Audit) + 修正実行」は以下の成果を達成し、完了しました。**
+**Eduanima Frontend プロジェクトの「アーキテクチャ適合監査 (Architecture Audit) + 修正実行」は以下の成果を達成し、完了しました。**
 
 ✅ **監査基準 4項目すべてが適合状態を達成**
 - 1. Page責務分離: ✅ 完全適合

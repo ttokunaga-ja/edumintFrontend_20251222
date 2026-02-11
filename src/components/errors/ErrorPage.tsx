@@ -216,7 +216,7 @@ export const ErrorPage = ({
         <Box sx={{ mt: 6, textAlign: 'center' }}>
           <Typography variant="caption" color="text.disabled" display="block">
             ご不明な点は
-            <MuiLink href="mailto:support@edumint.jp" sx={{ ml: 0.5 }}>
+            <MuiLink href="mailto:support@eduanima.jp" sx={{ ml: 0.5 }}>
               サポート
             </MuiLink>
             までお問い合わせください

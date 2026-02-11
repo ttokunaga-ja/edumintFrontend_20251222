@@ -1,6 +1,6 @@
 // @ts-nocheck
 // ========================================
-// EduMint - ContextHealthAlert Stories
+// Eduanima - ContextHealthAlert Stories
 // 20 Variants: C1-S1 ~ C5-S4
 // ======================================== import type { Meta, StoryObj } from '@storybook/react';
 import { ContextHealthAlert } from './ContextHealthAlert'; const meta: Meta<typeof ContextHealthAlert> = { title: 'Shared/ContextHealthAlert', component: ContextHealthAlert, parameters: { layout: 'padded', docs: { description: { component: undefined, }, }, }, tags: ['autodocs'], argTypes: { category: { control: 'select', options: [ 'AI生成エンジン', 'コンテンツサービス', 'コイン残高・出金', 'コミュニティ機能', '通知・お知らせ', ], }, status: { control: 'select', options: ['operational', 'degraded', 'maintenance', 'outage'], }, },
@@ -26,7 +26,7 @@ type Story = StoryObj<typeof ContextHealthAlert>; // ===========================
 }; // ========================================
 // C5: 通知・お知らせ
 // ======================================== export const C5_S2_Notification_Degraded: Story = { name: 'C5-S2: 通知 - Degraded', args: { id: 'alert-c5-s2', category: '通知・お知らせ', status: 'degraded', message: '通知の送信に遅延が発生しています。', },
-}; export const C5_S4_Notification_Outage: Story = { name: 'C5-S4: 通知 - Outage', args: { id: 'alert-c5-s4', category: '通知・お知らせ', status: 'outage', message: '現在、通知機能が停止しているため、共有リンクの通知が送信されません。システム復旧後に自動的に送信されます。', action: { label: 'ステータスページを見る', onClick: () => window.open('https://status.edumint.example.com', '_blank'), }, },
+}; export const C5_S4_Notification_Outage: Story = { name: 'C5-S4: 通知 - Outage', args: { id: 'alert-c5-s4', category: '通知・お知らせ', status: 'outage', message: '現在、通知機能が停止しているため、共有リンクの通知が送信されません。システム復旧後に自動的に送信されます。', action: { label: 'ステータスページを見る', onClick: () => window.open('https://status.eduanima.example.com', '_blank'), }, },
 }; // ========================================
 // Multiple Alerts Demo
 // ======================================== export const MultipleAlerts: Story = { name: '複数アラート同時表示', render: () => ( <div> <ContextHealthAlert id="alert-1" category="コミュニティ機能" status="degraded" message="現在、いいね・コメント機能に遅延が発生しています。" disableCTA={true} /> <ContextHealthAlert id="alert-2" category="通知・お知らせ" status="outage" message="通知機能が停止しています。" action={{ label: '詳細を見る', onClick: () => console.log('View details'), }} /> </div> ),

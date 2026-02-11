@@ -122,7 +122,7 @@ export function LoginRegisterPage({ mode = 'login' }: LoginRegisterPageProps) {
         <Card sx={{ p: 4 }}>
           {/* ロゴ・タイトル */}
           <Typography variant="h5" sx={{ mb: 1, textAlign: 'center', fontWeight: 600 }}>
-            Edumint
+            Eduanima
           </Typography>
           <Typography variant="body2" sx={{ mb: 4, textAlign: 'center', color: 'text.secondary' }}>
             教育支援プラットフォーム
@@ -288,10 +288,10 @@ export function LoginRegisterPage({ mode = 'login' }: LoginRegisterPageProps) {
         <DialogTitle>利用規約</DialogTitle>
         <DialogContent sx={{ py: 2 }}>
           <Typography variant="body2" component="div" sx={{ whiteSpace: 'pre-wrap' }}>
-            {`EduMint教育支援プラットフォーム 利用規約
+            {`Eduanima教育支援プラットフォーム 利用規約
 
 【第1条 総則】
-本利用規約は、EduMint教育支援プラットフォーム（以下「本サービス」）の利用条件を定めています。ユーザーは本サービスを利用することで、本規約に同意したものと見なされます。
+本利用規約は、Eduanima教育支援プラットフォーム（以下「本サービス」）の利用条件を定めています。ユーザーは本サービスを利用することで、本規約に同意したものと見なされます。
 
 【第2条 ユーザー登録】
 本サービスを利用するには、ユーザー登録が必要です。登録内容は正確で、虚偽のないものである必要があります。

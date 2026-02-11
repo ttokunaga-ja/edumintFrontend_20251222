@@ -1,6 +1,6 @@
 # ProblemViewEditPage リファクタリング - Phase 1-3 実装完了レポート
 
-**プロジェクト**: Edumint Frontend Refactoring
+**プロジェクト**: Eduanima Frontend Refactoring
 **対象機能**: 試験詳細・編集ページ (`ExamPage`)
 **実装期間**: 2026-01-02 (Phase 1-3)
 **ステータス**: ✅ **実装完了** (テスト・デバッグフェーズへ移行)

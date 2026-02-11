@@ -7,17 +7,17 @@
 #### 1. ✅ Complete Chapter Restructuring
 - **Old Structure**: Mixed sections (Chapter 3-10 had mixed content)
 - **New Structure**: Microservice-based chapters (3-13)
-  - Chapter 3: edumintAuth
-  - Chapter 4: edumintUserProfile
-  - Chapter 5: edumintContent
-  - Chapter 6: edumintFile
-  - Chapter 7: edumintSearch
-  - Chapter 8: edumintAiWorker
-  - Chapter 9: edumintSocial
-  - Chapter 10: edumintMonetizeWallet
-  - Chapter 11: edumintRevenue
-  - Chapter 12: edumintModeration
-  - Chapter 13: edumintGateway
+  - Chapter 3: eduanimaAuth
+  - Chapter 4: eduanimaUserProfile
+  - Chapter 5: eduanimaContent
+  - Chapter 6: eduanimaFile
+  - Chapter 7: eduanimaSearch
+  - Chapter 8: eduanimaAiWorker
+  - Chapter 9: eduanimaSocial
+  - Chapter 10: eduanimaMonetizeWallet
+  - Chapter 11: eduanimaRevenue
+  - Chapter 12: eduanimaModeration
+  - Chapter 13: eduanimaGateway
   - Chapter 14: イベント駆動フロー
   - Chapter 15: データベース設計ガイドライン
 
@@ -34,15 +34,15 @@
 
 #### 3. ✅ Physical Log DB Separation
 - **9 log databases** explicitly defined:
-  - edumint_auth_logs
-  - edumint_userprofile_logs
-  - edumint_content_logs
-  - edumint_file_logs
-  - edumint_search_logs
-  - edumint_wallet_logs (7-year retention)
-  - edumint_revenue_logs
-  - edumint_moderation_logs
-  - edumint_gateway_logs
+  - eduanima_auth_logs
+  - eduanima_userprofile_logs
+  - eduanima_content_logs
+  - eduanima_file_logs
+  - eduanima_search_logs
+  - eduanima_wallet_logs (7-year retention)
+  - eduanima_revenue_logs
+  - eduanima_moderation_logs
+  - eduanima_gateway_logs
 - All microservice chapters have separate sections:
   - X.1: 本体DBテーブル
   - X.2: ログテーブル (DB分離設計)
@@ -63,12 +63,12 @@
   - Now only string values: 'incorrect_answer', 'unclear_question', etc.
 
 #### 6. ✅ Special Design Decisions
-- **edumintAiWorker**: Physical DB completely removed
+- **eduanimaAiWorker**: Physical DB completely removed
   - Stateless design
   - Logs managed via ELK Stack only
-- **edumintSocial**: No separate log tables
+- **eduanimaSocial**: No separate log tables
   - Existing tables serve as activity logs
-- **edumintMonetizeWallet**: 7-year log retention
+- **eduanimaMonetizeWallet**: 7-year log retention
   - Legal requirement for financial records
 
 #### 7. ✅ Migration Content Removed
@@ -115,7 +115,7 @@
 - [x] Removed columns verified gone (only in "removed" context)
 - [x] ENUM types updated correctly
 - [x] Migration content removed
-- [x] edumintAiWorker DB-less design documented
+- [x] eduanimaAiWorker DB-less design documented
 - [x] sort_order replaces question_number/sub_number
 - [x] Composite primary keys on special tables
 - [x] 7-year retention for wallet logs

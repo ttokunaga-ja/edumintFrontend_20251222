@@ -1,7 +1,7 @@
 # アーキテクチャ・リファクタリング実行計画（Action Plan）
 
 **作成日**: 2025-12-30  
-**対象**: edumintFrontend  
+**対象**: eduanimaFrontend  
 **参照ドキュメント**: `docs/F_ARCHITECTURE.md`, `docs/G_TECH_STACK_CONSTRAINTS.md`
 
 ---

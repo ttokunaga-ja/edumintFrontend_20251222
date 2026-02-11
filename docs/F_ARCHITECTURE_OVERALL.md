@@ -1,6 +1,6 @@
-# **EduMint 最新マイクロサービスアーキテクチャ一覧**
+# **Eduanima 最新マイクロサービスアーキテクチャ一覧**
 
-このドキュメントは、EduMintの全マイクロサービスの責務、API、データ所有、イベント連携、および段階的なリリース計画を網羅した統合設計案です。SSO（学内ID連携やOAuthプロバイダ連携）は初期リリースから実装する前提で設計しています。
+このドキュメントは、Eduanimaの全マイクロサービスの責務、API、データ所有、イベント連携、および段階的なリリース計画を網羅した統合設計案です。SSO（学内ID連携やOAuthプロバイダ連携）は初期リリースから実装する前提で設計しています。
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## **1. 全体ハイレベル図（概念）**
 
-クライアント（React） ⇄ APIゲートウェイ（edumintGateway） ⇄ 各マイクロサービス（内部通信はgRPC）
+クライアント（React） ⇄ APIゲートウェイ（eduanimaGateway） ⇄ 各マイクロサービス（内部通信はgRPC）
 非同期連携は **Kafka**、ファイルは **AWS S3ストレージ**、検索は **Elasticsearch + Qdrant**、キャッシュは **Redis** を想定します。
 
 ```
@@ -39,24 +39,24 @@
 +------------------------------+
         |
         v
-[ edumintGateway (Node.js) ]   ← REST/gRPC-transcoding, 認可, キャッシュ層
+[ eduanimaGateway (Node.js) ]   ← REST/gRPC-transcoding, 認可, キャッシュ層
         |
         v
 +─────────────────────────────────────────────+
 | Go Microservices (gRPC, via Istio+Envoy)     |
 |  [ Sidecar: Envoy Proxy ]                    |
-|  - edumintAuth                               |
-|  - edumintUserProfile                        |
-|  - edumintFile                               |
-|  - edumintContent                            |
-|  - edumintAiWorker                           |
-|  - edumintSearch                             |
-|  - edumintSocial                             |
-|  - edumintNotify                             |
-|  - edumintMonetizeWallet                     |
-|  - edumintRevenue                            |
-|  - edumintModeration                         |
-|  - edumintAdmin                              |
+|  - eduanimaAuth                               |
+|  - eduanimaUserProfile                        |
+|  - eduanimaFile                               |
+|  - eduanimaContent                            |
+|  - eduanimaAiWorker                           |
+|  - eduanimaSearch                             |
+|  - eduanimaSocial                             |
+|  - eduanimaNotify                             |
+|  - eduanimaMonetizeWallet                     |
+|  - eduanimaRevenue                            |
+|  - eduanimaModeration                         |
+|  - eduanimaAdmin                              |
 +─────────────────────────────────────────────+
         |
         v
@@ -75,7 +75,7 @@
 ## **2. 共通インフラ・設計前提**
 
 *   **通信**: サービス間はgRPCを原則とし、外部クライアント向けにはAPIゲートウェイでREST/gRPC-transcodingにより変換します。
-*   **認証・認可**: `edumintAuth`（SSO/OAuth2）でトークンを発行。サービス間はmTLSまたはサービスメッシュ（例: Istio/Linkerd）で保護します。
+*   **認証・認可**: `eduanimaAuth`（SSO/OAuth2）でトークンを発行。サービス間はmTLSまたはサービスメッシュ（例: Istio/Linkerd）で保護します。
 *   **メッセージング**: Kafkaを使用します（トピック命名規約：`<domain>.<resource>.<event>`）。
 *   **ストレージ**: 各サービスが自身のデータベース（MySQL等）を持つ「Database per Service」パターンを採用します。
 *   **ログ/監視**: ELK/PLG（Prometheus+Grafana+Loki）スタックとOpenTelemetryによるトレーシングを導入します。
@@ -98,7 +98,7 @@
     *   **MonetizationUI**: MintCoin残高や収益の表示UI。
     *   **AdminUI**: 管理者向けダッシュボード。
 
-#### **3.1.2. edumintGateway (Node.js)**
+#### **3.1.2. eduanimaGateway (Node.js)**
 
 *   **役割**: すべての外部クライアントからのリクエストを受け付ける単一の窓口。フロントエンドとバックエンドGoサービス群の橋渡し役として、セキュリティ、監視、リクエスト制御を集約します。また、**全てのジョブのライフサイクル管理（ジョブオーケストレーション）**を担当します。
 *   **主な機能モジュール**:
@@ -115,22 +115,22 @@
 
 ### **3.2. バックエンド・コアサービス群 (Go)**
 
-#### **A. edumintAuth (必須：SSOを初期実装)**
+#### **A. eduanimaAuth (必須：SSOを初期実装)**
 
 *   **責務**: SSO / OAuth2 / OpenID Connectの実装とJWTの発行・検証。外部IdP（Google, Microsoft）とのフェデレーションを担う認証の中核です。
 *   **gRPC API (例)**: `Authenticate`, `IntrospectToken`
 *   **DB (例)**: `oauth_clients`, `oauth_tokens`, `idp_links`
 *   **Kafka**: `auth.events`（`UserLoggedIn`, `UserSignedUpViaSSO`）をPublishします。
 
-#### **B. edumintUserProfile**
+#### **B. eduanimaUserProfile**
 
 *   **責務**: ユーザーのプロフィール情報（表示名、大学、自己紹介など）、ソーシャルグラフ（フォロー・ブロック）、通知設定などを管理します。
 *   **gRPC API (例)**: `GetProfile`, `UpdateProfile`, `Follow`
 *   **DB (例)**: `users`, `user_profiles`, `user_follows`
 *   **Kafka**: `user.events`（`UserCreated`, `UserUpdated`）をPublishします。
-*   **備考**: パスワードなどの認証情報は保持せず、`edumintAuth`を信頼の起点とします。
+*   **備考**: パスワードなどの認証情報は保持せず、`eduanimaAuth`を信頼の起点とします。
 
-#### **C. edumintFile**
+#### **C. eduanimaFile**
 
 *   **責務**: ファイルアップロードの受付、S3への署名付きURL生成、ウィルススキャンなどの初期パイプラインを提供します。
 *   **gRPC API (例)**: `CreateUploadJob`, `NotifyUploadComplete`
@@ -138,33 +138,33 @@
 *   **Kafka**: `content.jobs`（`FileUploaded`）をPublishします。
 *   **備考**: 大きなバイナリ転送はクライアントからS3へ直接行わせることで、ゲートウェイやサービスの負荷を軽減します。
 
-#### **D. edumintContent**
+#### **D. eduanimaContent**
 
 *   **責務**: 演習問題や講義資料のメタデータ、構造化された問題文・解答などを保持する「信頼できる唯一の情報源（Source of Truth）」です。ジョブ管理は行わず、Kafkaイベントを購読してドメインロジックを実行します。
 *   **gRPC API (例)**: `CreateExam`, `GetExam`, `UpdateExam`, `PublishExam`
 *   **DB (例)**: `exams`, `questions`, `sub_questions`, `keywords`, `exam_stats`, `exam_metadata`
 *   **Kafka**: `gateway.jobs`をSubscribeして試験作成イベントに反応し、`content.lifecycle`（`ExamCreated`, `ExamUpdated`, `ExamDeleted`, `ExamCompleted`）をPublishします。また、`ai.results`をSubscribeしてAI処理結果を反映します。
 *   **備考**: 
-    *   ジョブ管理テーブル（`exam_creation_jobs`, `extraction_jobs`, `outbox`等）は削除され、edumintGatewayに移行しました。
+    *   ジョブ管理テーブル（`exam_creation_jobs`, `extraction_jobs`, `outbox`等）は削除され、eduanimaGatewayに移行しました。
     *   コンテンツの構造は厳格なスキーマで管理します。
-    *   edumintContentは「試験データの正データを管理するサービス」であり、ジョブのオーケストレーションはedumintGatewayが担当します。
+    *   eduanimaContentは「試験データの正データを管理するサービス」であり、ジョブのオーケストレーションはeduanimaGatewayが担当します。
 
-#### **E. edumintAiWorker**
+#### **E. eduanimaAiWorker**
 
 *   **責務**: Gemini APIの呼び出し、OCRによる文字抽出、問題構造のJSON化、新規問題生成といった、時間のかかる非同期処理を担当するワーカーです。
 *   **動作**: Kafkaの`content.jobs`を購読し、処理が完了したら`ai.results`トピックに結果（`AIProcessingCompleted` or `AIProcessingFailed`）をPublishします。
 *   **DB**: 原則としてステートレスですが、必要に応じてジョブのログやメトリクスを保持します。
 *   **備考**: 各ジョブは冪等（べきとう）に設計し、重複実行されても問題ないようにします。
 
-#### **F. edumintSearch**
+#### **F. eduanimaSearch**
 
 *   **責務**: キーワード検索（Elasticsearch）とベクトル検索（Qdrant）を組み合わせたハイブリッド検索基盤を提供します。検索インデックスの所有者です。
 *   **gRPC API (例)**: `Search(query, filters, ranking_profile)`
-*   **データ**: ElasticsearchとQdrantのインデックス。元のデータは`edumintContent`が保持します。
+*   **データ**: ElasticsearchとQdrantのインデックス。元のデータは`eduanimaContent`が保持します。
 *   **Kafka**: `content.lifecycle`や`content.feedback`を購読し、インデックスを最新の状態に保ちます。
 *   **備考**: ランキングロジックは設定ベースで切り替え可能にし、A/Bテストを容易にします。
 
-#### **G. edumintSocial**
+#### **G. eduanimaSocial**
 
 *   **責務**: コメント、いいね、閲覧履歴など、SNS的なユーザーアクションを専門に扱います。高頻度の書き込みを想定し、他のサービスから分離して独立してスケールさせます。
 *   **gRPC API (例)**: `AddComment`, `LikeExam`, `RecordView`
@@ -172,7 +172,7 @@
 *   **Kafka**: `content.feedback`（`ExamLiked`, `ExamViewed`）をPublishし、検索や通知サービスが利用できるようにします。
 *   **備考**: 高頻度の書き込みに対応するため、CQRSパターンの導入を検討します。
 
-#### **H. edumintNotify**
+#### **H. eduanimaNotify**
 
 *   **責務**: サイト内通知、メール、プッシュ通知などを統合的に配信します。ユーザーの通知設定に応じて適切なチャネルを選択します。
 *   **動作**: Kafkaの様々なイベント（`ai.results`, `content.feedback`など）を購読し、通知をトリガーします。
@@ -180,7 +180,7 @@
 *   **外部連携**: SendGrid, Amazon SES, Firebase Cloud Messaging (FCM) など。
 *   **備考**: 即時性が求められる通知と、まとめて配信するバッチ通知を使い分けます。
 
-#### **I. edumintMonetizeWallet**
+#### **I. eduanimaMonetizeWallet**
 
 *   **責務**: プラットフォーム内通貨「MintCoin」の残高管理と取引記録を、トランザクショナルに、かつアトミックに実行します。
 *   **gRPC API (例)**: `RecordAdView`, `SpendCoins`, `GetBalance`
@@ -188,7 +188,7 @@
 *   **Kafka**: `monetization.transactions`（監査用）をPublishします。
 *   **備考**: データの整合性を最優先で設計します。
 
-#### **J. edumintRevenue**
+#### **J. eduanimaRevenue**
 
 *   **責務**: 月次の収益分配計算、広告収益の集計、会計レポートの生成、外部への支払い連携など、バッチ処理を中心とした収益管理を担当します。
 *   **gRPC API (例)**: `RunMonthlyRevenueShare`, `GetRevenueReport`
@@ -196,7 +196,7 @@
 *   **Kafka**: `monetization.transactions`などを購読し、計算のインプットとします。
 *   **備考**: ウォレットサービスとは明確に分離し、監査可能性を確保します。
 
-#### **K. edumintModeration**
+#### **K. eduanimaModeration**
 
 *   **責務**: ユーザーからの通報受付、管理者による対応ワークフロー、コンテンツへのアクション（非表示化など）を実行します。
 *   **gRPC API (例)**: `CreateReport`, `ListReports`, `TakeAction`
@@ -204,10 +204,10 @@
 *   **Kafka**: `moderation.events`（`ContentActionTaken`）をPublishします。
 *   **備考**: 将来的な機械学習による自動モデレーション機能の拡張ポイントとなります。
 
-#### **L. edumintAdmin**
+#### **L. eduanimaAdmin**
 
 *   **責務**: 管理者向けダッシュボード（AdminUI）のための統合APIを提供します。ユーザー管理、コンテンツ監視、サービス統計の可視化など、各サービスの管理機能を束ねます。
-*   **備考**: `edumintAuth`が提供する管理者ロールによってアクセスを厳格に制御します。
+*   **備考**: `eduanimaAuth`が提供する管理者ロールによってアクセスを厳格に制御します。
 
 ---
 
@@ -215,39 +215,39 @@
 
 | トピック | Producer | Consumer | イベント |
 |---------|----------|----------|---------|
-| `auth.events` | edumintAuth | 各サービス | `UserLoggedIn`, `UserSignedUpViaSSO` |
-| `gateway.jobs` | edumintGateway | edumintContent, edumintFile, edumintSearch | `job.created` |
-| `content.jobs` | edumintFile | edumintContent | `FileUploaded` |
-| `content.lifecycle` | edumintContent | edumintGateway, edumintSearch, edumintAiWorker | `ExamCreated`, `ExamUpdated`, `ExamDeleted`, `ExamCompleted` |
-| `ai.results` | edumintAiWorker | edumintContent | `AIProcessingCompleted`, `AIProcessingFailed` |
-| `gateway.job_status` | 各ドメインサービス | edumintGateway | `job_completed`, `job_failed` |
-| `content.feedback` | edumintSocial | edumintSearch, edumintNotify | `ExamLiked`, `ExamViewed` |
-| `user.events` | edumintUserProfile | 各サービス | `UserCreated`, `UserUpdated` |
-| `moderation.events` | edumintModeration | 各サービス | `ContentActionTaken` |
-| `monetization.transactions` | edumintMonetizeWallet | edumintRevenue | `CoinAwarded`, `CoinSpent` |
+| `auth.events` | eduanimaAuth | 各サービス | `UserLoggedIn`, `UserSignedUpViaSSO` |
+| `gateway.jobs` | eduanimaGateway | eduanimaContent, eduanimaFile, eduanimaSearch | `job.created` |
+| `content.jobs` | eduanimaFile | eduanimaContent | `FileUploaded` |
+| `content.lifecycle` | eduanimaContent | eduanimaGateway, eduanimaSearch, eduanimaAiWorker | `ExamCreated`, `ExamUpdated`, `ExamDeleted`, `ExamCompleted` |
+| `ai.results` | eduanimaAiWorker | eduanimaContent | `AIProcessingCompleted`, `AIProcessingFailed` |
+| `gateway.job_status` | 各ドメインサービス | eduanimaGateway | `job_completed`, `job_failed` |
+| `content.feedback` | eduanimaSocial | eduanimaSearch, eduanimaNotify | `ExamLiked`, `ExamViewed` |
+| `user.events` | eduanimaUserProfile | 各サービス | `UserCreated`, `UserUpdated` |
+| `moderation.events` | eduanimaModeration | 各サービス | `ContentActionTaken` |
+| `monetization.transactions` | eduanimaMonetizeWallet | eduanimaRevenue | `CoinAwarded`, `CoinSpent` |
 
 ---
 
 ## **5. データ所有と整合性ルール**
 
-*   **単一オーナーシップ**: 各データ（例: `exams`テーブル）は、単一のサービス（例: `edumintContent`）のみが書き込み権限を持つことを原則とします。
+*   **単一オーナーシップ**: 各データ（例: `exams`テーブル）は、単一のサービス（例: `eduanimaContent`）のみが書き込み権限を持つことを原則とします。
 *   **参照方式**: 他サービスはAPI呼び出しかイベント購読を通じてデータを参照し、安易にデータを複製しません。
 *   **最終整合性**: サービス間のデータ同期はKafkaを介したイベント駆動で行い、結果整合性（Eventual Consistency）を基本とします。
 *   **強整合性**: ウォレットの残高更新など、即時性と正確性が求められる処理は、データベースのトランザクション内で完結させ、強整合性を保証します。
 
 ### ジョブ管理の責務分離（重要な設計原則）
 
-**edumintGateway がジョブ管理を集約する理由:**
+**eduanimaGateway がジョブ管理を集約する理由:**
 
 | 設計原則 | 説明 | メリット |
 |---------|------|---------|
-| **Single Responsibility Principle** | edumintGateway = ジョブオーケストレーション<br>edumintContent = 試験データのドメインロジック | ジョブシステムの変更がドメインサービスに影響しない |
+| **Single Responsibility Principle** | eduanimaGateway = ジョブオーケストレーション<br>eduanimaContent = 試験データのドメインロジック | ジョブシステムの変更がドメインサービスに影響しない |
 | **将来の拡張性** | 汎用ジョブテーブルで全てのジョブタイプを統一管理 | 新しいジョブタイプの追加が容易（車輪の再発明を防ぐ） |
-| **CQRS + Event Sourcing 整合性** | Command: edumintGateway（ジョブ作成）<br>Query: edumintContent（正データ管理） | イベント駆動アーキテクチャとの自然な整合 |
+| **CQRS + Event Sourcing 整合性** | Command: eduanimaGateway（ジョブ作成）<br>Query: eduanimaContent（正データ管理） | イベント駆動アーキテクチャとの自然な整合 |
 | **スケーラビリティ** | ジョブ管理とドメインロジックを独立してスケール可能 | 高負荷時に柔軟な対応が可能 |
 | **テスタビリティ** | ドメインサービスのテストでジョブ管理のモックが不要 | テストがシンプルで保守しやすい |
 
-**edumintContent の新しい責務:**
+**eduanimaContent の新しい責務:**
 
 ```go
 // ✅ イベント駆動アーキテクチャ
@@ -286,17 +286,17 @@ func (uc *ExamUseCase) OnJobCreated(ctx context.Context, event JobCreatedEvent) 
 
 ```
 [成功ケース]
-  1. edumintGateway: jobs.status='pending'
-  2. edumintContent: exams 作成成功 → content.exam_created
-  3. edumintGateway: jobs.status='processing', resource_id=exam_id
-  4. edumintAiWorker: AI処理成功 → ai.processing_completed
-  5. edumintContent: questions 作成成功 → content.exam_completed
-  6. edumintGateway: jobs.status='completed'
+  1. eduanimaGateway: jobs.status='pending'
+  2. eduanimaContent: exams 作成成功 → content.exam_created
+  3. eduanimaGateway: jobs.status='processing', resource_id=exam_id
+  4. eduanimaAiWorker: AI処理成功 → ai.processing_completed
+  5. eduanimaContent: questions 作成成功 → content.exam_completed
+  6. eduanimaGateway: jobs.status='completed'
 
 [失敗ケース]
-  1. edumintGateway: jobs.status='pending'
-  2. edumintContent: exams 作成失敗 → content.exam_failed
-  3. edumintGateway: jobs.status='failed', error_message設定
+  1. eduanimaGateway: jobs.status='pending'
+  2. eduanimaContent: exams 作成失敗 → content.exam_failed
+  3. eduanimaGateway: jobs.status='failed', error_message設定
   → クライアントは GET /v1/jobs/:id で "failed" を確認
 ```
 
@@ -316,10 +316,10 @@ func (uc *ExamUseCase) OnJobCreated(ctx context.Context, event JobCreatedEvent) 
 
 *   **コンテナ & オーケストレーション**: DockerとKubernetesを標準とし、各サービスを独立してデプロイ・スケーリングします。
 *   **リソース設計**:
-    *   **高スループットが求められるサービス**: `edumintSearch`, `edumintAiWorker`, `edumintSocial`
-    *   **高整合性が求められるサービス**: `edumintMonetizeWallet`
+    *   **高スループットが求められるサービス**: `eduanimaSearch`, `eduanimaAiWorker`, `eduanimaSocial`
+    *   **高整合性が求められるサービス**: `eduanimaMonetizeWallet`
 *   **可用性**: 全てのサービスとデータベースは複数のアベイラビリティゾーン（AZ）にまたがってデプロイし、単一障害点をなくします。
-*   **SLA設計**: ユーザー認証（`edumintAuth`）やコンテンツ閲覧（`edumintContent`）など、ユーザー体験に直結するサービスは高いSLAを設定します。AI処理などの非同期ジョブはベストエフォートとします。
+*   **SLA設計**: ユーザー認証（`eduanimaAuth`）やコンテンツ閲覧（`eduanimaContent`）など、ユーザー体験に直結するサービスは高いSLAを設定します。AI処理などの非同期ジョブはベストエフォートとします。
 
 ---
 
@@ -329,17 +329,17 @@ func (uc *ExamUseCase) OnJobCreated(ctx context.Context, event JobCreatedEvent) 
 
 *   **目的**: 過去問アップロードからAIによる問題生成・閲覧・検索まで、中核となるユーザー体験を最小限の機能で実現する。
 *   **実装範囲**:
-    *   **必須サービス**: `FrontendUI`, `edumintGateway`, `edumintAuth` (SSO含む), `edumintUserProfile`, `edumintFile`, `edumintContent`, `edumintAiWorker`, `edumintSearch`
+    *   **必須サービス**: `FrontendUI`, `eduanimaGateway`, `eduanimaAuth` (SSO含む), `eduanimaUserProfile`, `eduanimaFile`, `eduanimaContent`, `eduanimaAiWorker`, `eduanimaSearch`
     *   **主な機能**: ファイルアップロード、AIによる問題抽出・生成、キーワード＆ベクトル検索、SSOを含むユーザー認証。
-*   **除外範囲**: `edumintMonetizeWallet`, `edumintRevenue`, `edumintSocial`, `edumintModeration`,  `edumintNotify` （通知、広告・収益化、SNS機能、高度な管理機能は含めない）。
+*   **除外範囲**: `eduanimaMonetizeWallet`, `eduanimaRevenue`, `eduanimaSocial`, `eduanimaModeration`,  `eduanimaNotify` （通知、広告・収益化、SNS機能、高度な管理機能は含めない）。
 
 ### **Phase 2: 製品版**
 
 *   **目的**: 収益化モデルを確立し、ユーザーの継続利用を促すコミュニティ機能を導入する。
 *   **追加実装範囲**:
-    *   **導入サービス**: `edumintMonetizeWallet`, `edumintRevenue`, `edumintSocial`, `edumintModeration`
+    *   **導入サービス**: `eduanimaMonetizeWallet`, `eduanimaRevenue`, `eduanimaSocial`, `eduanimaModeration`
     *   **主な機能**: 広告表示、MintCoinの付与と消費、収益分配バッチ、いいね・コメント機能、通報管理ダッシュボード。
-    *   **機能強化**: `edumintGateway`にキャッシュ/トレーシングを追加。
+    *   **機能強化**: `eduanimaGateway`にキャッシュ/トレーシングを追加。
 
 ### **Phase 3: 拡張版**
 

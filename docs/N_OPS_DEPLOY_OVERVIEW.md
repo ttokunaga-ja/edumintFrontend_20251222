@@ -7,5 +7,5 @@
 - 監視/ログ: フロントは Sentry（導入後）と構造化コンソールログ（devのみ）。デプロイ後は Lighthouse/Synthetics で TTI をモニタリング。
 
 ## Sources
-- `../architecture/edumint_architecture.md`
+- `../architecture/eduanima_architecture.md`
 - `../services/search-service/operational-readiness.md`（運用観点の参考）

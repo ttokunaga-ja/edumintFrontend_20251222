@@ -1,4 +1,4 @@
-# Edumint Frontend Docker Guide
+# Eduanima Frontend Docker Guide
 
 ## Prerequisites
 - Docker Desktop running with WSL2 integration enabled (if on Windows)

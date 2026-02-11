@@ -47,4 +47,4 @@
 ## Sources
 - `C_5_LoginRegisterPage_REQUIREMENTS.md`
 - `../overview/requirements.md`, `../overview/use-cases.md`
-- `../architecture/edumint_architecture.md`（OIDC/PKCE 前提）
+- `../architecture/eduanima_architecture.md`（OIDC/PKCE 前提）
