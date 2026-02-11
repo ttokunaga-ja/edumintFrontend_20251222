@@ -5851,6 +5851,139 @@ func (s *AILoggerService) LogJobError(ctx context.Context, jobID uuid.UUID, err 
 
 ---
 
+## **10. EduanimaModeration (通報管理)**
+
+**Phase: 1 (MVP - 2026 Q2-Q3)**
+
+### 設計変更点（v7.0.0）
+
+- content_report_reason_enumのID番号削除（文字列のみ）
+- content_report_reasons, user_report_reasonsテーブル削除（ENUM型に統合）
+- 全テーブルの主キーをUUIDに変更
+- ログテーブルを物理DB分離
+
+### 11.1 本体DBテーブル (DDL例)
+
+#### **content_reports**
+
+**Phase: 1 (MVP)**
+
+コンテンツ通報情報を管理します。
+
+```sql
+CREATE TABLE content_reports (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  reporter_user_id UUID NOT NULL,  -- users.idを参照（論理的）
+  reported_entity_type reportable_entity_type_enum NOT NULL,  -- v7.4.1: ENUM型適用
+  reported_entity_id UUID NOT NULL,
+  reason content_report_reason_enum NOT NULL,
+  description TEXT,
+  status report_status_enum DEFAULT 'pending',
+  assigned_moderator_id UUID,  -- users.id (管理者)を参照（論理的）
+  resolution TEXT,
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_content_reports_public_id ON content_reports(public_id);
+CREATE INDEX idx_content_reports_reporter ON content_reports(reporter_user_id);
+CREATE INDEX idx_content_reports_entity ON content_reports(reported_entity_type, reported_entity_id);
+CREATE INDEX idx_content_reports_status ON content_reports(status, created_at);
+CREATE INDEX idx_content_reports_moderator ON content_reports(assigned_moderator_id, status);
+```
+
+**設計注記:**
+- content_report_reasonsテーブルは削除、ENUM型で管理
+- ENUMから番号ID（1, 2, 3...）を削除、文字列のみ使用
+- **v7.4.1**: reported_entity_type を reportable_entity_type_enum に変更
+
+#### **user_reports**
+
+**Phase: 1 (MVP)**
+
+ユーザー通報情報を管理します。
+
+```sql
+CREATE TABLE user_reports (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
+  reporter_user_id UUID NOT NULL,  -- users.idを参照（論理的）
+  reported_user_id UUID NOT NULL,  -- users.idを参照（論理的）
+  reason user_report_reason_enum NOT NULL,  -- v7.4.1: ENUM型適用
+  description TEXT,
+  status report_status_enum DEFAULT 'pending',
+  assigned_moderator_id UUID,
+  resolution TEXT,
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  CHECK (reporter_user_id != reported_user_id)
+);
+
+CREATE INDEX idx_user_reports_public_id ON user_reports(public_id);
+CREATE INDEX idx_user_reports_reporter ON user_reports(reporter_user_id);
+CREATE INDEX idx_user_reports_reported ON user_reports(reported_user_id);
+CREATE INDEX idx_user_reports_status ON user_reports(status, created_at);
+CREATE INDEX idx_user_reports_moderator ON user_reports(assigned_moderator_id, status);
+```
+
+#### **report_files**
+
+通報に添付されたファイル情報を管理します。
+
+```sql
+CREATE TABLE report_files (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  report_type report_category_enum NOT NULL,  -- v7.4.1: ENUM型適用
+  report_id UUID NOT NULL,
+  file_url VARCHAR(512) NOT NULL,
+  file_type VARCHAR(50),
+  file_size_bytes BIGINT,
+  uploaded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_report_files_report ON report_files(report_type, report_id);
+```
+
+### 11.2 ログテーブル (DB分離設計)
+
+**物理DB:** `Eduanima_moderation_logs`
+
+#### **moderation_logs**
+
+モデレーション操作履歴を記録します。
+
+```sql
+CREATE TABLE moderation_logs (
+  id UUID PRIMARY KEY DEFAULT uuidv7(),
+  report_type VARCHAR(50) NOT NULL,  -- 'content_report', 'user_report'
+  report_id UUID NOT NULL,
+  moderator_user_id UUID NOT NULL,
+  action VARCHAR(50) NOT NULL,  -- 'assign', 'investigate', 'resolve', 'ignore', 'escalate'
+  previous_status report_status_enum,
+  new_status report_status_enum,
+  notes TEXT,
+  metadata JSONB,
+  ip_address INET,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+) PARTITION BY RANGE (created_at);
+
+CREATE INDEX idx_moderation_logs_report ON moderation_logs(report_type, report_id, created_at);
+CREATE INDEX idx_moderation_logs_moderator ON moderation_logs(moderator_user_id, created_at);
+CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
+```
+
+**設計注記:**
+- モデレーション操作の完全な監査証跡
+- 管理者の行動を追跡
+- 本体DBと分離して検索パフォーマンス確保
+
+---
+
+
+
 ## **11. EduanimaSocial (ソーシャル機能)**
 
 **Phase: 2 (SNS拡張 - 2026 Q4-2027 Q1) / Phase 3 (フルSNS化 - 2027 Q2-Q3)**
@@ -6940,139 +7073,6 @@ CREATE INDEX idx_revenue_logs_action ON revenue_logs(action, created_at);
 - 本体DBと分離してパフォーマンス確保
 
 ---
-
-## **10. EduanimaModeration (通報管理)**
-
-**Phase: 1 (MVP - 2026 Q2-Q3)**
-
-### 設計変更点（v7.0.0）
-
-- content_report_reason_enumのID番号削除（文字列のみ）
-- content_report_reasons, user_report_reasonsテーブル削除（ENUM型に統合）
-- 全テーブルの主キーをUUIDに変更
-- ログテーブルを物理DB分離
-
-### 11.1 本体DBテーブル (DDL例)
-
-#### **content_reports**
-
-**Phase: 1 (MVP)**
-
-コンテンツ通報情報を管理します。
-
-```sql
-CREATE TABLE content_reports (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  reporter_user_id UUID NOT NULL,  -- users.idを参照（論理的）
-  reported_entity_type reportable_entity_type_enum NOT NULL,  -- v7.4.1: ENUM型適用
-  reported_entity_id UUID NOT NULL,
-  reason content_report_reason_enum NOT NULL,
-  description TEXT,
-  status report_status_enum DEFAULT 'pending',
-  assigned_moderator_id UUID,  -- users.id (管理者)を参照（論理的）
-  resolution TEXT,
-  resolved_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_content_reports_public_id ON content_reports(public_id);
-CREATE INDEX idx_content_reports_reporter ON content_reports(reporter_user_id);
-CREATE INDEX idx_content_reports_entity ON content_reports(reported_entity_type, reported_entity_id);
-CREATE INDEX idx_content_reports_status ON content_reports(status, created_at);
-CREATE INDEX idx_content_reports_moderator ON content_reports(assigned_moderator_id, status);
-```
-
-**設計注記:**
-- content_report_reasonsテーブルは削除、ENUM型で管理
-- ENUMから番号ID（1, 2, 3...）を削除、文字列のみ使用
-- **v7.4.1**: reported_entity_type を reportable_entity_type_enum に変更
-
-#### **user_reports**
-
-**Phase: 1 (MVP)**
-
-ユーザー通報情報を管理します。
-
-```sql
-CREATE TABLE user_reports (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  public_id VARCHAR(16) NOT NULL UNIQUE,  -- NanoID
-  reporter_user_id UUID NOT NULL,  -- users.idを参照（論理的）
-  reported_user_id UUID NOT NULL,  -- users.idを参照（論理的）
-  reason user_report_reason_enum NOT NULL,  -- v7.4.1: ENUM型適用
-  description TEXT,
-  status report_status_enum DEFAULT 'pending',
-  assigned_moderator_id UUID,
-  resolution TEXT,
-  resolved_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  CHECK (reporter_user_id != reported_user_id)
-);
-
-CREATE INDEX idx_user_reports_public_id ON user_reports(public_id);
-CREATE INDEX idx_user_reports_reporter ON user_reports(reporter_user_id);
-CREATE INDEX idx_user_reports_reported ON user_reports(reported_user_id);
-CREATE INDEX idx_user_reports_status ON user_reports(status, created_at);
-CREATE INDEX idx_user_reports_moderator ON user_reports(assigned_moderator_id, status);
-```
-
-#### **report_files**
-
-通報に添付されたファイル情報を管理します。
-
-```sql
-CREATE TABLE report_files (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  report_type report_category_enum NOT NULL,  -- v7.4.1: ENUM型適用
-  report_id UUID NOT NULL,
-  file_url VARCHAR(512) NOT NULL,
-  file_type VARCHAR(50),
-  file_size_bytes BIGINT,
-  uploaded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_report_files_report ON report_files(report_type, report_id);
-```
-
-### 11.2 ログテーブル (DB分離設計)
-
-**物理DB:** `Eduanima_moderation_logs`
-
-#### **moderation_logs**
-
-モデレーション操作履歴を記録します。
-
-```sql
-CREATE TABLE moderation_logs (
-  id UUID PRIMARY KEY DEFAULT uuidv7(),
-  report_type VARCHAR(50) NOT NULL,  -- 'content_report', 'user_report'
-  report_id UUID NOT NULL,
-  moderator_user_id UUID NOT NULL,
-  action VARCHAR(50) NOT NULL,  -- 'assign', 'investigate', 'resolve', 'ignore', 'escalate'
-  previous_status report_status_enum,
-  new_status report_status_enum,
-  notes TEXT,
-  metadata JSONB,
-  ip_address INET,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-) PARTITION BY RANGE (created_at);
-
-CREATE INDEX idx_moderation_logs_report ON moderation_logs(report_type, report_id, created_at);
-CREATE INDEX idx_moderation_logs_moderator ON moderation_logs(moderator_user_id, created_at);
-CREATE INDEX idx_moderation_logs_action ON moderation_logs(action, created_at);
-```
-
-**設計注記:**
-- モデレーション操作の完全な監査証跡
-- 管理者の行動を追跡
-- 本体DBと分離して検索パフォーマンス確保
-
----
-
-
 
 ## **17. Debezium CDC レプリケーション設計**
 
@@ -13757,7 +13757,7 @@ func (s *ContentService) VerifyUnlockToken(ctx context.Context, req VerifyUnlock
 - **広告視聴完了通知**: 1分に5回まで
 
 ```go
-// Redis実装（section 5.6参照）
+// Redis実装（section 6.6参照）
 func (s *RateLimitService) CheckLimit(ctx context.Context, key string, limit int64, window time.Duration) error {
     allowed, err := s.cache.CheckRateLimit(ctx, key, limit, window)
     if err != nil {
@@ -15231,8 +15231,8 @@ function handleOAuthLogin(provider: 'google' | 'apple' | 'meta' | 'microsoft') {
 ---
 
 **関連セクション:**
-- [4. EduanimaUsers(統合ユーザー管理サービス)](#4-Eduanimausers-統合ユーザー管理サービス)
-- [22.10 認証サービス実装(v7.5.0)](#2210-認証サービス実装v750)
+- [5. EduanimaUsers(ユーザー管理)](#5-eduanimausers-ユーザー管理)
+- [25.10 認証サービス実装(v7.5.0)](#2510-認証サービス実装v750)
 
 **変更履歴:**
 - v7.5.0: 本方針を正式採用、ドキュメント化
@@ -15564,7 +15564,7 @@ AI: [テストケース生成]
      - スキップロジック実装のための基礎データ
      - 段階別完了フラグ（question_view, answer_explanation, download）
    - `ad_viewing_history` テーブル削除（統合により）
-   - 広告スキップロジックの実装例追加（セクション22.4）
+   - 広告スキップロジックの実装例追加（セクション25.4）
 
 3. **国際化対応強化**
    - 対象テーブル: `institutions`, `faculties`, `departments`, `teachers`, `subjects`, `keywords`
@@ -15577,7 +15577,7 @@ AI: [テストケース生成]
    - 削除カラム: `name_sub1`, `name_sub2`, `name_sub3`
    - データ移行スクリプトの追加（Atlas HCL定義更新）
 
-4. **閲覧履歴・評価・コメント絞り込みの負荷分析（セクション5.4）**
+4. **閲覧履歴・評価・コメント絞り込みの負荷分析（セクション6.4）**
    - 想定クエリパターンの追加
    - インデックス最適化:
      - `idx_exam_interaction_events_user_type_time` 複合インデックス追加
@@ -15589,7 +15589,7 @@ AI: [テストケース生成]
      - 中期: キャッシュ層（Redis/Memcached）導入
      - 長期: パーティション分割、分散データベース移行検討
 
-5. **Atlas HCL・sqlc・Goコード更新（セクション18.3.1, 22.4, 22.5）**
+5. **Atlas HCL・sqlc・Goコード更新（セクション21.3.1, 25.4, 25.5）**
    - `institutions` テーブルのAtlas HCL定義を更新（国際化対応）
    - 国際化対応の sqlc クエリ例を追加
      - `GetInstitutionByID`, `ListInstitutionsByCountry`, `SearchInstitutionsByName`
