@@ -1,8 +1,18 @@
-# **Eduanima 統合データモデル設計書 v8.7.0**
+# **Eduanima 統合データモデル設計書 v8.8.0**
 
 本ドキュメントは、Eduanimaのマイクロサービスアーキテクチャに基づいた、統合されたデータモデル設計です。各テーブルの所有サービス、責務、外部API非依存の自己完結型データ管理を定義します。
 
 **最終更新日: 2026-02-11**
+
+**v8.8.0 主要更新:**
+- **Phase別リリース戦略セクションを追加**: セクション2.5として詳細なPhase別リリース計画を明記
+- **全テーブル定義にPhase情報を明記**: MVP (Phase 1)、SNS拡張 (Phase 2)、収益化 (Phase 3)、AI拡張 (Phase 4)
+- **MVP完全無料方針の明確化**: Phase 1では広告なし・ポイントなし・収益化なしの完全無料運営
+- **Phase 2広告導入戦略**: 広告配信開始、ポイント付与システム導入
+- **Phase 3/4柔軟な展開計画**: 収益化/AI拡張の順序を法務・技術状況により柔軟に変更可能
+- **収益化プログラム設計**: 固定レート (1pt=1円)、YouTube方式基準を追加
+- **Feature Flag戦略**: Phase別機能制御の実装方針を明記
+- **マイグレーション戦略**: Phase 1で全テーブル定義、Feature Flagでアプリケーション層制御
 
 **v8.7.0 主要更新:**
 - **Phase構成見直し**: EduanimaSocialをPhase 2 → Phase 3へ移行、段階的SNS拡張戦略の明確化
@@ -976,6 +986,322 @@ Eduanimaプロジェクトでは、以下のツール・ライブラリの使用
 
 ---
 
+## **2.5 Phase別リリース戦略とマイクロサービス展開計画**
+
+### **2.5.1 基本方針**
+
+```yaml
+設計原則:
+  - 全テーブルのDDL定義は最初から維持する
+  - Phase 1では使用しないテーブルも「未使用(Reserved)」として定義
+  - マイグレーション管理の一貫性を保つため、全スキーマを事前定義
+  - Feature Flagでテーブル使用を制御
+
+リリース戦略:
+  - MVP完全無料: 広告なし・ポイントなし・収益化なし
+  - Phase 2でマネタイズ基盤: 広告表示・ポイント付与
+  - Phase 3/4で収益化/AI拡張: 順序は法務・技術状況により柔軟に変更
+```
+
+### **2.5.2 Phase 1 (MVP) - 2026 Q2-Q3**
+
+#### **目標**
+試験共有プラットフォームとしての基本機能提供
+
+#### **実装サービス(7個)**
+```
+1. EduanimaGateways      - ジョブゲートウェイ
+2. EduanimaUsers         - 統合ユーザー管理(OAuth認証)
+3. EduanimaFiles         - ファイルストレージ管理
+4. EduanimaAiWorker      - AI処理(OCR・分類)
+5. EduanimaContents      - コンテンツ管理
+6. EduanimaSearch        - 検索機能
+7. EduanimaModeration    - 通報管理
+```
+
+#### **使用するテーブル**
+```yaml
+EduanimaUsers (本体):
+  ✅ oauth_clients
+  ✅ oauth_tokens
+  ✅ idp_links
+  ✅ users
+  ✅ user_profiles
+  ✅ user_follows
+  ✅ user_blocks
+  ✅ notifications
+
+EduanimaContents (本体):
+  ✅ institutions
+  ✅ faculties
+  ✅ departments
+  ✅ teachers
+  ✅ subjects
+  ✅ exams
+  ✅ questions
+  ✅ sub_questions
+  ✅ keywords
+  ✅ exam_keywords
+  ✅ exam_statistics
+  ✅ exam_interaction_events
+  ❌ ad_display_events (Phase 2)
+  ❌ ad_viewing_progress (Phase 2)
+  ❌ ad_delivery_config (Phase 2)
+  ❌ user_ad_exemptions (Phase 2)
+  ❌ content_unlock_tokens (Phase 2)
+
+EduanimaContents (検索用):
+  ✅ exams_search
+  ✅ questions_search
+
+EduanimaContents (マスター):
+  ✅ master_ocr_contents
+  ✅ master_submitted_texts
+
+EduanimaFiles:
+  ✅ file_metadata
+  ✅ file_migration_logs
+  ✅ copyright_claims
+  ✅ file_audit_logs
+  ✅ storage_class_transitions
+
+EduanimaSearch:
+  ✅ search_queries
+  ✅ search_cache
+
+EduanimaModeration:
+  ✅ content_reports
+  ✅ user_reports
+  ✅ report_files
+
+EduanimaGateways:
+  ✅ jobs
+  ✅ job_events
+```
+
+#### **機能範囲**
+```
+✅ OAuth認証(Google/Meta/Apple)
+✅ 試験PDF/画像アップロード
+✅ OCR処理・自動分類
+✅ 試験検索・閲覧(全コンテンツ無料開放)
+✅ 基本的なコメント機能
+✅ 通報・著作権侵害対応
+❌ 広告表示
+❌ ポイントシステム
+❌ 収益化
+❌ SNS機能(フォロー以外)
+```
+
+### **2.5.3 Phase 2 (SNS拡張・マネタイズ基盤) - 2026 Q4-2027 Q1**
+
+#### **目標**
+コミュニティ活性化と広告収益モデルの確立
+
+#### **追加サービス(4個)**
+```
+8. EduanimaSocial        - SNS機能(投稿・DM・ストーリー)
+9. EduanimaReputation    - レピュテーション管理
+10. EduanimaCommunity    - コミュニティ健全性
+11. EduanimaAnalytics    - データ分析基盤
+```
+
+#### **新規使用テーブル**
+```yaml
+EduanimaContents (広告関連):
+  ✅ ad_display_events
+  ✅ ad_viewing_progress
+  ✅ ad_delivery_config
+  ✅ user_ad_exemptions
+  ✅ content_unlock_tokens
+
+EduanimaSocial:
+  ✅ exam_comments
+  ✅ comment_likes
+  ✅ user_posts
+  ✅ post_likes
+  ✅ post_comments
+  ✅ direct_messages
+  ✅ dm_participants
+  ✅ dm_read_status
+  ❌ user_matches (Phase 3)
+  ❌ match_preferences (Phase 3)
+  ❌ stories (Phase 3)
+  ❌ story_views (Phase 3)
+```
+
+#### **機能追加**
+```
+✅ 広告表示(Google AdSense + 直接契約)
+✅ ポイント付与システム
+✅ 広告視聴でポイント獲得
+✅ ポイント→広告スキップ交換
+✅ SNS機能(投稿・タイムライン・DM)
+✅ レピュテーションスコア
+✅ コミュニティガイドライン違反検知
+❌ ポイント→現金化(Phase 3)
+```
+
+### **2.5.4 Phase 3 または Phase 4 (収益化) - 2027 Q2-Q3**
+
+#### **目標**
+クリエイター収益化プログラムの開始
+
+#### **追加サービス(2個)**
+```
+12. EduanimaMonetizeWallet - ウォレット管理
+13. EduanimaRevenue        - 収益分配
+```
+
+#### **新規使用テーブル**
+```yaml
+EduanimaMonetizeWallet:
+  ✅ wallets
+  ✅ wallet_transactions
+
+EduanimaRevenue:
+  ✅ revenue_reports
+  ✅ ad_impressions_agg
+```
+
+#### **機能追加**
+```
+✅ ポイント→現金化(固定レート: 1pt=1円)
+✅ 収益化基準の設定(YouTube方式)
+✅ 月次出金上限管理
+✅ 資金決済法対応
+✅ 源泉徴収・税務処理
+```
+
+#### **収益化基準(YouTube参考モデル)**
+```yaml
+初期基準(Phase 3開始時):
+  - 累計アップロード試験数: 10件以上
+  - 総ダウンロード数: 1000回以上
+  - アカウント開設後: 90日以上
+  - 利用規約違反: なし
+  - 大学メール認証: 必須
+  - コンテンツ品質スコア: 4.0/5.0以上
+  - 通報削除率: 5%未満
+  - 著作権侵害警告: 0件
+
+段階的緩和計画:
+  Phase 3+6ヶ月:
+    - アップロード数: 5件
+    - ダウンロード数: 500回
+  
+  Phase 3+1年:
+    - アップロード数: 3件
+    - ダウンロード数: 300回
+```
+
+### **2.5.5 Phase 4 または Phase 3 (AI Agent Tutor) - 2027 Q2-Q3**
+
+#### **目標**
+個別最適化されたAI学習支援
+
+#### **追加サービス(1個)**
+```
+14. EduanimaTutor - AI Agent Tutor
+```
+
+#### **新規使用テーブル**
+```yaml
+EduanimaTutor (Phase 4で新設):
+  ✅ tutor_sessions
+  ✅ tutor_messages
+  ✅ learning_plans
+  ✅ study_progress
+```
+
+#### **機能追加**
+```
+✅ LLM統合(GPT-4/Claude)
+✅ RAGベース質問応答
+✅ 個別学習プラン生成
+✅ 試験問題自動生成
+✅ 弱点分析・推奨問題提示
+```
+
+### **2.5.6 Phase 3/4の順序決定基準**
+
+```yaml
+Phase 3(収益化)を優先する条件:
+  ✅ 資金調達が完了している
+  ✅ 法務体制が整備されている
+  ✅ ユーザー数が10万人を超えている
+  ✅ 既存ユーザーのマネタイズが急務
+
+Phase 4(AI Tutor)を優先する条件:
+  ✅ 競合がAI機能を先行投入
+  ✅ 新規ユーザー獲得が停滞
+  ✅ 技術チームのリソースが豊富
+  ✅ LLM APIコストが許容範囲
+
+並行開発の可能性:
+  - Phase 3: バックエンドチーム + 法務
+  - Phase 4: AI/MLチーム
+  → 2チーム体制で同時進行可能
+```
+
+### **2.5.7 Feature Flag戦略**
+
+```go
+// 環境変数によるPhase制御
+type FeatureFlags struct {
+    // Phase 2
+    EnableAds          bool `env:"ENABLE_ADS" default:"false"`
+    EnablePoints       bool `env:"ENABLE_POINTS" default:"false"`
+    EnableSocialFeed   bool `env:"ENABLE_SOCIAL_FEED" default:"false"`
+    
+    // Phase 3
+    EnableMonetization bool `env:"ENABLE_MONETIZATION" default:"false"`
+    EnableWallet       bool `env:"ENABLE_WALLET" default:"false"`
+    
+    // Phase 4
+    EnableAITutor      bool `env:"ENABLE_AI_TUTOR" default:"false"`
+}
+
+// テーブル使用制御例
+func (s *ContentService) UnlockContent(examID uuid.UUID, userID uuid.UUID) error {
+    if !s.featureFlags.EnableAds {
+        // Phase 1: 全コンテンツ無料開放
+        return nil
+    }
+    
+    // Phase 2: 広告視聴またはポイント消費が必要
+    return s.checkAdViewingOrPointDeduction(examID, userID)
+}
+```
+
+### **2.5.8 データベースマイグレーション戦略**
+
+```bash
+# Phase 1 (MVP)
+atlas migrate apply --env phase1
+# 実行内容:
+# - 基本テーブルの作成
+# - Phase 2/3/4のテーブルも作成(未使用状態)
+# - Feature Flagでアプリケーション層から使用制御
+
+# Phase 2移行時
+# DDL変更なし、Feature Flagのみ変更:
+ENABLE_ADS=true
+ENABLE_POINTS=true
+
+# Phase 3移行時
+# DDL変更なし、Feature Flagのみ変更:
+ENABLE_MONETIZATION=true
+ENABLE_WALLET=true
+
+# 利点:
+# - マイグレーション失敗のリスクがPhase 1のみ
+# - Phase移行時のダウンタイムなし
+# - ロールバックが容易(Feature Flag切り替えのみ)
+```
+
+---
+
 ## **3. サービス別所有表**
 
 | サービス | 役割 | 所有テーブル | イベント発行 | Kafka購読 |
@@ -1076,6 +1402,8 @@ Eduanimaプロジェクトでは、以下のツール・ライブラリの使用
 
 #### **oauth_clients**
 
+**Phase: 1 (MVP)**
+
 OAuth2クライアント情報を管理します。
 
 ```sql
@@ -1098,6 +1426,8 @@ CREATE INDEX idx_oauth_clients_deleted_at ON oauth_clients(deleted_at) WHERE del
 ```
 
 #### **oauth_tokens**
+
+**Phase: 1 (MVP)**
 
 発行されたアクセストークン・リフレッシュトークンを管理します。
 
@@ -1122,6 +1452,8 @@ CREATE INDEX idx_oauth_tokens_expires_at ON oauth_tokens(expires_at);
 ```
 
 #### **idp_links**
+
+**Phase: 1 (MVP)**
 
 外部IDプロバイダー（Google, Apple, Meta等）とのリンク情報を管理します。
 
@@ -1151,6 +1483,8 @@ CREATE INDEX idx_idp_links_deleted_at ON idp_links(deleted_at) WHERE deleted_at 
 ```
 
 #### **users**
+
+**Phase: 1 (MVP)**
 
 ユーザーの基本情報を管理します。
 
@@ -1202,6 +1536,8 @@ CREATE INDEX idx_users_university_verified ON users(university_verified, univers
 
 #### **user_profiles**
 
+**Phase: 1 (MVP)**
+
 ユーザーのプロフィール詳細情報を管理します。
 
 ```sql
@@ -1229,6 +1565,8 @@ CREATE INDEX idx_user_profiles_institution_id ON user_profiles(institution_id);
 
 #### **user_follows**
 
+**Phase: 1 (MVP)**
+
 ユーザー間のフォロー関係を管理します。
 
 ```sql
@@ -1245,6 +1583,8 @@ CREATE INDEX idx_user_follows_followee ON user_follows(followee_id, created_at);
 ```
 
 #### **user_blocks**
+
+**Phase: 1 (MVP)**
 
 ユーザー間のブロック関係を管理します。
 
@@ -1263,6 +1603,8 @@ CREATE INDEX idx_user_blocks_blocked ON user_blocks(blocked_id);
 ```
 
 #### **notifications**
+
+**Phase: 1 (MVP)**
 
 ユーザーへの通知を管理します。
 
@@ -1531,6 +1873,8 @@ EduanimaContents (4DB構成)
 
 #### **institutions (教育機関)**
 
+**Phase: 1 (MVP)**
+
 大学・大学院・短大・高専等の機関情報を管理します。
 
 ```sql
@@ -1574,6 +1918,8 @@ CREATE INDEX idx_institutions_display_name ON institutions USING gin(to_tsvector
 
 #### **faculties (学部)**
 
+**Phase: 1 (MVP)**
+
 学部・研究科情報を管理します。
 
 ```sql
@@ -1604,6 +1950,8 @@ CREATE INDEX idx_faculties_display_name ON faculties USING gin(to_tsvector('japa
 ```
 
 #### **departments (学科)**
+
+**Phase: 1 (MVP)**
 
 学科・専攻情報を管理します。
 
@@ -1637,6 +1985,8 @@ CREATE INDEX idx_departments_display_name ON departments USING gin(to_tsvector('
 
 #### **teachers (教員)**
 
+**Phase: 1 (MVP)**
+
 教員情報を管理します。UUID + NanoID複合主キー採用。
 
 ```sql
@@ -1668,6 +2018,8 @@ CREATE INDEX idx_teachers_display_name ON teachers USING gin(to_tsvector('japane
 - public_idは外部API・URLで使用
 
 #### **subjects (科目)**
+
+**Phase: 1 (MVP)**
 
 科目情報を管理します。
 
@@ -1701,6 +2053,8 @@ CREATE INDEX idx_subjects_display_name ON subjects USING gin(to_tsvector('japane
 ```
 
 #### **exams (試験)**
+
+**Phase: 1 (MVP)**
 
 試験情報を管理します。UUID + NanoID複合主キー採用。
 
@@ -1761,6 +2115,8 @@ CREATE INDEX idx_exams_embedding_hnsw ON exams USING hnsw(embedding vector_cosin
 
 #### **questions (大問)**
 
+**Phase: 1 (MVP)**
+
 問題情報を管理します。小問、大問単体では外部露出がないので、UUIDのみで管理します。大問テーブルの管理対象は大問全体の問題文、大問全体の難易度、大問全体の配点、大問の順序、埋め込みベクトルです。問題形式、回答、解説、選択肢は小問レベルで管理するため、大問テーブルには含みません。
 
 ```sql
@@ -1791,6 +2147,8 @@ CREATE INDEX idx_questions_embedding_hnsw ON questions USING hnsw(embedding vect
 
 #### **sub_questions (小問)**
 
+**Phase: 1 (MVP)**
+
 小問情報を管理します。小問、大問単体では外部露出がないので、UUIDのみで管理します。小問テーブルの管理対象は小問の問題文、問題形式（選択肢、記述式等）、選択肢データ（JSONB）、正解データ（JSONB）、解説文、小問の配点、小問の順序です。難易度は大問レベルで管理するため含みません。
 
 ```sql
@@ -1815,6 +2173,8 @@ CREATE INDEX idx_sub_questions_type ON sub_questions(question_type);
 ```
 
 #### **keywords (キーワード)**
+
+**Phase: 1 (MVP)**
 
 コンテンツに紐づくキーワードを管理します。UUID + NanoID複合主キー採用。
 
@@ -1847,6 +2207,8 @@ CREATE INDEX idx_keywords_deleted_at ON keywords(deleted_at) WHERE deleted_at IS
 
 #### **exam_keywords (試験キーワード関連付け)**
 
+**Phase: 1 (MVP)**
+
 試験とキーワードの関連を管理します。
 
 ```sql
@@ -1862,6 +2224,8 @@ CREATE INDEX idx_exam_keywords_keyword_id ON exam_keywords(keyword_id);
 ```
 
 #### **exam_statistics (試験統計集約テーブル)**
+
+**Phase: 1 (MVP)**
 
 試験ごとの統計情報を集約管理します。検索ランキング・推薦システムで高速参照可能。
 
@@ -1911,6 +2275,8 @@ CREATE INDEX idx_exam_statistics_like_count ON exam_statistics(like_count DESC);
 - トレンドスコア: 時間減衰を考慮した人気度指標
 
 #### **exam_interaction_events (個別イベントテーブル)**
+
+**Phase: 1 (MVP)**
 
 個別のユーザーアクション（いいね、閲覧等）を記録します。高頻度書き込みに対応。
 
