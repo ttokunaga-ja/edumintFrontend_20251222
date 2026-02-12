@@ -27,12 +27,16 @@ Phase 1では、過去問アップロードからAIによる問題生成・閲�
 
 | マイクロサービス | 使用テーブル | 物理データベース | 備考 |
 |-----------------|-------------|----------------|------|
-| EduanimaGateways | jobs | Eduanima_main | 全ジョブタイプの統一管理 |
+| EduanimaGateways | jobs | Eduanima_main | 全ジョブタイプの統一管理 (exam_creation, file_processing, index_rebuild等) |
 | EduanimaGateways | job_events | Eduanima_main | ジョブイベント履歴 |
 | EduanimaUsers | users | Eduanima_main | ユーザー基本情報 |
 | EduanimaUsers | user_profiles | Eduanima_main | プロフィール詳細情報 |
+| EduanimaUsers | oauth_clients | Eduanima_main | OAuth2クライアント設定 |
+| EduanimaUsers | oauth_tokens | Eduanima_main | JWTトークン管理 |
+| EduanimaUsers | idp_links | Eduanima_main | SSOプロバイダ連携情報 |
 | EduanimaUsers | auth_tokens | Eduanima_main | 認証トークン管理 |
 | EduanimaUsers | sso_providers | Eduanima_main | SSO連携設定 |
+| EduanimaUsers | user_follows | Eduanima_main | ユーザーフォロー関係 |
 | EduanimaContents | exams | Eduanima_contents_master | 試験メタデータ |
 | EduanimaContents | exam_stats | Eduanima_contents_master | 試験統計情報 |
 | EduanimaContents | questions | Eduanima_contents_master | 大問データ |
@@ -41,16 +45,20 @@ Phase 1では、過去問アップロードからAIによる問題生成・閲�
 | EduanimaContents | question_keywords | Eduanima_contents_master | 問題-キーワード関連 |
 | EduanimaFiles | files | Eduanima_main | ファイルメタデータ |
 | EduanimaFiles | file_storage_paths | Eduanima_main | S3パス管理 |
+| EduanimaFiles | file_inputs | Eduanima_main | ファイル処理ジョブ（ジョブID、パス、ステータス等）|
 | EduanimaSearch | search_index_metadata | Eduanima_contents_search | 検索インデックスメタ情報 |
 | EduanimaAiWorker | ai_processing_logs | Eduanima_logs | AI処理ログ |
 | EduanimaAiWorker | ai_model_configs | Eduanima_main | AIモデル設定 |
 | EduanimaModeration | reports | Eduanima_main | 通報データ |
+| EduanimaModeration | report_reasons | Eduanima_main | 通報理由コードマスタ |
+| EduanimaModeration | report_audit | Eduanima_logs | モデレーション処理監査ログ |
 | EduanimaModeration | moderation_actions | Eduanima_logs | モデレーション履歴 |
 
 **備考**:
 - Elasticsearchインデックス: EduanimaSearchが管理（キーワード検索用）
 - Qdrantベクトルストア: EduanimaSearchが管理（セマンティック検索用）
 - S3ストレージ: EduanimaFilesが管理（実ファイル保存先）
+- 廃止されたテーブル: `exam_creation_jobs`, `extraction_jobs`, `outbox` は統合され、`jobs`テーブルで一元管理されています
 
 ---
 
@@ -74,7 +82,6 @@ Phase 2で追加されるテーブルは以下の通りです。
 | EduanimaSocial | exam_likes | Eduanima_main | 試験へのいいね |
 | EduanimaSocial | exam_comments | Eduanima_main | コメント本体 |
 | EduanimaSocial | exam_views | Eduanima_main | 閲覧履歴 |
-| EduanimaSocial | user_follows | Eduanima_main | ユーザーフォロー関係 |
 | EduanimaSocial | exam_bookmarks | Eduanima_main | ブックマーク |
 | EduanimaNotification | notifications | Eduanima_main | 通知データ |
 | EduanimaNotification | notification_preferences | Eduanima_main | 通知設定 |
@@ -135,6 +142,7 @@ Phase XXで追加されるテーブルは以下の通りです。
 | EduanimaRevenue | user_subscriptions | Eduanima_main | ユーザー契約情報 |
 | EduanimaRevenue | payment_histories | Eduanima_main | 決済履歴 |
 | EduanimaRevenue | revenue_reports | Eduanima_logs | 収益レポート |
+| EduanimaRevenue | ad_impressions_agg | Eduanima_logs | 広告インプレッション集計データ |
 
 ---
 
