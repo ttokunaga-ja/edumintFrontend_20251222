@@ -96,8 +96,138 @@ eduanimaRevenue        # 収益分配
 
 ### 3.1 物理データベース名
 
-**フォーマット**: `Eduanima_<purpose>`
-- **プレフィックス**: `Eduanima_` (PascalCase + underscore)
+**フォーマット**: `[service_name]_db`
+- **ベースネーム**: snake_case（小文字 + アンダースコア）
+- **サフィックス**: `_db` (データベースであることを明示)
+- **例**: `user_db`, `content_db`, `gateway_db`
+
+#### MSAベストプラクティス: Database-per-Service
+
+各マイクロサービスは**専用の物理データベース**を所有し、完全な自律性を持ちます。
+
+#### 実例
+
+```
+gateway_db              # EduanimaGateways専用DB
+user_db                 # EduanimaUsers専用DB
+content_db              # EduanimaContents専用DB
+file_db                 # EduanimaFiles専用DB
+search_db               # EduanimaSearch専用DB
+ai_worker_db            # EduanimaAiWorker専用DB
+moderation_db           # EduanimaModeration専用DB
+social_db               # EduanimaSocial専用DB
+notification_db         # EduanimaNotification専用DB
+analytics_db            # EduanimaAnalytics専用DB
+ads_db                  # EduanimaAds専用DB
+ai_tutor_db             # EduanimaAiTutor専用DB
+wallet_db               # EduanimaMonetizeWallet専用DB
+revenue_db              # EduanimaRevenue専用DB
+```
+
+### 3.2 命名の原則
+
+#### ✅ DO (推奨)
+- **サービスとの1:1対応**: 各サービスが専用DBを持つ
+- **snake_case使用**: 多くのDBエンジンとの互換性
+- **明確なサフィックス**: `_db`でデータベースであることを明示
+- **環境分離**: サフィックスで環境を区別
+
+```
+✓ user_db                # シンプルで明確
+✓ content_db             # サービス名から推測可能
+✓ ai_worker_db           # 複数単語はアンダースコアで連結
+✓ user_db_dev            # 開発環境
+✓ user_db_staging        # ステージング環境
+✓ user_db_prod           # 本番環境
+```
+
+#### ❌ DON'T (非推奨)
+```
+✗ Eduanima_main          # 共有DB（MSA原則違反）
+✗ shared_app_db          # 複数サービスで共有（密結合）
+✗ eduanima_db            # サービス特定できない
+✗ UserDB                 # PascalCase（互換性問題）
+✗ user-db                # ハイフン（一部DBエンジンで問題）
+```
+
+### 3.3 環境別データベース
+
+開発環境やステージング環境では、サフィックスで区別：
+
+```
+user_db_dev              # 開発環境
+user_db_staging          # ステージング環境
+user_db_prod             # 本番環境（または user_db）
+
+content_db_dev
+content_db_staging
+content_db_prod
+```
+
+**命名規則の選択肢**:
+1. **サフィックス方式** (推奨): `[service]_db_[env]`
+2. **プレフィックス方式**: `[env]_[service]_db`
+3. **別クラスタ**: 環境ごとに完全に分離されたDBクラスタを使用
+
+### 3.4 Database-per-Serviceパターンの利点
+
+1. **独立したスキーマ進化**: 各サービスが他に影響を与えずDB構造を変更可能
+2. **技術スタック自由度**: サービスごとに最適なDBエンジン選択（PostgreSQL, MySQL, MongoDB等）
+3. **障害の局所化**: 1つのDBの問題が他サービスに波及しない
+4. **スケーラビリティ**: 負荷の高いサービスのDBのみをスケールアウト
+5. **セキュリティ**: サービスごとに細かいアクセス制御を設定
+
+### 3.5 アンチパターンの回避
+
+#### 分散モノリス（避けるべき）
+```
+❌ 悪い例: 複数サービスが同じ物理DBを共有
+┌─────────────┐
+│ Service A   │─┐
+├─────────────┤ │
+│ Service B   │─┼─→ [Shared_DB]
+├─────────────┤ │
+│ Service C   │─┘
+└─────────────┘
+
+問題点:
+- サービス間の密結合
+- スキーマ変更の影響が広範囲に及ぶ
+- 独立デプロイ不可
+- データベースがボトルネック
+```
+
+#### Database-per-Service（推奨）
+```
+✅ 良い例: 各サービスが専用DBを所有
+┌─────────────┐      ┌──────────┐
+│ Service A   │─────→│ DB_A     │
+└─────────────┘      └──────────┘
+
+┌─────────────┐      ┌──────────┐
+│ Service B   │─────→│ DB_B     │
+└─────────────┘      └──────────┘
+
+┌─────────────┐      ┌──────────┐
+│ Service C   │─────→│ DB_C     │
+└─────────────┘      └──────────┘
+
+サービス間通信: API / イベント駆動
+
+利点:
+- 完全な自律性
+- 独立したスケーリング
+- 障害の局所化
+- 技術スタック自由度
+```
+
+### 3.6 ベストプラクティスの根拠
+
+1. **Sam Newman "Building Microservices"**: Database-per-Serviceパターン推奨
+2. **Chris Richardson "Microservices Patterns"**: データ所有と境界の明確化
+3. **AWS RDS**: マルチテナントではなく、サービス専用インスタンス推奨
+4. **Google Cloud SQL**: インスタンスレベルでのサービス分離
+5. **PostgreSQL/MySQL標準**: snake_caseが広く互換性がある
 - **目的**: snake_case（小文字 + アンダースコア）
 - **例**: `Eduanima_main`, `Eduanima_contents_master`, `Eduanima_logs`
 
@@ -633,8 +763,8 @@ tsconfig.json                # TypeScript設定
 | カテゴリ | ケース | 例 | 備考 |
 |---------|--------|-----|------|
 | マイクロサービス | camelCase | `eduanimaAuth` | プレフィックス: eduanima |
-| 物理データベース | PascalCase + _ | `Eduanima_main` | プレフィックス: Eduanima_ |
-| テーブル | snake_case | `users`, `user_profiles` | 複数形推奨 |
+| 物理データベース | snake_case | `user_db`, `content_db` | Database-per-Service |
+| テーブル | snake_case | `users`, `profiles` | 複数形推奨、プレフィックスなし |
 | カラム | snake_case | `user_id`, `created_at` | 意味が明確 |
 | Kafkaトピック | dot.notation | `content.exam.created` | domain.resource.event |
 | REST API | kebab-case | `/v1/exam-comments` | 複数形、バージョニング |
@@ -646,6 +776,11 @@ tsconfig.json                # TypeScript設定
 | TypeScript Service | camelCase | `userService.ts` | ユーティリティ |
 | Go ファイル | snake_case | `user_service.go` | Go標準 |
 | Python ファイル | snake_case | `user_service.py` | Python標準 |
+
+**重要な変更点 (v2.0)**:
+- 物理DB名: `Eduanima_main` → `user_db` (Database-per-Service)
+- テーブル名プレフィックス: 不要（各サービスのDB内でユニーク）
+- 環境別DB: `user_db_dev`, `user_db_staging`, `user_db_prod`
 
 ---
 
@@ -677,7 +812,15 @@ tsconfig.json                # TypeScript設定
 
 | 日付 | バージョン | 変更内容 | 作成者 |
 |------|-----------|---------|--------|
+| 2026-02-12 | 2.0.0 | Database-per-Service適用、物理DB名見直し | System |
 | 2026-02-12 | 1.0.0 | 初版作成 | System |
+
+**v2.0の主要変更**:
+- 物理データベース命名: `Eduanima_<purpose>` → `[service_name]_db`
+- Database-per-Serviceパターンの全面適用
+- 共有DBから専用DBへの移行ガイドライン追加
+- MSAベストプラクティス（Sam Newman, Chris Richardson）の明示的な引用
+- アンチパターン（分散モノリス）の警告追加
 
 ---
 
@@ -685,3 +828,4 @@ tsconfig.json                # TypeScript設定
 - **ファイル名**: `N_NAMING_CONVENTIONS.md`
 - **カテゴリ**: アーキテクチャ・設計標準
 - **更新頻度**: 四半期ごとまたは重要な設計変更時
+- **関連ドキュメント**: Q_DATABASE.md (Database-per-Service実装例)
