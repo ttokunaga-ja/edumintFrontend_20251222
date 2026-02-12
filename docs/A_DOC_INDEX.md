@@ -28,7 +28,8 @@
 - K: Dockerfile方針 `K_DOCKERFILE_POLICY.md`
 - L: CI/CD仕様 `L_CICD_SPEC.md`
 - M: Feature Flag方針 `M_FEATURE_FLAG_POLICY.md`
-- N: 運用・デプロイ概要 `N_OPS_DEPLOY_OVERVIEW.md`
+- N: 命名規約ガイド `N_NAMING_CONVENTIONS.md`（マイクロサービス、DB、テーブル、API等の命名規則）
+- N2: 運用・デプロイ概要 `N_OPS_DEPLOY_OVERVIEW.md`
 - O: フェーズ別タスクブレークダウン `O_TASK_PHASES.md`
 - P: 実装レポートフォーマット `P_IMPLEMENT_REPORT_FMT.md`
 - Q: プロンプト雛形（汎用/フェーズ）`PROMPT.md`, `Q_PROMPT.md`
